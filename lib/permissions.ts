@@ -1,0 +1,201 @@
+import { prisma } from './db';
+import { SessionUser } from './auth';
+
+// Check if user has specific permission for a section
+export async function hasPermission(
+  user: SessionUser,
+  section: string,
+  permission: 'view' | 'create' | 'edit' | 'delete' | 'manage'
+): Promise<boolean> {
+  // System roles: OWNER and CEO have full access (except roles for CEO)
+  if (user.roleCode === 'OWNER') {
+    return true;
+  }
+  if (user.roleCode === 'CEO') {
+    // CEO has full access except to roles section
+    if (section === 'roles') {
+      return false;
+    }
+    return true;
+  }
+
+  // Check if user has 'manage' permission (implies all other permissions)
+  const hasManage = await prisma.rolePermission.findFirst({
+    where: {
+      roleId: user.roleId,
+      section,
+      permission: 'manage',
+    },
+  });
+
+  if (hasManage) {
+    return true;
+  }
+
+  // Check specific permission
+  const hasPermissionCheck = await prisma.rolePermission.findFirst({
+    where: {
+      roleId: user.roleId,
+      section,
+      permission,
+    },
+  });
+
+  return !!hasPermissionCheck;
+}
+
+// Helper function to check section access (view or higher)
+export async function canViewSection(user: SessionUser, section: string): Promise<boolean> {
+  return hasPermission(user, section, 'view');
+}
+
+// Legacy functions for backward compatibility (will be gradually replaced)
+export async function canManageUsers(user: SessionUser, targetUserId?: string, targetDepartmentId?: string | null): Promise<boolean> {
+  if (user.roleCode === 'OWNER' || user.roleCode === 'CEO') {
+    return true;
+  }
+
+  // DEPT_HEAD can manage users in their own department
+  // For now, we'll check if user has manage permission on employees section
+  const canManage = await hasPermission(user, 'employees', 'manage');
+  if (canManage && targetDepartmentId === user.departmentId) {
+    return true;
+  }
+
+  return false;
+}
+
+export async function canManageProducts(user: SessionUser): Promise<boolean> {
+  return hasPermission(user, 'products', 'manage');
+}
+
+export async function canManageAccounts(user: SessionUser): Promise<boolean> {
+  // This is now handled by roles, but keep for backward compatibility
+  return user.roleCode === 'OWNER' || user.roleCode === 'CEO';
+}
+
+export async function canViewAccounts(user: SessionUser): Promise<boolean> {
+  return canManageAccounts(user);
+}
+
+export async function canAssignAccountManager(user: SessionUser): Promise<boolean> {
+  return hasPermission(user, 'sites', 'manage');
+}
+
+export async function canEditSite(user: SessionUser, siteCreatorId: string, siteAccountManagerId?: string | null): Promise<boolean> {
+  const canManage = await hasPermission(user, 'sites', 'manage');
+  if (canManage) {
+    return true;
+  }
+
+  const canEdit = await hasPermission(user, 'sites', 'edit');
+  if (canEdit && siteCreatorId === user.id) {
+    return true;
+  }
+
+  // Account manager can edit their sites
+  if (canEdit && siteAccountManagerId === user.id) {
+    return true;
+  }
+
+  return false;
+}
+
+export async function canDeleteSite(user: SessionUser): Promise<boolean> {
+  return hasPermission(user, 'sites', 'delete');
+}
+
+// Legacy aliases for backward compatibility
+export async function canEditProject(user: SessionUser, projectCreatorId: string, projectAccountManagerId?: string | null): Promise<boolean> {
+  return canEditSite(user, projectCreatorId, projectAccountManagerId);
+}
+
+export async function canDeleteProject(user: SessionUser): Promise<boolean> {
+  return canDeleteSite(user);
+}
+
+export async function canAddClient(user: SessionUser): Promise<boolean> {
+  return hasPermission(user, 'clients', 'create');
+}
+
+export async function canEditClient(user: SessionUser): Promise<boolean> {
+  return hasPermission(user, 'clients', 'edit');
+}
+
+export async function canDeleteClient(user: SessionUser): Promise<boolean> {
+  return hasPermission(user, 'clients', 'delete');
+}
+
+export async function canAddIncome(
+  user: SessionUser,
+  serviceSiteAccountManagerId?: string | null,
+  serviceSiteClientSellerId?: string
+): Promise<boolean> {
+  const canCreate = await hasPermission(user, 'incomes', 'create');
+  if (canCreate) {
+    // If user can create, check if they can create for any service or only specific ones
+    // For account managers, check if they manage the site of this service
+    if (user.roleCode === 'ACCOUNT_MANAGER' && serviceSiteAccountManagerId !== user.id) {
+      return false;
+    }
+    // For sellers, check if they are the seller for the client of this service's site
+    if (user.roleCode === 'SELLER' && serviceSiteClientSellerId !== user.id) {
+      return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+export async function canEditIncome(user: SessionUser, incomeCreatorId: string): Promise<boolean> {
+  const canManage = await hasPermission(user, 'incomes', 'manage');
+  if (canManage) {
+    return true;
+  }
+
+  const canEdit = await hasPermission(user, 'incomes', 'edit');
+  return canEdit && incomeCreatorId === user.id;
+}
+
+export async function canEditExpense(user: SessionUser, expenseCreatorId: string): Promise<boolean> {
+  const canManage = await hasPermission(user, 'expenses', 'manage');
+  if (canManage) {
+    return true;
+  }
+
+  const canEdit = await hasPermission(user, 'expenses', 'edit');
+  return canEdit && expenseCreatorId === user.id;
+}
+
+export async function canManageCostItems(user: SessionUser): Promise<boolean> {
+  return hasPermission(user, 'expenses', 'manage');
+}
+
+export async function canViewReports(user: SessionUser): Promise<boolean> {
+  return hasPermission(user, 'reports', 'view');
+}
+
+export async function canChangePassword(user: SessionUser, targetUserId?: string): Promise<boolean> {
+  if (user.roleCode === 'OWNER' || user.roleCode === 'CEO') {
+    return true;
+  }
+
+  return targetUserId === user.id;
+}
+
+export async function getDefaultRoute(user: SessionUser): Promise<string> {
+  if (user.roleCode === 'OWNER' || user.roleCode === 'CEO') {
+    return '/expenses';
+  }
+
+  if (user.roleCode === 'ACCOUNT_MANAGER') {
+    return '/services';
+  }
+
+  if (user.roleCode === 'SELLER') {
+    return '/clients';
+  }
+
+  return '/services';
+}

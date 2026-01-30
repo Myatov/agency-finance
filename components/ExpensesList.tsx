@@ -1,0 +1,568 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { formatAmount, formatDate, formatDateTime } from '@/lib/utils';
+import ExpenseModal from './ExpenseModal';
+
+interface Expense {
+  id: string;
+  amount: string;
+  costItemId: string;
+  costItem: {
+    id: string;
+    category: string;
+    title: string;
+  };
+  employeeId: string | null;
+  employee: {
+    id: string;
+    fullName: string;
+    department: {
+      id: string;
+      name: string;
+    };
+  } | null;
+  siteId: string | null;
+  site: {
+    id: string;
+    title: string;
+    client: {
+      id: string;
+      name: string;
+    };
+  } | null;
+  serviceId: string | null;
+  service: {
+    id: string;
+    product: {
+      id: string;
+      name: string;
+    };
+  } | null;
+  comment: string | null;
+  creator: {
+    id: string;
+    fullName: string;
+  };
+  paymentAt: Date | string;
+  createdAt: Date | string;
+  updatedAt: Date | string | null;
+  updater: {
+    id: string;
+    fullName: string;
+  } | null;
+}
+
+interface CostItem {
+  id: string;
+  category: string;
+  title: string;
+}
+
+interface User {
+  id: string;
+  roleCode: string;
+}
+
+interface Employee {
+  id: string;
+  fullName: string;
+  department: {
+    id: string;
+    name: string;
+  } | null;
+}
+
+interface Site {
+  id: string;
+  title: string;
+  client: {
+    id: string;
+    name: string;
+  };
+}
+
+export default function ExpensesList() {
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [costItems, setCostItems] = useState<CostItem[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [canAdd, setCanAdd] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [quickAdd, setQuickAdd] = useState({
+    amount: '',
+    costItemId: '',
+    employeeId: '',
+    siteId: '',
+    serviceId: '',
+    paymentAt: new Date().toISOString().slice(0, 16),
+    comment: '',
+  });
+  const [filters, setFilters] = useState({
+    dateFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    dateTo: new Date().toISOString().split('T')[0],
+    category: '',
+    costItemId: '',
+    departmentId: '',
+    employeeId: '',
+    siteId: '',
+    serviceId: '',
+    clientId: '',
+  });
+
+  useEffect(() => {
+    fetchUser();
+    fetchCostItems();
+    fetchEmployees();
+    fetchSites();
+    fetchExpenses();
+  }, [filters]);
+
+  useEffect(() => {
+    if (user) {
+      // Check permissions via API
+      fetch('/api/permissions/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section: 'expenses', permission: 'create' }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          setCanAdd(data.hasPermission || false);
+        });
+    }
+  }, [user]);
+
+  const fetchUser = async () => {
+    const res = await fetch('/api/auth/me');
+    const data = await res.json();
+    if (data.user) {
+      setUser(data.user);
+    }
+  };
+
+  const fetchCostItems = async () => {
+    const res = await fetch('/api/cost-items');
+    const data = await res.json();
+    setCostItems(data.costItems || []);
+  };
+
+  const fetchEmployees = async () => {
+    const res = await fetch('/api/users/with-departments');
+    const data = await res.json();
+    setEmployees(data.users || []);
+  };
+
+  const fetchSites = async () => {
+    const res = await fetch('/api/sites/available');
+    const data = await res.json();
+    setSites(data.sites || []);
+  };
+
+  const fetchExpenses = async () => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+
+    const res = await fetch(`/api/expenses?${params}`);
+    const data = await res.json();
+    setExpenses(data.expenses || []);
+    setLoading(false);
+  };
+
+  const handleQuickAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickAdd.amount || !quickAdd.costItemId) {
+      alert('Заполните сумму и тип расхода');
+      return;
+    }
+
+    const res = await fetch('/api/expenses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: quickAdd.amount,
+        costItemId: quickAdd.costItemId,
+        employeeId: quickAdd.employeeId || null,
+        siteId: quickAdd.siteId || null,
+        serviceId: quickAdd.serviceId || null,
+        paymentAt: quickAdd.paymentAt,
+        comment: quickAdd.comment && quickAdd.comment.trim() ? quickAdd.comment.trim() : null,
+      }),
+    });
+
+    if (res.ok) {
+      setQuickAdd({
+        amount: '',
+        costItemId: '',
+        employeeId: '',
+        siteId: '',
+        serviceId: '',
+        paymentAt: new Date().toISOString().slice(0, 16),
+        comment: '',
+      });
+      fetchExpenses();
+    } else {
+      const data = await res.json();
+      const errorMsg = data.error || 'Ошибка добавления';
+      const details = data.details ? `: ${data.details}` : '';
+      console.error('Error adding expense:', data);
+      alert(`${errorMsg}${details}`);
+    }
+  };
+
+  const handleEdit = (expense: Expense) => {
+    setEditingExpense(expense);
+    setShowModal(true);
+  };
+
+  const handleDelete = async (expense: Expense) => {
+    if (!confirm(`Удалить расход на сумму ${formatAmount(expense.amount)}?`)) {
+      return;
+    }
+
+    const res = await fetch(`/api/expenses/${expense.id}`, {
+      method: 'DELETE',
+    });
+
+    if (res.ok) {
+      fetchExpenses();
+    } else {
+      const data = await res.json();
+      alert(data.error || 'Ошибка удаления');
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Загрузка...</div>;
+  }
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Расходы</h1>
+        {canAdd && (
+          <button
+            onClick={() => document.getElementById('quick-add-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg font-medium"
+          >
+            + Добавить расход
+          </button>
+        )}
+      </div>
+
+      {/* Quick Add Form */}
+      {canAdd && (
+        <div id="quick-add-form" className="bg-white p-6 rounded-lg shadow mb-6">
+          <h2 className="text-xl font-semibold mb-4">Быстрое добавление расхода</h2>
+        <form onSubmit={handleQuickAdd} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Сумма (руб.) *
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                required
+                value={quickAdd.amount}
+                onChange={(e) => setQuickAdd({ ...quickAdd, amount: e.target.value })}
+                className="w-full px-3 py-3 border border-gray-300 rounded-md text-xl"
+                placeholder="0.00"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Тип расхода *
+              </label>
+              <select
+                required
+                value={quickAdd.costItemId}
+                onChange={(e) => setQuickAdd({ ...quickAdd, costItemId: e.target.value })}
+                className="w-full px-3 py-3 border border-gray-300 rounded-md"
+              >
+                <option value="">Выберите</option>
+                {costItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Сотрудник (опционально)
+              </label>
+              <select
+                value={quickAdd.employeeId}
+                onChange={(e) => setQuickAdd({ ...quickAdd, employeeId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="">Не выбран</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.fullName} {emp.department ? `(${emp.department.name})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Сайт (опционально)
+              </label>
+              <select
+                value={quickAdd.siteId}
+                onChange={(e) => setQuickAdd({ ...quickAdd, siteId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="">Не выбран</option>
+                {sites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.title} ({site.client.name})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Дата платежа
+              </label>
+              <input
+                type="datetime-local"
+                value={quickAdd.paymentAt}
+                onChange={(e) => setQuickAdd({ ...quickAdd, paymentAt: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Комментарий
+            </label>
+            <textarea
+              value={quickAdd.comment}
+              onChange={(e) => setQuickAdd({ ...quickAdd, comment: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              placeholder="Введите комментарий (необязательно)"
+              rows={2}
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg font-medium"
+            >
+              ОК
+            </button>
+          </div>
+        </form>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-lg shadow mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Дата от
+            </label>
+            <input
+              type="date"
+              value={filters.dateFrom}
+              onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Дата до
+            </label>
+            <input
+              type="date"
+              value={filters.dateTo}
+              onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Категория
+            </label>
+            <select
+              value={filters.category}
+              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            >
+              <option value="">Все</option>
+              <option value="SALARY">Зарплата</option>
+              <option value="SALES_PERCENT">Проценты с продаж</option>
+              <option value="OFFICE">Офис</option>
+              <option value="HR">HR</option>
+              <option value="AGENCY_PAYMENTS">Агентские выплаты</option>
+              <option value="SERVICES">Сервисы</option>
+              <option value="LINKS">Ссылки</option>
+              <option value="CONTRACTOR">Подрядчик</option>
+              <option value="OTHER">Другие расходы</option>
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={() => setFilters({
+                dateFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                dateTo: new Date().toISOString().split('T')[0],
+                category: '',
+                costItemId: '',
+                departmentId: '',
+                employeeId: '',
+                siteId: '',
+    serviceId: '',
+                clientId: '',
+              })}
+              className="w-full px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Сбросить фильтры
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Expenses Table */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Дата платежа
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Сумма
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Категория
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Тип расхода
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Сотрудник
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Отдел
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Сайт
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Услуга
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Клиент
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Кто внес
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Комментарий
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Действия
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {expenses.map((expense) => (
+                <tr key={expense.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatDateTime(expense.paymentAt)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {formatAmount(expense.amount)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {expense.costItem.category.replace(/_/g, ' ')}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {expense.costItem.title}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {expense.employee?.fullName || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {expense.employee?.department.name || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {expense.site?.title || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {expense.service?.product.name || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {expense.site?.client.name || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {expense.creator.fullName}
+                    {expense.updatedAt && expense.updater && (
+                      <div className="text-xs text-gray-400">
+                        Изменено: {expense.updater.fullName}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                    {expense.comment || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    {(user && (user.id === expense.creator.id || user.roleCode === 'OWNER' || user.roleCode === 'CEO')) && (
+                      <>
+                        {(user.roleCode === 'OWNER' || user.roleCode === 'CEO') && (
+                          <button
+                            onClick={() => handleEdit(expense)}
+                            className="text-blue-600 hover:text-blue-900 mr-4"
+                          >
+                            Редактировать
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDelete(expense)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Удалить
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {expenses.length === 0 && (
+          <div className="text-center py-8 text-gray-500">Расходы не найдены</div>
+        )}
+      </div>
+
+      {showModal && (
+        <ExpenseModal
+          expense={editingExpense}
+          user={user}
+          onClose={() => {
+            setShowModal(false);
+            setEditingExpense(null);
+          }}
+          onSuccess={() => {
+            setShowModal(false);
+            setEditingExpense(null);
+            fetchExpenses();
+          }}
+        />
+      )}
+    </div>
+  );
+}

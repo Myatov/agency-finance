@@ -1,0 +1,222 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getSession } from '@/lib/auth';
+import { prisma } from '@/lib/db';
+import { parseAmount } from '@/lib/utils';
+
+export async function GET(request: NextRequest) {
+  try {
+    const user = await getSession();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const searchParams = request.nextUrl.searchParams;
+    const dateFrom = searchParams.get('dateFrom') || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const dateTo = searchParams.get('dateTo') || new Date().toISOString().split('T')[0];
+    const category = searchParams.get('category');
+    const costItemId = searchParams.get('costItemId');
+    const departmentId = searchParams.get('departmentId');
+    const employeeId = searchParams.get('employeeId');
+    const siteId = searchParams.get('siteId');
+    const serviceId = searchParams.get('serviceId');
+    const clientId = searchParams.get('clientId');
+
+    let where: any = {
+      paymentAt: {
+        gte: new Date(dateFrom),
+        lte: new Date(dateTo + 'T23:59:59'),
+      },
+    };
+
+    if (category) {
+      where.costItem = { category };
+    }
+
+    if (costItemId) {
+      where.costItemId = costItemId;
+    }
+
+    if (employeeId) {
+      where.employeeId = employeeId;
+    } else if (employeeId === 'null') {
+      where.employeeId = null;
+    }
+
+    if (departmentId) {
+      where.employee = { departmentId };
+    }
+
+    if (siteId) {
+      where.siteId = siteId;
+    } else if (siteId === 'null') {
+      where.siteId = null;
+    }
+
+    if (serviceId) {
+      where.serviceId = serviceId;
+    } else if (serviceId === 'null') {
+      where.serviceId = null;
+    }
+
+    if (clientId) {
+      where.site = { clientId };
+    }
+
+    const expenses = await prisma.expense.findMany({
+      where,
+      include: {
+        costItem: true,
+        employee: {
+          include: {
+            department: true,
+          },
+        },
+        site: {
+          include: {
+            client: true,
+          },
+        },
+        service: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        creator: {
+          select: {
+            id: true,
+            fullName: true,
+          },
+        },
+        updater: {
+          select: {
+            id: true,
+            fullName: true,
+          },
+        },
+      },
+      orderBy: { paymentAt: 'desc' },
+    });
+
+    const serialized = expenses.map((e) => ({
+      ...e,
+      amount: e.amount.toString(),
+    }));
+
+    return NextResponse.json({ expenses: serialized });
+  } catch (error) {
+    console.error('Error fetching expenses:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const user = await getSession();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { amount, costItemId, employeeId, siteId, serviceId, paymentAt, comment } = body;
+    
+    // Normalize comment: empty string or undefined becomes null
+    const normalizedComment = comment && comment.trim() ? comment.trim() : null;
+
+    if (!amount || !costItemId) {
+      return NextResponse.json(
+        { error: 'Amount and costItemId are required' },
+        { status: 400 }
+      );
+    }
+
+    const costItem = await prisma.costItem.findUnique({
+      where: { id: costItemId },
+    });
+
+    if (!costItem) {
+      return NextResponse.json({ error: 'Cost item not found' }, { status: 404 });
+    }
+
+    // If serviceId is provided, verify it exists and belongs to the site
+    if (serviceId) {
+      const service = await prisma.service.findUnique({
+        where: { id: serviceId },
+      });
+      if (!service) {
+        return NextResponse.json({ error: 'Service not found' }, { status: 404 });
+      }
+      if (siteId && service.siteId !== siteId) {
+        return NextResponse.json(
+          { error: 'Service does not belong to the specified site' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const amountBigInt = parseAmount(amount);
+
+    const expense = await prisma.expense.create({
+      data: {
+        amount: amountBigInt,
+        costItemId,
+        title: costItem.title,
+        employeeId: employeeId || null,
+        siteId: siteId || null,
+        serviceId: serviceId || null,
+        comment: normalizedComment,
+        createdByUserId: user.id,
+        paymentAt: paymentAt ? new Date(paymentAt) : new Date(),
+      },
+      include: {
+        costItem: true,
+        employee: {
+          include: {
+            department: true,
+          },
+        },
+        site: {
+          include: {
+            client: true,
+          },
+        },
+        service: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        creator: {
+          select: {
+            id: true,
+            fullName: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json({
+      expense: {
+        ...expense,
+        amount: expense.amount.toString(),
+      },
+    });
+  } catch (error) {
+    console.error('Error creating expense:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error('Error details:', { errorMessage, errorStack, error });
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+    }, { status: 500 });
+  }
+}

@@ -1,0 +1,310 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LegalEntityType {
+  IP
+  OOO
+  CARD
+  CRYPTO
+  BARTER
+}
+
+enum CostCategory {
+  SALARY
+  SALES_PERCENT
+  OFFICE
+  HR
+  AGENCY_PAYMENTS
+  SERVICES
+  LINKS
+  CONTRACTOR
+  OTHER
+}
+
+enum ServiceStatus {
+  ACTIVE
+  PAUSED
+  FINISHED
+}
+
+enum BillingType {
+  ONE_TIME
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+model Department {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  headId    String?   @unique // ID руководителя отдела (unique, один отдел = один руководитель)
+  head      User?     @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  employees User[]    @relation("DepartmentEmployees")
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  code        String           @unique // OWNER, CEO, ACCOUNT_MANAGER, etc.
+  isSystem    Boolean          @default(false) // System roles (OWNER, CEO) cannot be deleted
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  users       User[]
+  permissions RolePermission[]
+
+  @@index([code])
+}
+
+model RolePermission {
+  id          String   @id @default(uuid())
+  roleId      String
+  role        Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  section     String   // projects, clients, incomes, expenses, employees, products, reports, roles
+  permission  String   // view, create, edit, delete, manage
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([roleId, section, permission])
+  @@index([roleId])
+  @@index([section])
+}
+
+model User {
+  id           String    @id @default(uuid())
+  fullName     String
+  departmentId String?
+  department   Department? @relation("DepartmentEmployees", fields: [departmentId], references: [id])
+  managedDepartment Department? @relation("DepartmentHead") // Отдел, которым управляет
+  roleId       String
+  role         Role      @relation(fields: [roleId], references: [id])
+  passwordHash String
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  createdSites       Site[]     @relation("SiteCreator")
+  managedSites       Site[]     @relation("SiteAccountManager")
+  responsibleServices Service[] @relation("ServiceResponsible")
+  createdIncomes     Income[]   @relation("IncomeCreator")
+  updatedIncomes     Income[]   @relation("IncomeUpdater")
+  createdExpenses    Expense[]  @relation("ExpenseCreator")
+  updatedExpenses    Expense[]  @relation("ExpenseUpdater")
+  clientSales        Client[]   @relation("ClientSeller")
+  expenseEmployee    Expense[]  @relation("ExpenseEmployee")
+
+  @@index([departmentId])
+  @@index([roleId])
+}
+
+model LegalEntity {
+  id                  String           @id @default(uuid())
+  name                String           @unique
+  type                LegalEntityType
+  usnPercent          Float            @default(0) // УСН процент
+  vatPercent          Float            @default(0) // НДС процент
+  isActive            Boolean          @default(true)
+  
+  // Поля для ИП и ООО
+  generalDirector     String?          // Генеральный директор (для ООО)
+  activityBasis       String?          // Основание деятельности (для ООО)
+  legalAddress        String?          // Адрес юридический
+  inn                 String?          // ИНН
+  kpp                 String?          // КПП
+  ogrn                String?          // ОГРН
+  rs                  String?          // Р/счет
+  bankName            String?          // Банк
+  bik                 String?          // БИК банка
+  ks                  String?          // К/счет
+  
+  // Поле для остальных типов (Карта, Крипта, Бартер)
+  paymentInfo         String?          // Как платить
+  
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  clients             Client[]
+  incomes             Income[]
+
+  @@index([isActive])
+  @@map("LegalEntity")
+}
+
+model Client {
+  id                String        @id @default(uuid())
+  name              String
+  legalEntityId     String?
+  legalEntity       LegalEntity?  @relation(fields: [legalEntityId], references: [id], onDelete: SetNull)
+  sellerEmployeeId  String
+  seller            User          @relation("ClientSeller", fields: [sellerEmployeeId], references: [id])
+  
+  // Legal requisites (required if legalEntity is IP or OOO)
+  legalEntityName   String?
+  contractBasis     String?
+  legalAddress      String?
+  inn               String?
+  kpp               String?
+  ogrn              String?
+  rs                String?
+  bankName          String?
+  bik               String?
+  ks                String?
+  paymentRequisites String?  // Full text field for additional info
+  contacts          String?
+
+  isSystem         Boolean  @default(false) // For "Без клиентов"
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  sites            Site[]
+
+  @@index([sellerEmployeeId])
+  @@index([legalEntityId])
+  @@index([sellerEmployeeId, isSystem]) // Composite for common filter
+}
+
+model Product {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  services  Service[]
+
+  @@index([sortOrder])
+}
+
+model Site {
+  id               String   @id @default(uuid())
+  title            String
+  websiteUrl       String?
+  description      String?
+  isActive         Boolean  @default(false)
+  niche            String
+  clientId         String
+  client           Client   @relation(fields: [clientId], references: [id])
+  accountManagerId String?
+  accountManager   User?    @relation("SiteAccountManager", fields: [accountManagerId], references: [id])
+  creatorId        String
+  creator          User     @relation("SiteCreator", fields: [creatorId], references: [id])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  services         Service[]
+  expenses         Expense[]
+
+  @@index([clientId])
+  @@index([accountManagerId])
+  @@index([creatorId])
+  @@index([isActive])
+  @@index([clientId, isActive]) // Composite index for common filter
+  @@map("Site")
+}
+
+model Service {
+  id                String       @id @default(uuid())
+  siteId            String
+  site              Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  productId         String
+  product           Product      @relation(fields: [productId], references: [id])
+  status            ServiceStatus @default(ACTIVE)
+  startDate         DateTime
+  endDate           DateTime?
+  billingType       BillingType
+  price             BigInt?      // храним в копейках, nullable
+  autoRenew         Boolean      @default(false)
+  responsibleUserId String?
+  responsible       User?        @relation("ServiceResponsible", fields: [responsibleUserId], references: [id])
+  comment           String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  incomes           Income[]
+  expenses          Expense[]
+
+  @@index([siteId])
+  @@index([productId])
+  @@index([status])
+  @@index([responsibleUserId])
+  @@index([siteId, status]) // Composite index for common filter
+  @@map("Service")
+}
+
+model Income {
+  id              String    @id @default(uuid())
+  amount          BigInt    // храним в копейках
+  serviceId       String    // ОБЯЗАТЕЛЬНО - доход привязан к услуге
+  service         Service   @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  legalEntityId   String?
+  legalEntity     LegalEntity? @relation(fields: [legalEntityId], references: [id], onDelete: SetNull)
+  comment         String?
+  incomeDate      DateTime  @default(now()) // Дата дохода
+  createdByUserId String
+  creator         User      @relation("IncomeCreator", fields: [createdByUserId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime?
+  updatedByUserId String?
+  updater         User?     @relation("IncomeUpdater", fields: [updatedByUserId], references: [id])
+
+  @@index([serviceId])
+  @@index([createdByUserId])
+  @@index([incomeDate])
+  @@index([legalEntityId])
+  @@index([createdAt]) // For date filtering
+  @@index([createdByUserId, createdAt]) // Composite for employee reports
+}
+
+model CostItem {
+  id        String       @id @default(uuid())
+  category  CostCategory
+  title     String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  expenses  Expense[]
+
+  @@index([category])
+}
+
+model Expense {
+  id              String     @id @default(uuid())
+  amount          BigInt     // храним в копейках
+  costItemId      String
+  costItem        CostItem   @relation(fields: [costItemId], references: [id])
+  title           String?    // snapshot from costItem
+  employeeId      String?
+  employee        User?      @relation("ExpenseEmployee", fields: [employeeId], references: [id])
+  siteId          String?
+  site            Site?      @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  serviceId       String?    // OPTIONAL - расход может быть общим
+  service         Service?   @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  comment         String?
+  createdByUserId String
+  creator         User       @relation("ExpenseCreator", fields: [createdByUserId], references: [id])
+  createdAt       DateTime   @default(now())
+  paymentAt       DateTime   @default(now())
+  updatedAt       DateTime?
+  updatedByUserId String?
+  updater         User?      @relation("ExpenseUpdater", fields: [updatedByUserId], references: [id])
+
+  @@index([costItemId])
+  @@index([employeeId])
+  @@index([siteId])
+  @@index([serviceId])
+  @@index([createdByUserId])
+  @@index([paymentAt])
+  @@index([createdAt]) // For date filtering
+  @@index([createdByUserId, paymentAt]) // Composite for employee reports
+}
