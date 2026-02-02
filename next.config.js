@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
+const path = require('path');
+
 const nextConfig = {
-  // Disable static optimization to avoid module resolution issues
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',
@@ -16,15 +17,26 @@ const nextConfig = {
     }
     
     // Ensure proper path resolution for @/* aliases
+    const rootPath = path.resolve(__dirname);
+    
+    // Override alias to ensure @ points to project root
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@': require('path').resolve(__dirname),
+      '@': rootPath,
     };
+    
+    // Ensure proper extension resolution
+    config.resolve.extensions = [
+      ...config.resolve.extensions,
+      '.ts',
+      '.tsx',
+      '.js',
+      '.jsx',
+    ];
     
     // Disable caching in development to avoid stale module errors
     if (dev) {
       config.cache = false;
-      // Disable module concatenation to avoid module resolution issues
       config.optimization = {
         ...config.optimization,
         concatenateModules: false,
