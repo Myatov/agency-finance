@@ -15,6 +15,12 @@ const nextConfig = {
       };
     }
     
+    // Ensure proper path resolution for @/* aliases
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': require('path').resolve(__dirname),
+    };
+    
     // Disable caching in development to avoid stale module errors
     if (dev) {
       config.cache = false;
