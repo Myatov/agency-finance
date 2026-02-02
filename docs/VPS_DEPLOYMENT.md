@@ -151,12 +151,28 @@ pm2 startup
 
 ## 7. Nginx — reverse proxy
 
-Файл конфигурации (например `/etc/nginx/sites-available/agency-finance`):
+Файл конфигурации: в проекте есть готовая конфигурация `docs/nginx/agency-finance.conf`. Скопируй её на сервер и замени `your-domain.com` на свой домен:
+
+```bash
+sudo nano /etc/nginx/sites-available/agency-finance
+```
+
+Или скопировать из репозитория (с хоста, где есть проект):
+
+```bash
+sudo cp /var/www/agency-finance/docs/nginx/agency-finance.conf /etc/nginx/sites-available/agency-finance
+sudo sed -i 's/your-domain.com/твой-домен.ru/g' /etc/nginx/sites-available/agency-finance
+```
+
+Содержимое конфигурации (если создаёшь вручную):
 
 ```nginx
 server {
     listen 80;
+    listen [::]:80;
     server_name your-domain.com www.your-domain.com;
+
+    client_max_body_size 10M;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -168,10 +184,19 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 60s;
         proxy_connect_timeout 60s;
         proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+        proxy_buffering on;
+        proxy_buffer_size 4k;
+        proxy_buffers 8 4k;
+        proxy_busy_buffers_size 8k;
+        proxy_temp_file_write_size 8k;
     }
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
 }
 ```
 

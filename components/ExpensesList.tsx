@@ -182,37 +182,49 @@ export default function ExpensesList() {
       return;
     }
 
-    const res = await fetch('/api/expenses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        amount: quickAdd.amount,
-        costItemId: quickAdd.costItemId,
-        employeeId: quickAdd.employeeId || null,
-        siteId: quickAdd.siteId || null,
-        serviceId: quickAdd.serviceId || null,
-        paymentAt: quickAdd.paymentAt,
-        comment: quickAdd.comment && quickAdd.comment.trim() ? quickAdd.comment.trim() : null,
-      }),
-    });
-
-    if (res.ok) {
-      setQuickAdd({
-        amount: '',
-        costItemId: '',
-        employeeId: '',
-        siteId: '',
-        serviceId: '',
-        paymentAt: new Date().toISOString().slice(0, 16),
-        comment: '',
+    try {
+      const res = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          amount: quickAdd.amount,
+          costItemId: quickAdd.costItemId,
+          employeeId: quickAdd.employeeId || null,
+          siteId: quickAdd.siteId || null,
+          serviceId: quickAdd.serviceId || null,
+          paymentAt: quickAdd.paymentAt,
+          comment: quickAdd.comment && quickAdd.comment.trim() ? quickAdd.comment.trim() : null,
+        }),
       });
-      fetchExpenses();
-    } else {
-      const data = await res.json();
-      const errorMsg = data.error || 'Ошибка добавления';
-      const details = data.details ? `: ${data.details}` : '';
-      console.error('Error adding expense:', data);
-      alert(`${errorMsg}${details}`);
+
+      if (res.ok) {
+        setQuickAdd({
+          amount: '',
+          costItemId: '',
+          employeeId: '',
+          siteId: '',
+          serviceId: '',
+          paymentAt: new Date().toISOString().slice(0, 16),
+          comment: '',
+        });
+        fetchExpenses();
+      } else {
+        let errorMsg = 'Ошибка добавления';
+        try {
+          const data = await res.json();
+          errorMsg = data.error || errorMsg;
+          const details = data.details ? `: ${data.details}` : '';
+          console.error('Error adding expense:', data);
+          alert(`${errorMsg}${details}`);
+        } catch (parseError) {
+          console.error('Error parsing response:', parseError);
+          alert(`${errorMsg} (HTTP ${res.status})`);
+        }
+      }
+    } catch (error) {
+      console.error('Network error adding expense:', error);
+      alert('Ошибка соединения с сервером. Проверьте, что сервер запущен и доступен.');
     }
   };
 
