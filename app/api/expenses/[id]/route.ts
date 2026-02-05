@@ -17,7 +17,9 @@ export async function GET(
     const expense = await prisma.expense.findUnique({
       where: { id: params.id },
       include: {
-        costItem: true,
+        costItem: {
+          include: { costCategory: true },
+        },
         employee: {
           include: {
             department: true,
@@ -148,7 +150,9 @@ export async function PUT(
       where: { id: params.id },
       data: updateData,
       include: {
-        costItem: true,
+        costItem: {
+          include: { costCategory: true },
+        },
         employee: {
           include: {
             department: true,

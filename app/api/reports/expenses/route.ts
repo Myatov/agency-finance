@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (category) {
-      where.costItem = { category };
+      where.costItem = { costCategoryId: category };
     }
 
     if (accountManagerId) {
@@ -77,8 +77,8 @@ export async function GET(request: NextRequest) {
           costItem: {
             select: {
               id: true,
-              category: true,
               title: true,
+              costCategory: { select: { id: true, name: true } },
             },
           },
           employee: {

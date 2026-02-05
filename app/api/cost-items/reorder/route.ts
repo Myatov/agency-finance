@@ -34,7 +34,14 @@ export async function PUT(request: NextRequest) {
     );
 
     const costItems = await prisma.costItem.findMany({
-      orderBy: { sortOrder: 'asc' },
+      orderBy: [
+        { costCategory: { sortOrder: 'asc' } },
+        { sortOrder: 'asc' },
+      ],
+      include: {
+        costCategory: true,
+        financialModelExpenseType: true,
+      },
     });
 
     return NextResponse.json({ costItems });

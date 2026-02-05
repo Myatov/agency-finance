@@ -1,4 +1,4 @@
-import { PrismaClient, LegalEntityType, CostCategory, ServiceStatus, BillingType } from '@prisma/client';
+import { PrismaClient, LegalEntityType, ServiceStatus, BillingType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -874,28 +874,66 @@ async function main() {
     },
   });
 
-  // Create default cost items (sortOrder defines display order site-wide)
-  const costItems = [
-    { category: CostCategory.SALARY, title: 'Зарплата', sortOrder: 0 },
-    { category: CostCategory.SALES_PERCENT, title: 'Проценты с продаж', sortOrder: 1 },
-    { category: CostCategory.OFFICE, title: 'Офис', sortOrder: 2 },
-    { category: CostCategory.HR, title: 'HR', sortOrder: 3 },
-    { category: CostCategory.AGENCY_PAYMENTS, title: 'Агентские выплаты', sortOrder: 4 },
-    { category: CostCategory.SERVICES, title: 'Сервисы', sortOrder: 5 },
-    { category: CostCategory.LINKS, title: 'Ссылки', sortOrder: 6 },
-    { category: CostCategory.CONTRACTOR, title: 'Подрядчик', sortOrder: 7 },
-    { category: CostCategory.OTHER, title: 'Другие расходы', sortOrder: 8 },
+  // Cost categories (top-level, Russian names)
+  const categoryNames = [
+    'Зарплата',
+    'Проценты с продаж',
+    'Офис',
+    'HR',
+    'Агентские выплаты',
+    'Сервисы',
+    'Ссылки',
+    'Подрядчик',
+    'Другие расходы',
+  ];
+  const costCategories: { id: string; name: string; sortOrder: number }[] = [];
+  for (let i = 0; i < categoryNames.length; i++) {
+    const cat = await prisma.costCategory.upsert({
+      where: { name: categoryNames[i] },
+      update: { sortOrder: i },
+      create: { name: categoryNames[i], sortOrder: i },
+    });
+    costCategories.push({ id: cat.id, name: cat.name, sortOrder: cat.sortOrder });
+  }
+
+  // Financial model expense types
+  const fixedType = await prisma.financialModelExpenseType.upsert({
+    where: { name: 'Постоянные расходы' },
+    update: {},
+    create: { name: 'Постоянные расходы', sortOrder: 0 },
+  });
+  const variableType = await prisma.financialModelExpenseType.upsert({
+    where: { name: 'Переменные расходы' },
+    update: {},
+    create: { name: 'Переменные расходы', sortOrder: 1 },
+  });
+
+  // Default cost items (статьи расходов): category + title, each with a financial model type
+  const costItemsData = [
+    { categoryName: 'Зарплата', title: 'Зарплата', sortOrder: 0 },
+    { categoryName: 'Проценты с продаж', title: 'Проценты с продаж', sortOrder: 1 },
+    { categoryName: 'Офис', title: 'Офис', sortOrder: 2 },
+    { categoryName: 'HR', title: 'HR', sortOrder: 3 },
+    { categoryName: 'Агентские выплаты', title: 'Агентские выплаты', sortOrder: 4 },
+    { categoryName: 'Сервисы', title: 'Сервисы', sortOrder: 5 },
+    { categoryName: 'Ссылки', title: 'Ссылки', sortOrder: 6 },
+    { categoryName: 'Подрядчик', title: 'Подрядчик', sortOrder: 7 },
+    { categoryName: 'Другие расходы', title: 'Другие расходы', sortOrder: 8 },
   ];
 
-  for (const item of costItems) {
+  for (const item of costItemsData) {
+    const cat = costCategories.find((c) => c.name === item.categoryName);
+    if (!cat) continue;
+    const stableId = `seed-${item.categoryName}-${item.title}`.replace(/\s+/g, '-');
     await prisma.costItem.upsert({
-      where: { id: `${item.category}-${item.title}` },
-      update: { sortOrder: item.sortOrder },
+      where: { id: stableId },
+      update: { sortOrder: item.sortOrder, financialModelExpenseTypeId: fixedType.id },
       create: {
-        id: `${item.category}-${item.title}`,
-        category: item.category,
+        id: stableId,
+        costCategoryId: cat.id,
         title: item.title,
         sortOrder: item.sortOrder,
+        financialModelExpenseTypeId: fixedType.id,
       },
     });
   }

@@ -114,7 +114,7 @@ export default function ReportsList() {
       const rows = expensesData.expenses.map((exp: any) => ({
         date: formatDate(exp.paymentAt),
         amount: formatAmount(exp.amount),
-        category: exp.costItem.category,
+        category: exp.costItem.costCategory?.name ?? '',
         costItem: exp.costItem.title,
         employee: exp.employee?.fullName || '',
         department: exp.employee?.department?.name || '',
@@ -396,7 +396,7 @@ export default function ReportsList() {
                       {formatAmount(exp.amount)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {exp.costItem.category.replace(/_/g, ' ')}
+                      {exp.costItem.costCategory?.name ?? '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {exp.costItem.title}

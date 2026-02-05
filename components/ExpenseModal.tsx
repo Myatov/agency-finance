@@ -15,8 +15,10 @@ interface Expense {
 
 interface CostItem {
   id: string;
-  category: string;
   title: string;
+  sortOrder: number;
+  costCategoryId: string;
+  costCategory: { id: string; name: string; sortOrder: number };
 }
 
 interface Employee {
@@ -226,11 +228,31 @@ export default function ExpenseModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             >
               <option value="">Выберите тип расхода</option>
-              {costItems.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.title}
-                </option>
-              ))}
+              {(() => {
+                const byCategory = new Map<string, CostItem[]>();
+                for (const item of costItems) {
+                  const catId = item.costCategory?.id ?? '';
+                  if (!byCategory.has(catId)) byCategory.set(catId, []);
+                  byCategory.get(catId)!.push(item);
+                }
+                const categories = Array.from(byCategory.entries())
+                  .map(([catId, items]) => ({
+                    id: catId,
+                    name: items[0]?.costCategory?.name ?? '',
+                    sortOrder: items[0]?.costCategory?.sortOrder ?? 0,
+                    items: items.slice().sort((a, b) => a.sortOrder - b.sortOrder),
+                  }))
+                  .sort((a, b) => a.sortOrder - b.sortOrder);
+                return categories.map((cat) => (
+                  <optgroup key={cat.id} label={cat.name}>
+                    {cat.items.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.title}
+                      </option>
+                    ))}
+                  </optgroup>
+                ));
+              })()}
             </select>
           </div>
 

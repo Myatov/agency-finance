@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { canManageCostItems } from '@/lib/permissions';
-import { CostCategory } from '@prisma/client';
 
 export async function PUT(
   request: NextRequest,
@@ -20,11 +19,11 @@ export async function PUT(
 
     const id = params.id;
     const body = await request.json();
-    const { category, title } = body;
+    const { costCategoryId, title, financialModelExpenseTypeId } = body;
 
-    if (!category || !title) {
+    if (!costCategoryId || !title || !financialModelExpenseTypeId) {
       return NextResponse.json(
-        { error: 'Category and title are required' },
+        { error: 'costCategoryId, title and financialModelExpenseTypeId are required' },
         { status: 400 }
       );
     }
@@ -32,8 +31,13 @@ export async function PUT(
     const costItem = await prisma.costItem.update({
       where: { id },
       data: {
-        category: category as CostCategory,
-        title,
+        costCategoryId,
+        title: title.trim(),
+        financialModelExpenseTypeId,
+      },
+      include: {
+        costCategory: true,
+        financialModelExpenseType: true,
       },
     });
 

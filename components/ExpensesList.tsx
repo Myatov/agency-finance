@@ -10,8 +10,8 @@ interface Expense {
   costItemId: string;
   costItem: {
     id: string;
-    category: string;
     title: string;
+    costCategory: { id: string; name: string } | null;
   };
   employeeId: string | null;
   employee: {
@@ -55,8 +55,10 @@ interface Expense {
 
 interface CostItem {
   id: string;
-  category: string;
   title: string;
+  sortOrder: number;
+  costCategoryId: string;
+  costCategory: { id: string; name: string; sortOrder: number };
 }
 
 interface User {
@@ -299,11 +301,31 @@ export default function ExpensesList() {
                 className="w-full px-3 py-3 border border-gray-300 rounded-md"
               >
                 <option value="">Выберите</option>
-                {costItems.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.title}
-                  </option>
-                ))}
+                {(() => {
+                  const byCategory = new Map<string, CostItem[]>();
+                  for (const item of costItems) {
+                    const catId = item.costCategory?.id ?? '';
+                    if (!byCategory.has(catId)) byCategory.set(catId, []);
+                    byCategory.get(catId)!.push(item);
+                  }
+                  const categories = Array.from(byCategory.entries())
+                    .map(([catId, items]) => ({
+                      id: catId,
+                      name: items[0]?.costCategory?.name ?? '',
+                      sortOrder: items[0]?.costCategory?.sortOrder ?? 0,
+                      items,
+                    }))
+                    .sort((a, b) => a.sortOrder - b.sortOrder);
+                  return categories.map((cat) => (
+                    <optgroup key={cat.id} label={cat.name}>
+                      {cat.items.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.title}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ));
+                })()}
               </select>
             </div>
           </div>
@@ -413,15 +435,21 @@ export default function ExpensesList() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             >
               <option value="">Все</option>
-              <option value="SALARY">Зарплата</option>
-              <option value="SALES_PERCENT">Проценты с продаж</option>
-              <option value="OFFICE">Офис</option>
-              <option value="HR">HR</option>
-              <option value="AGENCY_PAYMENTS">Агентские выплаты</option>
-              <option value="SERVICES">Сервисы</option>
-              <option value="LINKS">Ссылки</option>
-              <option value="CONTRACTOR">Подрядчик</option>
-              <option value="OTHER">Другие расходы</option>
+              {(() => {
+                const seen = new Set<string>();
+                const list: { id: string; name: string; sortOrder: number }[] = [];
+                for (const item of costItems) {
+                  const cat = item.costCategory;
+                  if (cat && !seen.has(cat.id)) {
+                    seen.add(cat.id);
+                    list.push({ id: cat.id, name: cat.name, sortOrder: cat.sortOrder });
+                  }
+                }
+                list.sort((a, b) => a.sortOrder - b.sortOrder);
+                return list.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ));
+              })()}
             </select>
           </div>
           <div className="flex items-end">
@@ -499,7 +527,7 @@ export default function ExpensesList() {
                     {formatAmount(expense.amount)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {expense.costItem.category.replace(/_/g, ' ')}
+                    {expense.costItem.costCategory?.name ?? '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {expense.costItem.title}

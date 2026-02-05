@@ -1,33 +1,40 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 
-const COST_CATEGORIES: Array<{ value: string; label: string }> = [
-  { value: 'SALARY', label: 'Зарплата' },
-  { value: 'SALES_PERCENT', label: 'Проценты с продаж' },
-  { value: 'OFFICE', label: 'Офис' },
-  { value: 'HR', label: 'HR' },
-  { value: 'AGENCY_PAYMENTS', label: 'Агентские выплаты' },
-  { value: 'SERVICES', label: 'Сервисы' },
-  { value: 'LINKS', label: 'Ссылки' },
-  { value: 'CONTRACTOR', label: 'Подрядчик' },
-  { value: 'OTHER', label: 'Другое' },
-];
+interface CostCategory {
+  id: string;
+  name: string;
+  sortOrder: number;
+}
+
+interface FinancialModelExpenseType {
+  id: string;
+  name: string;
+  sortOrder: number;
+}
 
 interface CostItem {
   id: string;
-  category: string;
+  costCategoryId: string;
   title: string;
   sortOrder: number;
+  financialModelExpenseTypeId: string;
+  costCategory: CostCategory;
+  financialModelExpenseType: FinancialModelExpenseType;
 }
 
 export default function CostItemsList() {
   const [items, setItems] = useState<CostItem[]>([]);
+  const [categories, setCategories] = useState<CostCategory[]>([]);
+  const [financialModelTypes, setFinancialModelTypes] = useState<FinancialModelExpenseType[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<CostItem | null>(null);
   const [canManage, setCanManage] = useState(false);
-  const [formCategory, setFormCategory] = useState('');
+  const [formCategoryId, setFormCategoryId] = useState('');
+  const [formFinancialModelTypeId, setFormFinancialModelTypeId] = useState('');
   const [formTitle, setFormTitle] = useState('');
   const [error, setError] = useState('');
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
@@ -51,13 +58,18 @@ export default function CostItemsList() {
   const fetchItems = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/cost-items');
-      const data = await res.json();
-      if (res.ok) {
-        setItems(data.costItems || []);
-      } else {
-        setError(data.error || 'Ошибка загрузки');
-      }
+      const [itemsRes, catRes, typesRes] = await Promise.all([
+        fetch('/api/cost-items'),
+        fetch('/api/cost-categories'),
+        fetch('/api/financial-model-expense-types'),
+      ]);
+      const itemsData = await itemsRes.json();
+      const catData = await catRes.json();
+      const typesData = await typesRes.json();
+      if (itemsRes.ok) setItems(itemsData.costItems || []);
+      else setError(itemsData.error || 'Ошибка загрузки');
+      if (catRes.ok) setCategories(catData.categories || []);
+      if (typesRes.ok) setFinancialModelTypes(typesData.types || []);
     } catch (err) {
       setError('Ошибка соединения');
     } finally {
@@ -70,11 +82,10 @@ export default function CostItemsList() {
     fetchItems();
   }, []);
 
-  const categoryLabel = (cat: string) => COST_CATEGORIES.find((c) => c.value === cat)?.label ?? cat;
-
   const handleAdd = () => {
     setEditingItem(null);
-    setFormCategory(COST_CATEGORIES[0]?.value ?? '');
+    setFormCategoryId(categories[0]?.id ?? '');
+    setFormFinancialModelTypeId(financialModelTypes[0]?.id ?? '');
     setFormTitle('');
     setError('');
     setShowModal(true);
@@ -82,7 +93,8 @@ export default function CostItemsList() {
 
   const handleEdit = (item: CostItem) => {
     setEditingItem(item);
-    setFormCategory(item.category);
+    setFormCategoryId(item.costCategoryId);
+    setFormFinancialModelTypeId(item.financialModelExpenseTypeId);
     setFormTitle(item.title);
     setError('');
     setShowModal(true);
@@ -162,7 +174,11 @@ export default function CostItemsList() {
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category: formCategory, title: formTitle.trim() }),
+      body: JSON.stringify({
+        costCategoryId: formCategoryId,
+        title: formTitle.trim(),
+        financialModelExpenseTypeId: formFinancialModelTypeId,
+      }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -181,7 +197,7 @@ export default function CostItemsList() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold">Статьи расходов</h1>
           {canManage && (
@@ -190,14 +206,28 @@ export default function CostItemsList() {
             </p>
           )}
         </div>
-        {canManage && (
-          <button
-            onClick={handleAdd}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg font-medium"
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href="/cost-categories"
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
           >
-            + Добавить статью
-          </button>
-        )}
+            Категории расходов
+          </Link>
+          <Link
+            href="/financial-model-expense-types"
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
+          >
+            Расходы в финмодели
+          </Link>
+          {canManage && (
+            <button
+              onClick={handleAdd}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg font-medium"
+            >
+              + Добавить статью
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -214,6 +244,7 @@ export default function CostItemsList() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Категория</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Вид для финмодели</th>
                 {canManage && (
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
                 )}
@@ -236,9 +267,10 @@ export default function CostItemsList() {
                     {canManage && (
                       <span className="inline-block mr-2 text-gray-400 cursor-move" title="Перетащите для изменения порядка">⋮⋮</span>
                     )}
-                    {categoryLabel(item.category)}
+                    {item.costCategory?.name ?? '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.title}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.financialModelExpenseType?.name ?? '-'}</td>
                   {canManage && (
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <button onClick={() => handleEdit(item)} className="text-blue-600 hover:text-blue-900 mr-4">Редактировать</button>
@@ -269,12 +301,25 @@ export default function CostItemsList() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Категория *</label>
                 <select
                   required
-                  value={formCategory}
-                  onChange={(e) => setFormCategory(e.target.value)}
+                  value={formCategoryId}
+                  onChange={(e) => setFormCategoryId(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 >
-                  {COST_CATEGORIES.map((c) => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Вид расхода для финмодели *</label>
+                <select
+                  required
+                  value={formFinancialModelTypeId}
+                  onChange={(e) => setFormFinancialModelTypeId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  {financialModelTypes.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>
               </div>

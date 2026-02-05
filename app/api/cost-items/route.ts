@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { canManageCostItems } from '@/lib/permissions';
-import { CostCategory } from '@prisma/client';
 
 export async function GET() {
   try {
@@ -12,7 +11,15 @@ export async function GET() {
     }
 
     const costItems = await prisma.costItem.findMany({
-      orderBy: [{ sortOrder: 'asc' }, { category: 'asc' }, { title: 'asc' }],
+      orderBy: [
+        { costCategory: { sortOrder: 'asc' } },
+        { sortOrder: 'asc' },
+        { title: 'asc' },
+      ],
+      include: {
+        costCategory: true,
+        financialModelExpenseType: true,
+      },
     });
 
     return NextResponse.json({ costItems });
@@ -34,11 +41,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { category, title } = body;
+    const { costCategoryId, title, financialModelExpenseTypeId } = body;
 
-    if (!category || !title) {
+    if (!costCategoryId || !title || !financialModelExpenseTypeId) {
       return NextResponse.json(
-        { error: 'Category and title are required' },
+        { error: 'costCategoryId, title and financialModelExpenseTypeId are required' },
         { status: 400 }
       );
     }
@@ -50,9 +57,14 @@ export async function POST(request: NextRequest) {
 
     const costItem = await prisma.costItem.create({
       data: {
-        category: category as CostCategory,
-        title,
+        costCategoryId,
+        title: title.trim(),
+        financialModelExpenseTypeId,
         sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+      },
+      include: {
+        costCategory: true,
+        financialModelExpenseType: true,
       },
     });
 

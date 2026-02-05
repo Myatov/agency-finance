@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     };
 
     if (category) {
-      where.costItem = { category };
+      where.costItem = { costCategoryId: category };
     }
 
     if (costItemId) {
@@ -65,7 +65,11 @@ export async function GET(request: NextRequest) {
     const expenses = await prisma.expense.findMany({
       where,
       include: {
-        costItem: true,
+        costItem: {
+          include: {
+            costCategory: true,
+          },
+        },
         employee: {
           include: {
             department: true,
@@ -173,7 +177,9 @@ export async function POST(request: NextRequest) {
         paymentAt: paymentAt ? new Date(paymentAt) : new Date(),
       },
       include: {
-        costItem: true,
+        costItem: {
+          include: { costCategory: true },
+        },
         employee: {
           include: {
             department: true,

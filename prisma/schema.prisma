@@ -215,16 +215,42 @@ model Income {
   @@index([createdByUserId, createdAt])
 }
 
-model CostItem {
-  id        String       @id @default(uuid())
-  category  CostCategory
-  title     String
-  sortOrder Int          @default(0)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-  expenses  Expense[]
+model CostCategory {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  sortOrder Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  costItems CostItem[]
 
-  @@index([category])
+  @@index([sortOrder])
+}
+
+model FinancialModelExpenseType {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  sortOrder Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  costItems CostItem[]
+
+  @@index([sortOrder])
+}
+
+model CostItem {
+  id                         String                     @id @default(uuid())
+  costCategoryId             String
+  title                      String
+  sortOrder                  Int                        @default(0)
+  financialModelExpenseTypeId String
+  createdAt                  DateTime                   @default(now())
+  updatedAt                  DateTime                   @updatedAt
+  costCategory               CostCategory               @relation(fields: [costCategoryId], references: [id], onDelete: Restrict)
+  financialModelExpenseType  FinancialModelExpenseType  @relation(fields: [financialModelExpenseTypeId], references: [id], onDelete: Restrict)
+  expenses                   Expense[]
+
+  @@index([costCategoryId])
+  @@index([financialModelExpenseTypeId])
   @@index([sortOrder])
 }
 
@@ -265,18 +291,6 @@ enum LegalEntityType {
   CARD
   CRYPTO
   BARTER
-}
-
-enum CostCategory {
-  SALARY
-  SALES_PERCENT
-  OFFICE
-  HR
-  AGENCY_PAYMENTS
-  SERVICES
-  LINKS
-  CONTRACTOR
-  OTHER
 }
 
 enum ServiceStatus {
