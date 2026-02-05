@@ -59,24 +59,26 @@ npm run db:seed
 
 **БЫСТРОЕ РЕШЕНИЕ (выполните на сервере):**
 
+⚠️ **Важно:** команды нужно выполнять **из директории проекта**, а не из `/root/`. Проект на VPS обычно лежит в `/var/www/agency-finance`.
+
 ```bash
-cd /path/to/your/app
+cd /var/www/agency-finance
 
 # Вариант 1: Использовать готовый скрипт
 bash scripts/fix-prisma-client.sh
 
 # Вариант 2: Выполнить вручную
 npm run db:generate
-pm2 restart app  # или systemctl restart your-app
+pm2 restart agency-finance --update-env
 ```
 
 **Подробная инструкция:**
 
 1. **Подключитесь к серверу по SSH**
 
-2. **Перейдите в директорию проекта:**
+2. **Перейдите в директорию проекта** (на VPS это обычно `/var/www/agency-finance`):
 ```bash
-cd /path/to/your/app
+cd /var/www/agency-finance
 ```
 
 3. **Перегенерируйте Prisma Client:**
@@ -86,8 +88,8 @@ npm run db:generate
 
 4. **Перезапустите приложение:**
 ```bash
-# Если используется PM2:
-pm2 restart app
+# Если используется PM2 (имя приложения: agency-finance):
+pm2 restart agency-finance --update-env
 
 # Если используется systemd:
 systemctl restart your-app

@@ -7,9 +7,20 @@ export async function GET() {
   try {
     const user = await getSession();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const types = await prisma.financialModelExpenseType.findMany({
-      orderBy: { sortOrder: 'asc' },
-    });
+    let types: Array<{ id: string; name: string; sortOrder: number }>;
+    try {
+      types = await prisma.financialModelExpenseType.findMany({
+        orderBy: { sortOrder: 'asc' },
+      });
+    } catch (prismaError: unknown) {
+      const errMsg = prismaError instanceof Error ? prismaError.message : String(prismaError);
+      if (!/financialModelExpenseType|FinancialModelExpenseType|Unknown|does not exist/.test(errMsg)) throw prismaError;
+      console.warn('Using raw SQL fallback for financial model expense types:', errMsg);
+      const rows = await prisma.$queryRaw<Array<{ id: string; name: string; sortOrder: number }>>`
+        SELECT id, name, "sortOrder" FROM "FinancialModelExpenseType" ORDER BY "sortOrder" ASC
+      `;
+      types = rows;
+    }
     return NextResponse.json({ types });
   } catch (error) {
     console.error('Error fetching financial model expense types:', error);

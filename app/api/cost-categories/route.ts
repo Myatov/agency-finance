@@ -9,9 +9,20 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const categories = await prisma.costCategory.findMany({
-      orderBy: { sortOrder: 'asc' },
-    });
+    let categories: Array<{ id: string; name: string; sortOrder: number }>;
+    try {
+      categories = await prisma.costCategory.findMany({
+        orderBy: { sortOrder: 'asc' },
+      });
+    } catch (prismaError: unknown) {
+      const errMsg = prismaError instanceof Error ? prismaError.message : String(prismaError);
+      if (!/costCategory|CostCategory|Unknown|does not exist/.test(errMsg)) throw prismaError;
+      console.warn('Using raw SQL fallback for cost categories:', errMsg);
+      const rows = await prisma.$queryRaw<Array<{ id: string; name: string; sortOrder: number }>>`
+        SELECT id, name, "sortOrder" FROM "CostCategory" ORDER BY "sortOrder" ASC
+      `;
+      categories = rows;
+    }
     return NextResponse.json({ categories });
   } catch (error) {
     console.error('Error fetching cost categories:', error);
