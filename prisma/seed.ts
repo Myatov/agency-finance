@@ -72,7 +72,7 @@ async function main() {
   };
 
   // Create roles: полный список разделов (включая Услуги и Юрлица)
-  const allSections = ['sites', 'services', 'clients', 'incomes', 'expenses', 'employees', 'products', 'reports', 'legal-entities', 'roles'];
+  const allSections = ['sites', 'services', 'clients', 'incomes', 'expenses', 'cost-items', 'employees', 'products', 'reports', 'legal-entities', 'roles'];
   const allManagePermissions = allSections.flatMap((section) => [{ section, permission: 'manage' }]);
 
   // OWNER (Владелец) — полный доступ ко всему, включая Роли и Юрлица
@@ -124,6 +124,7 @@ async function main() {
     { section: 'incomes', permission: 'view' },
     { section: 'incomes', permission: 'create' },
     { section: 'expenses', permission: 'view' },
+    { section: 'cost-items', permission: 'view' },
     { section: 'employees', permission: 'view' },
     { section: 'products', permission: 'view' },
     { section: 'reports', permission: 'view' },
@@ -143,6 +144,7 @@ async function main() {
     { section: 'sites', permission: 'view' },
     { section: 'incomes', permission: 'view' },
     { section: 'expenses', permission: 'view' },
+    { section: 'cost-items', permission: 'view' },
     { section: 'employees', permission: 'view' },
     { section: 'products', permission: 'view' },
   ]);
@@ -161,6 +163,7 @@ async function main() {
     { section: 'sites', permission: 'view' },
     { section: 'incomes', permission: 'view' },
     { section: 'expenses', permission: 'view' },
+    { section: 'cost-items', permission: 'view' },
     { section: 'employees', permission: 'view' },
     { section: 'products', permission: 'view' },
   ]);
@@ -179,6 +182,7 @@ async function main() {
     { section: 'sites', permission: 'view' },
     { section: 'incomes', permission: 'view' },
     { section: 'expenses', permission: 'view' },
+    { section: 'cost-items', permission: 'view' },
     { section: 'employees', permission: 'view' },
     { section: 'products', permission: 'view' },
   ]);
@@ -197,6 +201,7 @@ async function main() {
     { section: 'sites', permission: 'view' },
     { section: 'incomes', permission: 'view' },
     { section: 'expenses', permission: 'view' },
+    { section: 'cost-items', permission: 'view' },
     { section: 'employees', permission: 'view' },
     { section: 'products', permission: 'view' },
   ]);
@@ -222,6 +227,7 @@ async function main() {
     { section: 'incomes', permission: 'view' },
     { section: 'incomes', permission: 'create' },
     { section: 'expenses', permission: 'view' },
+    { section: 'cost-items', permission: 'view' },
     { section: 'employees', permission: 'view' },
     { section: 'products', permission: 'view' },
     { section: 'reports', permission: 'view' },
@@ -242,6 +248,7 @@ async function main() {
     { section: 'clients', permission: 'view' },
     { section: 'incomes', permission: 'view' },
     { section: 'expenses', permission: 'view' },
+    { section: 'cost-items', permission: 'view' },
     { section: 'employees', permission: 'view' },
     { section: 'products', permission: 'view' },
     { section: 'reports', permission: 'view' },
@@ -261,6 +268,7 @@ async function main() {
     { section: 'sites', permission: 'view' },
     { section: 'incomes', permission: 'view' },
     { section: 'expenses', permission: 'view' },
+    { section: 'cost-items', permission: 'view' },
     { section: 'employees', permission: 'view' },
     { section: 'products', permission: 'view' },
   ]);
@@ -278,6 +286,7 @@ async function main() {
   await createPermissions(roleContractor.id, [
     { section: 'sites', permission: 'view' },
     { section: 'expenses', permission: 'view' },
+    { section: 'cost-items', permission: 'view' },
     { section: 'products', permission: 'view' },
   ]);
 
@@ -300,6 +309,7 @@ async function main() {
     { section: 'incomes', permission: 'create' },
     { section: 'expenses', permission: 'view' },
     { section: 'expenses', permission: 'create' },
+    { section: 'cost-items', permission: 'view' },
     { section: 'employees', permission: 'view' },
     { section: 'employees', permission: 'manage' },
     { section: 'products', permission: 'view' },

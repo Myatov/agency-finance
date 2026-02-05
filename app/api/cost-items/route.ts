@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { canManageCostItems } from '@/lib/permissions';
+import { canManageCostItems, canViewCostItems } from '@/lib/permissions';
 
 type CostItemWithRelations = {
   id: string;
@@ -28,6 +28,9 @@ export async function GET() {
     const user = await getSession();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!(await canViewCostItems(user))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     let costItems: CostItemWithRelations[];

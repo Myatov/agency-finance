@@ -55,7 +55,7 @@ export default function Navigation() {
         { href: '/clients', section: 'clients' },
         { href: '/incomes', section: 'incomes' },
         { href: '/expenses', section: 'expenses' },
-        { href: '/cost-items', section: 'expenses' },
+        { href: '/cost-items', section: 'cost-items' },
         { href: '/employees', section: 'employees' },
         { href: '/products', section: 'products' },
         { href: '/reports', section: 'reports' },
@@ -113,7 +113,7 @@ export default function Navigation() {
     { href: '/employees', label: 'Команда', section: 'employees' },
     { href: '/products', label: 'Продукты', section: 'products' },
     { href: '/incomes', label: 'Доходы', section: 'incomes' },
-    { href: '/cost-items', label: 'Статьи расходов', section: 'expenses' },
+    { href: '/cost-items', label: 'Статьи расходов', section: 'cost-items' },
   ];
 
   // Роли и Юрлица — только Владелец (скрыто от CEO)

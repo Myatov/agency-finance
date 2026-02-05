@@ -42,6 +42,7 @@ export default function RoleModal({
     { code: 'clients', label: 'Клиенты' },
     { code: 'incomes', label: 'Доходы' },
     { code: 'expenses', label: 'Расходы' },
+    { code: 'cost-items', label: 'Статьи расходов' },
     { code: 'employees', label: 'Сотрудники' },
     { code: 'products', label: 'Продукты' },
     { code: 'reports', label: 'Отчеты' },

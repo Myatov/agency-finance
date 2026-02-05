@@ -197,7 +197,11 @@ export async function canEditExpense(user: SessionUser, expenseCreatorId: string
 }
 
 export async function canManageCostItems(user: SessionUser): Promise<boolean> {
-  return hasPermission(user, 'expenses', 'manage');
+  return (await hasPermission(user, 'cost-items', 'manage')) || (await hasPermission(user, 'expenses', 'manage'));
+}
+
+export async function canViewCostItems(user: SessionUser): Promise<boolean> {
+  return (await hasPermission(user, 'cost-items', 'view')) || (await hasPermission(user, 'expenses', 'view'));
 }
 
 export async function canViewReports(user: SessionUser): Promise<boolean> {
