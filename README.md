@@ -37,11 +37,26 @@ npm run db:seed
 
 ```bash
 # На сервере (или с DATABASE_URL сервера):
+# 1. Применить миграцию SQL (или использовать скрипт)
 psql "$DATABASE_URL" -f prisma/migrate-to-cost-categories.sql
+# ИЛИ использовать Node скрипт:
+npm run db:migrate-server
+
+# 2. ОБЯЗАТЕЛЬНО перегенерировать Prisma Client после миграции!
 npm run db:generate
-npm run db:push
-npm run db:seed   # при необходимости обновить справочники
+
+# 3. Перезапустить приложение, чтобы подхватить новый Prisma Client
+# (если используется PM2: pm2 restart app)
+# (если используется systemd: systemctl restart your-app)
+
+# 4. При необходимости обновить справочники
+npm run db:seed
 ```
+
+**Если возникает ошибка "Internal server error" на странице "Статьи расходов":**
+1. Проверьте, что миграция выполнена: откройте `/api/debug-cost-items` - там будет диагностика
+2. Убедитесь, что выполнен `npm run db:generate` после миграции
+3. Перезапустите приложение после генерации Prisma Client
 
 3. Запустите dev сервер:
 ```bash

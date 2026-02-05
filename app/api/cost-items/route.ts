@@ -10,22 +10,66 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Проверяем доступность моделей
+    try {
+      await prisma.costCategory.findFirst();
+    } catch (modelError) {
+      console.error('CostCategory model error:', modelError);
+      return NextResponse.json(
+        { error: 'Database schema error: CostCategory model not available. Please run: npm run db:generate', details: modelError instanceof Error ? modelError.message : String(modelError) },
+        { status: 500 }
+      );
+    }
+
+    try {
+      await prisma.financialModelExpenseType.findFirst();
+    } catch (modelError) {
+      console.error('FinancialModelExpenseType model error:', modelError);
+      return NextResponse.json(
+        { error: 'Database schema error: FinancialModelExpenseType model not available. Please run: npm run db:generate', details: modelError instanceof Error ? modelError.message : String(modelError) },
+        { status: 500 }
+      );
+    }
+
     const costItems = await prisma.costItem.findMany({
-      orderBy: [
-        { costCategory: { sortOrder: 'asc' } },
-        { sortOrder: 'asc' },
-        { title: 'asc' },
-      ],
       include: {
         costCategory: true,
         financialModelExpenseType: true,
       },
     });
 
-    return NextResponse.json({ costItems });
+    // Фильтруем записи с отсутствующими связями (на случай проблем после миграции)
+    const validItems = costItems.filter(
+      (item) => item.costCategory && item.financialModelExpenseType
+    );
+
+    // Логируем проблемные записи
+    const invalidItems = costItems.filter(
+      (item) => !item.costCategory || !item.financialModelExpenseType
+    );
+    if (invalidItems.length > 0) {
+      console.warn(`Found ${invalidItems.length} cost items with missing relations:`, invalidItems.map((i) => ({ id: i.id, costCategoryId: i.costCategoryId, financialModelExpenseTypeId: i.financialModelExpenseTypeId })));
+    }
+
+    // Сортируем в коде для устойчивости
+    validItems.sort((a, b) => {
+      const catOrderA = a.costCategory?.sortOrder ?? 999;
+      const catOrderB = b.costCategory?.sortOrder ?? 999;
+      if (catOrderA !== catOrderB) return catOrderA - catOrderB;
+      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+      return a.title.localeCompare(b.title);
+    });
+
+    return NextResponse.json({ costItems: validItems });
   } catch (error) {
     console.error('Error fetching cost items:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const errorDetails = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error('Error stack:', errorStack);
+    return NextResponse.json(
+      { error: 'Internal server error', details: errorDetails },
+      { status: 500 }
+    );
   }
 }
 

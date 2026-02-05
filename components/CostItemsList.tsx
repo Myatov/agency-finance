@@ -57,21 +57,41 @@ export default function CostItemsList() {
 
   const fetchItems = async () => {
     setLoading(true);
+    setError('');
     try {
       const [itemsRes, catRes, typesRes] = await Promise.all([
         fetch('/api/cost-items'),
         fetch('/api/cost-categories'),
         fetch('/api/financial-model-expense-types'),
       ]);
+      
       const itemsData = await itemsRes.json();
       const catData = await catRes.json();
       const typesData = await typesRes.json();
-      if (itemsRes.ok) setItems(itemsData.costItems || []);
-      else setError(itemsData.error || 'Ошибка загрузки');
-      if (catRes.ok) setCategories(catData.categories || []);
-      if (typesRes.ok) setFinancialModelTypes(typesData.types || []);
+      
+      if (!itemsRes.ok) {
+        const errorMsg = itemsData.error || itemsData.details || 'Ошибка загрузки статей расходов';
+        setError(errorMsg);
+        console.error('Failed to fetch cost items:', itemsData);
+      } else {
+        setItems(itemsData.costItems || []);
+      }
+      
+      if (!catRes.ok) {
+        console.error('Failed to fetch categories:', catData);
+      } else {
+        setCategories(catData.categories || []);
+      }
+      
+      if (!typesRes.ok) {
+        console.error('Failed to fetch financial model types:', typesData);
+      } else {
+        setFinancialModelTypes(typesData.types || []);
+      }
     } catch (err) {
-      setError('Ошибка соединения');
+      const errorMsg = err instanceof Error ? err.message : 'Ошибка соединения';
+      setError(errorMsg);
+      console.error('Error fetching data:', err);
     } finally {
       setLoading(false);
     }

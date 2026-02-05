@@ -34,19 +34,28 @@ export async function PUT(request: NextRequest) {
     );
 
     const costItems = await prisma.costItem.findMany({
-      orderBy: [
-        { costCategory: { sortOrder: 'asc' } },
-        { sortOrder: 'asc' },
-      ],
       include: {
         costCategory: true,
         financialModelExpenseType: true,
       },
     });
 
+    // Сортируем в коде (как в GET route)
+    costItems.sort((a, b) => {
+      const catOrderA = a.costCategory?.sortOrder ?? 999;
+      const catOrderB = b.costCategory?.sortOrder ?? 999;
+      if (catOrderA !== catOrderB) return catOrderA - catOrderB;
+      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+      return a.title.localeCompare(b.title);
+    });
+
     return NextResponse.json({ costItems });
   } catch (error) {
     console.error('Error reordering cost items:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const errorDetails = error instanceof Error ? error.message : String(error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: errorDetails },
+      { status: 500 }
+    );
   }
 }

@@ -15,7 +15,11 @@ export async function GET() {
     return NextResponse.json({ categories });
   } catch (error) {
     console.error('Error fetching cost categories:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const errorDetails = error instanceof Error ? error.message : String(error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: errorDetails },
+      { status: 500 }
+    );
   }
 }
 
