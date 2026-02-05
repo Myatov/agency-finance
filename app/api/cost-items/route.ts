@@ -10,27 +10,6 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Проверяем доступность моделей
-    try {
-      await prisma.costCategory.findFirst();
-    } catch (modelError) {
-      console.error('CostCategory model error:', modelError);
-      return NextResponse.json(
-        { error: 'Database schema error: CostCategory model not available. Please run: npm run db:generate', details: modelError instanceof Error ? modelError.message : String(modelError) },
-        { status: 500 }
-      );
-    }
-
-    try {
-      await prisma.financialModelExpenseType.findFirst();
-    } catch (modelError) {
-      console.error('FinancialModelExpenseType model error:', modelError);
-      return NextResponse.json(
-        { error: 'Database schema error: FinancialModelExpenseType model not available. Please run: npm run db:generate', details: modelError instanceof Error ? modelError.message : String(modelError) },
-        { status: 500 }
-      );
-    }
-
     const costItems = await prisma.costItem.findMany({
       include: {
         costCategory: true,
@@ -66,6 +45,21 @@ export async function GET() {
     const errorDetails = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
     console.error('Error stack:', errorStack);
+    
+    // Проверяем, является ли ошибка связанной с отсутствием модели Prisma
+    if (errorDetails.includes('costCategory') || errorDetails.includes('CostCategory') || 
+        errorDetails.includes('financialModelExpenseType') || errorDetails.includes('FinancialModelExpenseType') ||
+        errorDetails.includes('Unknown arg') || errorDetails.includes('does not exist')) {
+      return NextResponse.json(
+        { 
+          error: 'Database schema error: Prisma Client не содержит новые модели. На сервере необходимо выполнить: npm run db:generate и перезапустить приложение.',
+          details: errorDetails,
+          solution: 'Выполните на сервере: npm run db:generate && pm2 restart app (или перезапустите приложение другим способом)'
+        },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
       { error: 'Internal server error', details: errorDetails },
       { status: 500 }

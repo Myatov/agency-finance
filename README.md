@@ -53,10 +53,45 @@ npm run db:generate
 npm run db:seed
 ```
 
-**Если возникает ошибка "Internal server error" на странице "Статьи расходов":**
-1. Проверьте, что миграция выполнена: откройте `/api/debug-cost-items` - там будет диагностика
-2. Убедитесь, что выполнен `npm run db:generate` после миграции
-3. Перезапустите приложение после генерации Prisma Client
+**Если возникает ошибка "Database schema error: CostCategory model not available":**
+
+Это означает, что Prisma Client на сервере не был перегенерирован после миграции схемы БД.
+
+**Решение:**
+
+1. **На сервере выполните:**
+```bash
+cd /path/to/your/app
+npm run db:generate
+```
+
+2. **Перезапустите приложение:**
+```bash
+# Если используется PM2:
+pm2 restart app
+
+# Если используется systemd:
+systemctl restart your-app
+
+# Или просто перезапустите процесс Node.js
+```
+
+3. **Проверьте диагностику:**
+   - Откройте `/api/debug-cost-items` в браузере
+   - Там будет информация о доступности моделей
+
+**Автоматическая проверка при старте (опционально):**
+
+Можно добавить проверку Prisma Client перед стартом приложения:
+```bash
+# В package.json добавить:
+"prestart": "tsx scripts/ensure-prisma-client.ts"
+```
+
+Или запустить вручную перед стартом:
+```bash
+npx tsx scripts/ensure-prisma-client.ts
+```
 
 3. Запустите dev сервер:
 ```bash
