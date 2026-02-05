@@ -874,27 +874,28 @@ async function main() {
     },
   });
 
-  // Create default cost items
+  // Create default cost items (sortOrder defines display order site-wide)
   const costItems = [
-    { category: CostCategory.SALARY, title: 'Зарплата' },
-    { category: CostCategory.SALES_PERCENT, title: 'Проценты с продаж' },
-    { category: CostCategory.OFFICE, title: 'Офис' },
-    { category: CostCategory.HR, title: 'HR' },
-    { category: CostCategory.AGENCY_PAYMENTS, title: 'Агентские выплаты' },
-    { category: CostCategory.SERVICES, title: 'Сервисы' },
-    { category: CostCategory.LINKS, title: 'Ссылки' },
-    { category: CostCategory.CONTRACTOR, title: 'Подрядчик' },
-    { category: CostCategory.OTHER, title: 'Другие расходы' },
+    { category: CostCategory.SALARY, title: 'Зарплата', sortOrder: 0 },
+    { category: CostCategory.SALES_PERCENT, title: 'Проценты с продаж', sortOrder: 1 },
+    { category: CostCategory.OFFICE, title: 'Офис', sortOrder: 2 },
+    { category: CostCategory.HR, title: 'HR', sortOrder: 3 },
+    { category: CostCategory.AGENCY_PAYMENTS, title: 'Агентские выплаты', sortOrder: 4 },
+    { category: CostCategory.SERVICES, title: 'Сервисы', sortOrder: 5 },
+    { category: CostCategory.LINKS, title: 'Ссылки', sortOrder: 6 },
+    { category: CostCategory.CONTRACTOR, title: 'Подрядчик', sortOrder: 7 },
+    { category: CostCategory.OTHER, title: 'Другие расходы', sortOrder: 8 },
   ];
 
   for (const item of costItems) {
     await prisma.costItem.upsert({
       where: { id: `${item.category}-${item.title}` },
-      update: {},
+      update: { sortOrder: item.sortOrder },
       create: {
         id: `${item.category}-${item.title}`,
         category: item.category,
         title: item.title,
+        sortOrder: item.sortOrder,
       },
     });
   }

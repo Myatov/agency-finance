@@ -55,6 +55,7 @@ export default function Navigation() {
         { href: '/clients', section: 'clients' },
         { href: '/incomes', section: 'incomes' },
         { href: '/expenses', section: 'expenses' },
+        { href: '/cost-items', section: 'expenses' },
         { href: '/employees', section: 'employees' },
         { href: '/products', section: 'products' },
         { href: '/reports', section: 'reports' },
@@ -107,10 +108,12 @@ export default function Navigation() {
     return null;
   }
 
-  // Settings submenu items
+  // Settings submenu items (Доходы, затем Статьи расходов)
   const settingsItems: Array<{ href: string; label: string; section?: string }> = [
     { href: '/employees', label: 'Команда', section: 'employees' },
     { href: '/products', label: 'Продукты', section: 'products' },
+    { href: '/incomes', label: 'Доходы', section: 'incomes' },
+    { href: '/cost-items', label: 'Статьи расходов', section: 'expenses' },
   ];
 
   // Add roles and legal entities sections if user has access

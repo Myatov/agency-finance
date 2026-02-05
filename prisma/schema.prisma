@@ -219,11 +219,13 @@ model CostItem {
   id        String       @id @default(uuid())
   category  CostCategory
   title     String
+  sortOrder Int          @default(0)
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
   expenses  Expense[]
 
   @@index([category])
+  @@index([sortOrder])
 }
 
 model Expense {

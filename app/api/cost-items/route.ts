@@ -12,7 +12,7 @@ export async function GET() {
     }
 
     const costItems = await prisma.costItem.findMany({
-      orderBy: [{ category: 'asc' }, { title: 'asc' }],
+      orderBy: [{ sortOrder: 'asc' }, { category: 'asc' }, { title: 'asc' }],
     });
 
     return NextResponse.json({ costItems });
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!canManageCostItems(user)) {
+    if (!(await canManageCostItems(user))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -43,10 +43,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const maxOrder = await prisma.costItem.findFirst({
+      orderBy: { sortOrder: 'desc' },
+      select: { sortOrder: true },
+    });
+
     const costItem = await prisma.costItem.create({
       data: {
         category: category as CostCategory,
         title,
+        sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
       },
     });
 
