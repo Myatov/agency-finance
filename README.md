@@ -32,6 +32,17 @@ npm run db:push
 npm run db:seed
 ```
 
+**Обновление БД на сервере** (если в таблице `CostItem` уже есть данные со старым полем `category`):  
+сначала выполните миграцию, затем примените схему и при необходимости сид:
+
+```bash
+# На сервере (или с DATABASE_URL сервера):
+psql "$DATABASE_URL" -f prisma/migrate-to-cost-categories.sql
+npm run db:generate
+npm run db:push
+npm run db:seed   # при необходимости обновить справочники
+```
+
 3. Запустите dev сервер:
 ```bash
 npm run dev
