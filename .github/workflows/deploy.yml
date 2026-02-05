@@ -19,6 +19,6 @@ jobs:
           script: |
             cd /var/www/agency-finance
             git pull origin main
-            npm ci --production
+            npm ci
             npm run db:generate
-            pm2 restart agency-finance
+            pm2 restart agency-finance --update-env
