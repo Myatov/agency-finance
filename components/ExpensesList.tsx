@@ -39,6 +39,8 @@ interface Expense {
       name: string;
     };
   } | null;
+  legalEntityId: string | null;
+  legalEntity: { id: string; name: string } | null;
   comment: string | null;
   creator: {
     id: string;
@@ -84,22 +86,30 @@ interface Site {
   };
 }
 
+interface LegalEntity {
+  id: string;
+  name: string;
+}
+
 export default function ExpensesList() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [costItems, setCostItems] = useState<CostItem[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
+  const [legalEntities, setLegalEntities] = useState<LegalEntity[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [canAdd, setCanAdd] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const defaultLegalEntityId = legalEntities.find((e) => e.name === 'ИП Мятов Сбербанк')?.id ?? legalEntities[0]?.id ?? '';
   const [quickAdd, setQuickAdd] = useState({
     amount: '',
     costItemId: '',
     employeeId: '',
     siteId: '',
     serviceId: '',
+    legalEntityId: '',
     paymentAt: new Date().toISOString().slice(0, 16),
     comment: '',
   });
@@ -120,8 +130,16 @@ export default function ExpensesList() {
     fetchCostItems();
     fetchEmployees();
     fetchSites();
+    fetchLegalEntities();
     fetchExpenses();
   }, [filters]);
+
+  useEffect(() => {
+    if (legalEntities.length && !quickAdd.legalEntityId) {
+      const defaultId = legalEntities.find((e) => e.name === 'ИП Мятов Сбербанк')?.id ?? legalEntities[0]?.id ?? '';
+      if (defaultId) setQuickAdd((prev) => ({ ...prev, legalEntityId: defaultId }));
+    }
+  }, [legalEntities]);
 
   useEffect(() => {
     if (user) {
@@ -164,6 +182,12 @@ export default function ExpensesList() {
     setSites(data.sites || []);
   };
 
+  const fetchLegalEntities = async () => {
+    const res = await fetch('/api/legal-entities');
+    const data = await res.json();
+    setLegalEntities(data.legalEntities || []);
+  };
+
   const fetchExpenses = async () => {
     setLoading(true);
     const params = new URLSearchParams();
@@ -195,6 +219,7 @@ export default function ExpensesList() {
           employeeId: quickAdd.employeeId || null,
           siteId: quickAdd.siteId || null,
           serviceId: quickAdd.serviceId || null,
+          legalEntityId: quickAdd.legalEntityId || null,
           paymentAt: quickAdd.paymentAt,
           comment: quickAdd.comment && quickAdd.comment.trim() ? quickAdd.comment.trim() : null,
         }),
@@ -203,6 +228,7 @@ export default function ExpensesList() {
       if (res.ok) {
         setQuickAdd({
           amount: '',
+          legalEntityId: defaultLegalEntityId || quickAdd.legalEntityId,
           costItemId: '',
           employeeId: '',
           siteId: '',
@@ -366,6 +392,23 @@ export default function ExpensesList() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                Юрлицо
+              </label>
+              <select
+                value={quickAdd.legalEntityId || defaultLegalEntityId}
+                onChange={(e) => setQuickAdd({ ...quickAdd, legalEntityId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="">Не выбрано</option>
+                {legalEntities.map((le) => (
+                  <option key={le.id} value={le.id}>
+                    {le.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Дата платежа
               </label>
               <input
@@ -501,6 +544,9 @@ export default function ExpensesList() {
                   Сайт
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Юрлицо
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Услуга
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -540,6 +586,9 @@ export default function ExpensesList() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {expense.site?.title || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {expense.legalEntity?.name ?? '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {expense.service?.product.name || '-'}

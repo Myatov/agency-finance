@@ -40,6 +40,9 @@ export async function GET(
             },
           },
         },
+        legalEntity: {
+          select: { id: true, name: true },
+        },
         creator: {
           select: {
             id: true,
@@ -95,7 +98,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { amount, costItemId, employeeId, siteId, serviceId, paymentAt, comment } = body;
+    const { amount, costItemId, employeeId, siteId, serviceId, legalEntityId, paymentAt, comment } = body;
 
     const updateData: any = {
       updatedAt: new Date(),
@@ -138,6 +141,9 @@ export async function PUT(
       }
       updateData.serviceId = serviceId || null;
     }
+    if (legalEntityId !== undefined) {
+      updateData.legalEntityId = legalEntityId || null;
+    }
     // Only OWNER and CEO can change paymentAt date
     if (paymentAt && (user.roleCode === 'OWNER' || user.roleCode === 'CEO')) {
       updateData.paymentAt = new Date(paymentAt);
@@ -172,6 +178,9 @@ export async function PUT(
               },
             },
           },
+        },
+        legalEntity: {
+          select: { id: true, name: true },
         },
         creator: {
           select: {

@@ -121,6 +121,9 @@ export async function GET(request: NextRequest) {
               },
             },
           },
+          legalEntity: {
+            select: { id: true, name: true },
+          },
           creator: {
             select: {
               id: true,

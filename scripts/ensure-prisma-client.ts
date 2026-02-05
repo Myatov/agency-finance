@@ -34,7 +34,7 @@ function checkPrismaClient() {
     return false;
   }
   
-  // Проверяем наличие новых моделей в сгенерированном клиенте
+  // Проверяем наличие новых полей/моделей в сгенерированном клиенте
   try {
     const indexContent = fs.readFileSync(path.join(clientPath, 'index.d.ts'), 'utf-8');
     const schemaContent = fs.readFileSync(schemaPath, 'utf-8');
@@ -46,6 +46,9 @@ function checkPrismaClient() {
     const hasFinancialModelInSchema = schemaContent.includes('model FinancialModelExpenseType');
     const hasFinancialModelInClient = indexContent.includes('financialModelExpenseType') || indexContent.includes('FinancialModelExpenseType');
     
+    // Expense.legalEntityId — должен быть в ExpenseUncheckedCreateInput
+    const hasExpenseLegalEntityInSchema = /model Expense[\s\S]*?legalEntityId\s+String\?/m.test(schemaContent);
+    
     if (hasCostCategoryInSchema && !hasCostCategoryInClient) {
       console.log('⚠️  CostCategory model missing in Prisma Client, regenerating...');
       return false;
@@ -54,6 +57,15 @@ function checkPrismaClient() {
     if (hasFinancialModelInSchema && !hasFinancialModelInClient) {
       console.log('⚠️  FinancialModelExpenseType model missing in Prisma Client, regenerating...');
       return false;
+    }
+    
+    if (hasExpenseLegalEntityInSchema) {
+      const uncheckedExpense = indexContent.indexOf('export type ExpenseUncheckedCreateInput');
+      const snippet = uncheckedExpense >= 0 ? indexContent.slice(uncheckedExpense, uncheckedExpense + 800) : '';
+      if (uncheckedExpense >= 0 && !snippet.includes('legalEntityId')) {
+        console.log('⚠️  Expense.legalEntityId missing in Prisma Client, regenerating...');
+        return false;
+      }
     }
   } catch (e) {
     console.log('⚠️  Could not verify Prisma Client, regenerating...');

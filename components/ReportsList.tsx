@@ -120,6 +120,7 @@ export default function ReportsList() {
         department: exp.employee?.department?.name || '',
         client: exp.site?.client?.name || '',
         site: exp.site?.title || '',
+        legalEntity: exp.legalEntity?.name || '',
         service: exp.service?.product.name || '',
         comment: exp.comment || '',
         creator: exp.creator?.fullName || '',
@@ -133,6 +134,7 @@ export default function ReportsList() {
         'department',
         'client',
         'site',
+        'legalEntity',
         'service',
         'comment',
         'creator',
@@ -376,6 +378,9 @@ export default function ReportsList() {
                     Сайт
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Юрлицо
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Услуга
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -412,6 +417,9 @@ export default function ReportsList() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {exp.site?.title || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {exp.legalEntity?.name || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {exp.service?.product.name || '-'}

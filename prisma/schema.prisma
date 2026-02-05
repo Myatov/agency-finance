@@ -92,6 +92,7 @@ model LegalEntity {
   updatedAt       DateTime        @updatedAt
   clients         Client[]
   incomes         Income[]
+  expenses        Expense[]
 
   @@index([isActive])
   @@map("LegalEntity")
@@ -255,30 +256,33 @@ model CostItem {
 }
 
 model Expense {
-  id              String    @id @default(uuid())
-  amount          BigInt
-  costItemId      String
-  title           String?
-  employeeId      String?
-  siteId          String?
-  serviceId       String?
-  comment         String?
-  createdByUserId String
-  createdAt       DateTime  @default(now())
-  paymentAt       DateTime  @default(now())
-  updatedAt       DateTime?
-  updatedByUserId String?
-  costItem        CostItem  @relation(fields: [costItemId], references: [id])
-  creator         User      @relation("ExpenseCreator", fields: [createdByUserId], references: [id])
-  employee        User?     @relation("ExpenseEmployee", fields: [employeeId], references: [id])
-  service         Service?  @relation(fields: [serviceId], references: [id])
-  site            Site?     @relation(fields: [siteId], references: [id])
-  updater         User?     @relation("ExpenseUpdater", fields: [updatedByUserId], references: [id])
+  id               String       @id @default(uuid())
+  amount           BigInt
+  costItemId       String
+  title            String?
+  employeeId       String?
+  siteId           String?
+  serviceId        String?
+  legalEntityId    String?
+  comment          String?
+  createdByUserId  String
+  createdAt        DateTime     @default(now())
+  paymentAt        DateTime     @default(now())
+  updatedAt        DateTime?
+  updatedByUserId  String?
+  costItem         CostItem     @relation(fields: [costItemId], references: [id])
+  creator          User         @relation("ExpenseCreator", fields: [createdByUserId], references: [id])
+  employee         User?        @relation("ExpenseEmployee", fields: [employeeId], references: [id])
+  service          Service?     @relation(fields: [serviceId], references: [id])
+  site             Site?        @relation(fields: [siteId], references: [id])
+  legalEntity      LegalEntity? @relation(fields: [legalEntityId], references: [id])
+  updater          User?        @relation("ExpenseUpdater", fields: [updatedByUserId], references: [id])
 
   @@index([costItemId])
   @@index([employeeId])
   @@index([siteId])
   @@index([serviceId])
+  @@index([legalEntityId])
   @@index([createdByUserId])
   @@index([paymentAt])
   @@index([createdAt])

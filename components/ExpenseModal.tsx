@@ -9,8 +9,14 @@ interface Expense {
   employeeId: string | null;
   siteId: string | null;
   serviceId: string | null;
+  legalEntityId: string | null;
   paymentAt: Date | string;
   comment: string | null;
+}
+
+interface LegalEntity {
+  id: string;
+  name: string;
 }
 
 interface CostItem {
@@ -67,12 +73,14 @@ export default function ExpenseModal({
     employeeId: '',
     siteId: '',
     serviceId: '',
+    legalEntityId: '',
     paymentAt: new Date().toISOString().slice(0, 16),
     comment: '',
   });
   const [costItems, setCostItems] = useState<CostItem[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
+  const [legalEntities, setLegalEntities] = useState<LegalEntity[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -81,6 +89,13 @@ export default function ExpenseModal({
     fetchCostItems();
     fetchEmployees();
     fetchSites();
+    fetchLegalEntities();
+  }, []);
+
+  useEffect(() => {
+    if (!legalEntities.length) return;
+
+    const defaultLegalEntityId = legalEntities.find((e) => e.name === 'ИП Мятов Сбербанк')?.id ?? legalEntities[0]?.id ?? '';
 
     if (expense) {
       const paymentDate = expense.paymentAt
@@ -92,11 +107,10 @@ export default function ExpenseModal({
         employeeId: expense.employeeId || '',
         siteId: expense.siteId || '',
         serviceId: expense.serviceId || '',
+        legalEntityId: expense.legalEntityId || defaultLegalEntityId,
         paymentAt: paymentDate,
         comment: expense.comment || '',
       });
-      
-      // If editing and has siteId, fetch services for that site
       if (expense.siteId) {
         fetchServices(expense.siteId);
       }
@@ -107,11 +121,12 @@ export default function ExpenseModal({
         employeeId: '',
         siteId: '',
         serviceId: '',
+        legalEntityId: defaultLegalEntityId,
         paymentAt: new Date().toISOString().slice(0, 16),
         comment: '',
       });
     }
-  }, [expense]);
+  }, [expense, legalEntities]);
 
   const fetchCostItems = async () => {
     const res = await fetch('/api/cost-items');
@@ -129,6 +144,12 @@ export default function ExpenseModal({
     const res = await fetch('/api/sites/available');
     const data = await res.json();
     setSites(data.sites || []);
+  };
+
+  const fetchLegalEntities = async () => {
+    const res = await fetch('/api/legal-entities');
+    const data = await res.json();
+    setLegalEntities(data.legalEntities || []);
   };
 
   const fetchServices = async (siteId: string) => {
@@ -161,6 +182,7 @@ export default function ExpenseModal({
         employeeId: formData.employeeId || null,
         siteId: formData.siteId || null,
         serviceId: formData.serviceId || null,
+        legalEntityId: formData.legalEntityId || null,
         paymentAt: formData.paymentAt,
         comment: formData.comment && formData.comment.trim() ? formData.comment.trim() : null,
       };
@@ -287,6 +309,24 @@ export default function ExpenseModal({
               {sites.map((site) => (
                 <option key={site.id} value={site.id}>
                   {site.title} ({site.client.name})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Юрлицо
+            </label>
+            <select
+              value={formData.legalEntityId}
+              onChange={(e) => setFormData({ ...formData, legalEntityId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            >
+              <option value="">Не выбрано</option>
+              {legalEntities.map((le) => (
+                <option key={le.id} value={le.id}>
+                  {le.name}
                 </option>
               ))}
             </select>

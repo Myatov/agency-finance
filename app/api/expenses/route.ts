@@ -90,6 +90,9 @@ export async function GET(request: NextRequest) {
             },
           },
         },
+        legalEntity: {
+          select: { id: true, name: true },
+        },
         creator: {
           select: {
             id: true,
@@ -126,7 +129,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { amount, costItemId, employeeId, siteId, serviceId, paymentAt, comment } = body;
+    const { amount, costItemId, employeeId, siteId, serviceId, legalEntityId, paymentAt, comment } = body;
     
     // Normalize comment: empty string or undefined becomes null
     const normalizedComment = comment && comment.trim() ? comment.trim() : null;
@@ -172,6 +175,7 @@ export async function POST(request: NextRequest) {
         employeeId: employeeId || null,
         siteId: siteId || null,
         serviceId: serviceId || null,
+        legalEntityId: legalEntityId || null,
         comment: normalizedComment,
         createdByUserId: user.id,
         paymentAt: paymentAt ? new Date(paymentAt) : new Date(),
@@ -199,6 +203,9 @@ export async function POST(request: NextRequest) {
               },
             },
           },
+        },
+        legalEntity: {
+          select: { id: true, name: true },
         },
         creator: {
           select: {
