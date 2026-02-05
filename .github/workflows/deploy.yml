@@ -22,8 +22,12 @@ jobs:
             npm ci
             echo "🔄 Generating Prisma Client..."
             npm run db:generate
-            echo "✅ Prisma Client generated"
+            echo "🔄 Cleaning old build..."
+            rm -rf .next
+            echo "🔄 Building application..."
+            npm run build
+            echo "✅ Build completed"
             echo "🔄 Restarting application..."
             pm2 restart agency-finance --update-env
             echo "✅ Application restarted"
-            pm2 logs agency-finance --lines 20
+            pm2 logs agency-finance --lines 15

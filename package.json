@@ -12,7 +12,9 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
-    "db:migrate-server": "tsx scripts/run-migrate-cost-categories.ts"
+    "db:migrate-server": "tsx scripts/run-migrate-cost-categories.ts",
+    "clean": "rm -rf .next node_modules/.cache",
+    "fresh": "npm run clean && npm run build"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
