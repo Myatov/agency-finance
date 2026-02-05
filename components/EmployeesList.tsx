@@ -33,6 +33,9 @@ interface User {
   id: string;
   roleCode: string;
   departmentId: string | null;
+  permissions?: {
+    employees?: { create?: boolean; edit?: boolean; delete?: boolean; manage?: boolean; view_all?: boolean };
+  };
 }
 
 export default function EmployeesList() {
@@ -147,7 +150,23 @@ export default function EmployeesList() {
   const canManage = (employee: Employee) => {
     if (!user) return false;
     if (user.roleCode === 'OWNER' || user.roleCode === 'CEO') return true;
-    // HEAD can manage employees in their own department
+    if (user.permissions?.employees?.manage) return true;
+    if (user.roleCode === 'HEAD' && employee.department?.id === user.departmentId) return true;
+    return !!(user.permissions?.employees?.edit || user.permissions?.employees?.delete);
+  };
+
+  const canEdit = (employee: Employee) => {
+    if (!user) return false;
+    if (user.roleCode === 'OWNER' || user.roleCode === 'CEO') return true;
+    if (user.permissions?.employees?.manage || user.permissions?.employees?.edit) return true;
+    if (user.roleCode === 'HEAD' && employee.department?.id === user.departmentId) return true;
+    return false;
+  };
+
+  const canDelete = (employee: Employee) => {
+    if (!user) return false;
+    if (user.roleCode === 'OWNER' || user.roleCode === 'CEO') return true;
+    if (user.permissions?.employees?.manage || user.permissions?.employees?.delete) return true;
     if (user.roleCode === 'HEAD' && employee.department?.id === user.departmentId) return true;
     return false;
   };
@@ -155,7 +174,6 @@ export default function EmployeesList() {
   const canChangePwd = (employee: Employee) => {
     if (!user) return false;
     if (user.roleCode === 'OWNER' || user.roleCode === 'CEO') return true;
-    // HEAD can change passwords for employees in their own department
     if (user.roleCode === 'HEAD' && employee.department?.id === user.departmentId) return true;
     return false;
   };
@@ -168,7 +186,7 @@ export default function EmployeesList() {
   const canAddEmployee = () => {
     if (!user) return false;
     if (user.roleCode === 'OWNER' || user.roleCode === 'CEO') return true;
-    // HEAD can add employees to their own department
+    if (user.permissions?.employees?.manage || user.permissions?.employees?.create) return true;
     if (user.roleCode === 'HEAD' && user.departmentId) return true;
     return false;
   };
@@ -332,21 +350,21 @@ export default function EmployeesList() {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            {canManage(employee) && (
-                              <>
-                                <button
-                                  onClick={() => handleEdit(employee)}
-                                  className="text-blue-600 hover:text-blue-900 mr-4"
-                                >
-                                  Редактировать
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(employee)}
-                                  className="text-red-600 hover:text-red-900 mr-4"
-                                >
-                                  Удалить
-                                </button>
-                              </>
+                            {canEdit(employee) && (
+                              <button
+                                onClick={() => handleEdit(employee)}
+                                className="text-blue-600 hover:text-blue-900 mr-4"
+                              >
+                                Редактировать
+                              </button>
+                            )}
+                            {canDelete(employee) && (
+                              <button
+                                onClick={() => handleDelete(employee)}
+                                className="text-red-600 hover:text-red-900 mr-4"
+                              >
+                                Удалить
+                              </button>
                             )}
                             {canChangePwd(employee) && (
                               <button

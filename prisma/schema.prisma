@@ -51,6 +51,18 @@ model User {
   roleId              String
   passwordHash        String
   isActive            Boolean     @default(true)
+  birthDate           DateTime?
+  workStartDate       DateTime?
+  emailWork           String?
+  emailGoogle         String?
+  phonePersonal       String?
+  phoneWork           String?
+  telegramPersonal    String?
+  telegramWork        String?
+  hasSpouse           Boolean?
+  hasChildren         Boolean?
+  childrenCount       Int?
+  childrenBirthDates   String?
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
   clientSales         Client[]    @relation("ClientSeller")

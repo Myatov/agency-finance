@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { hasPermission } from '@/lib/permissions';
 
 export async function GET() {
   try {
@@ -9,8 +10,13 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Только Владелец видит раздел Роли (скрыто от CEO)
-    if (user.roleCode !== 'OWNER') {
+    // Владелец или кто может создавать/редактировать сотрудников (нужен список ролей для формы)
+    const canViewRoles =
+      user.roleCode === 'OWNER' ||
+      (await hasPermission(user, 'employees', 'create')) ||
+      (await hasPermission(user, 'employees', 'edit')) ||
+      (await hasPermission(user, 'employees', 'manage'));
+    if (!canViewRoles) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

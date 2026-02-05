@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { canManageUsers } from '@/lib/permissions';
+import { canManageUsers, hasViewAllPermission } from '@/lib/permissions';
 import bcrypt from 'bcryptjs';
 
 export async function GET() {
@@ -11,7 +11,11 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const viewAll = await hasViewAllPermission(user, 'employees');
+    const where = viewAll ? {} : { id: user.id };
+
     const employees = await prisma.user.findMany({
+      where,
       include: {
         department: true,
         role: true,
@@ -37,7 +41,24 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { fullName, departmentId, roleId, password } = body;
+    const {
+      fullName,
+      departmentId,
+      roleId,
+      password,
+      birthDate,
+      workStartDate,
+      emailWork,
+      emailGoogle,
+      phonePersonal,
+      phoneWork,
+      telegramPersonal,
+      telegramWork,
+      hasSpouse,
+      hasChildren,
+      childrenCount,
+      childrenBirthDates,
+    } = body;
 
     if (!fullName || !roleId || !password) {
       return NextResponse.json(
@@ -78,6 +99,18 @@ export async function POST(request: NextRequest) {
         roleId,
         passwordHash,
         isActive: true,
+        birthDate: birthDate ? new Date(birthDate) : undefined,
+        workStartDate: workStartDate ? new Date(workStartDate) : undefined,
+        emailWork: emailWork || undefined,
+        emailGoogle: emailGoogle || undefined,
+        phonePersonal: phonePersonal || undefined,
+        phoneWork: phoneWork || undefined,
+        telegramPersonal: telegramPersonal || undefined,
+        telegramWork: telegramWork || undefined,
+        hasSpouse: hasSpouse === true || hasSpouse === false ? hasSpouse : undefined,
+        hasChildren: hasChildren === true || hasChildren === false ? hasChildren : undefined,
+        childrenCount: childrenCount !== undefined && childrenCount !== null && childrenCount !== '' ? Number(childrenCount) : undefined,
+        childrenBirthDates: childrenBirthDates || undefined,
       },
       include: {
         department: true,

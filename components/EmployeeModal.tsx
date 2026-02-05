@@ -17,6 +17,18 @@ interface Employee {
     code: string;
   };
   isActive: boolean;
+  birthDate?: string | null;
+  workStartDate?: string | null;
+  emailWork?: string | null;
+  emailGoogle?: string | null;
+  phonePersonal?: string | null;
+  phoneWork?: string | null;
+  telegramPersonal?: string | null;
+  telegramWork?: string | null;
+  hasSpouse?: boolean | null;
+  hasChildren?: boolean | null;
+  childrenCount?: number | null;
+  childrenBirthDates?: string | null;
 }
 
 interface Department {
@@ -51,6 +63,18 @@ export default function EmployeeModal({
     roleId: '',
     password: '',
     isActive: true,
+    birthDate: '',
+    workStartDate: '',
+    emailWork: '',
+    emailGoogle: '',
+    phonePersonal: '',
+    phoneWork: '',
+    telegramPersonal: '',
+    telegramWork: '',
+    hasSpouse: false,
+    hasChildren: false,
+    childrenCount: '' as string | number,
+    childrenBirthDates: '',
   });
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(false);
@@ -87,6 +111,9 @@ export default function EmployeeModal({
     }
   }, [departments]);
 
+  const toDateStr = (d: string | Date | null | undefined) =>
+    !d ? '' : typeof d === 'string' ? d.slice(0, 10) : new Date(d).toISOString().slice(0, 10);
+
   useEffect(() => {
     if (employee) {
       setFormData({
@@ -95,15 +122,38 @@ export default function EmployeeModal({
         roleId: employee.roleId,
         password: '',
         isActive: employee.isActive,
+        birthDate: toDateStr(employee.birthDate),
+        workStartDate: toDateStr(employee.workStartDate),
+        emailWork: employee.emailWork || '',
+        emailGoogle: employee.emailGoogle || '',
+        phonePersonal: employee.phonePersonal || '',
+        phoneWork: employee.phoneWork || '',
+        telegramPersonal: employee.telegramPersonal || '',
+        telegramWork: employee.telegramWork || '',
+        hasSpouse: employee.hasSpouse ?? false,
+        hasChildren: employee.hasChildren ?? false,
+        childrenCount: employee.childrenCount ?? '',
+        childrenBirthDates: employee.childrenBirthDates || '',
       });
     } else {
-      // Reset form when employee is null (adding new)
       setFormData({
         fullName: '',
         departmentId: '',
         roleId: '',
         password: '',
         isActive: true,
+        birthDate: '',
+        workStartDate: '',
+        emailWork: '',
+        emailGoogle: '',
+        phonePersonal: '',
+        phoneWork: '',
+        telegramPersonal: '',
+        telegramWork: '',
+        hasSpouse: false,
+        hasChildren: false,
+        childrenCount: '',
+        childrenBirthDates: '',
       });
     }
   }, [employee]);
@@ -137,6 +187,18 @@ export default function EmployeeModal({
         departmentId: formData.departmentId || null,
         roleId: formData.roleId,
         isActive: formData.isActive,
+        birthDate: formData.birthDate || null,
+        workStartDate: formData.workStartDate || null,
+        emailWork: formData.emailWork || null,
+        emailGoogle: formData.emailGoogle || null,
+        phonePersonal: formData.phonePersonal || null,
+        phoneWork: formData.phoneWork || null,
+        telegramPersonal: formData.telegramPersonal || null,
+        telegramWork: formData.telegramWork || null,
+        hasSpouse: formData.hasSpouse,
+        hasChildren: formData.hasChildren,
+        childrenCount: formData.childrenCount === '' ? null : Number(formData.childrenCount),
+        childrenBirthDates: formData.childrenBirthDates || null,
       };
 
       if (!employee) {
@@ -249,6 +311,126 @@ export default function EmployeeModal({
             <label htmlFor="isActive" className="ml-2 block text-sm text-gray-900">
               Активен
             </label>
+          </div>
+
+          <div className="border-t pt-4 mt-4">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Дополнительно (необязательно)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Дата рождения</label>
+                <input
+                  type="date"
+                  value={formData.birthDate}
+                  onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Дата старта работы</label>
+                <input
+                  type="date"
+                  value={formData.workStartDate}
+                  onChange={(e) => setFormData({ ...formData, workStartDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Email рабочий</label>
+                <input
+                  type="email"
+                  value={formData.emailWork}
+                  onChange={(e) => setFormData({ ...formData, emailWork: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Email для Google документов</label>
+                <input
+                  type="email"
+                  value={formData.emailGoogle}
+                  onChange={(e) => setFormData({ ...formData, emailGoogle: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Телефон личный</label>
+                <input
+                  type="text"
+                  value={formData.phonePersonal}
+                  onChange={(e) => setFormData({ ...formData, phonePersonal: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Телефон рабочий</label>
+                <input
+                  type="text"
+                  value={formData.phoneWork}
+                  onChange={(e) => setFormData({ ...formData, phoneWork: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">ТГ аккаунт личный</label>
+                <input
+                  type="text"
+                  value={formData.telegramPersonal}
+                  onChange={(e) => setFormData({ ...formData, telegramPersonal: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">ТГ аккаунт рабочий</label>
+                <input
+                  type="text"
+                  value={formData.telegramWork}
+                  onChange={(e) => setFormData({ ...formData, telegramWork: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.hasSpouse}
+                    onChange={(e) => setFormData({ ...formData, hasSpouse: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <span className="text-sm text-gray-700">Наличие супруга/супруги</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.hasChildren}
+                    onChange={(e) => setFormData({ ...formData, hasChildren: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <span className="text-sm text-gray-700">Наличие ребёнка</span>
+                </label>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Сколько детей</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={formData.childrenCount}
+                  onChange={(e) => setFormData({ ...formData, childrenCount: e.target.value })}
+                  className="w-24 px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Даты рождения детей (строка)</label>
+                <input
+                  type="text"
+                  value={formData.childrenBirthDates}
+                  onChange={(e) => setFormData({ ...formData, childrenBirthDates: e.target.value })}
+                  placeholder="Например: 01.05.2020, 15.03.2022"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+            </div>
           </div>
 
           {error && <div className="text-red-600 text-sm">{error}</div>}

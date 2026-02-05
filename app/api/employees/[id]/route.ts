@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { canManageUsers, canChangePassword } from '@/lib/permissions';
+import { canEditEmployee, canDeleteEmployee, canChangePassword } from '@/lib/permissions';
 import bcrypt from 'bcryptjs';
 
 export async function GET(
@@ -55,12 +55,29 @@ export async function PUT(
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }
 
-    if (!(await canManageUsers(user, params.id, targetEmployee.departmentId))) {
+    if (!(await canEditEmployee(user, targetEmployee.departmentId))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
-    const { fullName, departmentId, roleId, isActive } = body;
+    const {
+      fullName,
+      departmentId,
+      roleId,
+      isActive,
+      birthDate,
+      workStartDate,
+      emailWork,
+      emailGoogle,
+      phonePersonal,
+      phoneWork,
+      telegramPersonal,
+      telegramWork,
+      hasSpouse,
+      hasChildren,
+      childrenCount,
+      childrenBirthDates,
+    } = body;
 
     // Verify role exists if provided
     if (roleId) {
@@ -75,10 +92,19 @@ export async function PUT(
       departmentId: departmentId || null,
       isActive,
     };
-
-    if (roleId) {
-      updateData.roleId = roleId;
-    }
+    if (roleId) updateData.roleId = roleId;
+    if (birthDate !== undefined) updateData.birthDate = birthDate ? new Date(birthDate) : null;
+    if (workStartDate !== undefined) updateData.workStartDate = workStartDate ? new Date(workStartDate) : null;
+    if (emailWork !== undefined) updateData.emailWork = emailWork || null;
+    if (emailGoogle !== undefined) updateData.emailGoogle = emailGoogle || null;
+    if (phonePersonal !== undefined) updateData.phonePersonal = phonePersonal || null;
+    if (phoneWork !== undefined) updateData.phoneWork = phoneWork || null;
+    if (telegramPersonal !== undefined) updateData.telegramPersonal = telegramPersonal || null;
+    if (telegramWork !== undefined) updateData.telegramWork = telegramWork || null;
+    if (hasSpouse === true || hasSpouse === false) updateData.hasSpouse = hasSpouse;
+    if (hasChildren === true || hasChildren === false) updateData.hasChildren = hasChildren;
+    if (childrenCount !== undefined && childrenCount !== null && childrenCount !== '') updateData.childrenCount = Number(childrenCount);
+    if (childrenBirthDates !== undefined) updateData.childrenBirthDates = childrenBirthDates || null;
 
     const updated = await prisma.user.update({
       where: { id: params.id },
@@ -117,7 +143,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }
 
-    if (!(await canManageUsers(user, params.id, targetEmployee.departmentId))) {
+    if (!(await canDeleteEmployee(user, targetEmployee.departmentId))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

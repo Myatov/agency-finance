@@ -1,7 +1,7 @@
 import { prisma } from './db';
 import { SessionUser } from './auth';
 
-const SECTIONS_VIEW_ALL = ['sites', 'services', 'clients', 'incomes', 'expenses'] as const;
+const SECTIONS_VIEW_ALL = ['sites', 'services', 'clients', 'incomes', 'expenses', 'employees'] as const;
 
 // Проверка: может ли пользователь видеть все элементы раздела (иначе — только свои/назначенные)
 export async function hasViewAllPermission(
@@ -69,20 +69,28 @@ export async function canViewSection(user: SessionUser, section: string): Promis
   return hasPermission(user, section, 'view');
 }
 
-// Legacy functions for backward compatibility (will be gradually replaced)
+// Может ли пользователь управлять сотрудниками (добавлять/редактировать/удалять)
 export async function canManageUsers(user: SessionUser, targetUserId?: string, targetDepartmentId?: string | null): Promise<boolean> {
   if (user.roleCode === 'OWNER' || user.roleCode === 'CEO') {
     return true;
   }
-
-  // DEPT_HEAD can manage users in their own department
-  // For now, we'll check if user has manage permission on employees section
   const canManage = await hasPermission(user, 'employees', 'manage');
-  if (canManage && targetDepartmentId === user.departmentId) {
+  if (canManage) return true;
+  // Руководитель отдела — только сотрудники своего отдела
+  if (user.roleCode === 'HEAD' && targetDepartmentId === user.departmentId) {
     return true;
   }
-
   return false;
+}
+
+export async function canEditEmployee(user: SessionUser, targetDepartmentId?: string | null): Promise<boolean> {
+  if (await canManageUsers(user, undefined, targetDepartmentId)) return true;
+  return hasPermission(user, 'employees', 'edit');
+}
+
+export async function canDeleteEmployee(user: SessionUser, targetDepartmentId?: string | null): Promise<boolean> {
+  if (await canManageUsers(user, undefined, targetDepartmentId)) return true;
+  return hasPermission(user, 'employees', 'delete');
 }
 
 export async function canManageProducts(user: SessionUser): Promise<boolean> {

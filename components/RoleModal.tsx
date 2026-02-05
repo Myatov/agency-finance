@@ -49,8 +49,8 @@ export default function RoleModal({
     { code: 'roles', label: 'Роли' },
   ];
 
-  // Разделы, для которых можно включить «Просмотр всех» (иначе — только свои/назначенные)
-  const sectionsWithViewAll = ['sites', 'services', 'clients', 'incomes', 'expenses'];
+  // Разделы, для которых можно включить «Просмотр всех» (иначе — только свои/все)
+  const sectionsWithViewAll = ['sites', 'services', 'clients', 'incomes', 'expenses', 'employees'];
 
   const permissions = [
     { code: 'view', label: 'Просмотр' },

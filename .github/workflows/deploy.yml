@@ -24,6 +24,8 @@ jobs:
             npm run db:generate
             echo "🔄 Applying DB migration (Expense.legalEntityId) if needed..."
             npx prisma db execute --file prisma/add-expense-legal-entity.sql || true
+            echo "🔄 Applying DB migration (User extra fields) if needed..."
+            npx prisma db execute --file prisma/add-user-fields.sql || true
             echo "🔄 Cleaning old build..."
             rm -rf .next
             echo "🔄 Building application..."
