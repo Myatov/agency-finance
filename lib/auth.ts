@@ -80,9 +80,16 @@ export async function getSession(): Promise<SessionUser | null> {
 
 export async function setSession(userId: string) {
   const cookieStore = await cookies();
+  
+  // Determine if we should use secure cookies
+  // Check environment variable first, then fall back to NODE_ENV
+  // SECURE_COOKIES should be set to 'true' if using HTTPS
+  const useSecure = process.env.SECURE_COOKIES === 'true' || 
+    (process.env.NODE_ENV === 'production' && process.env.SECURE_COOKIES !== 'false');
+  
   cookieStore.set('session', userId, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: useSecure,
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7, // 7 days
   });

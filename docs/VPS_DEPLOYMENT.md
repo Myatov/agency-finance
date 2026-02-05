@@ -124,6 +124,11 @@ DATABASE_URL="postgresql://agency_finance:ваш_надёжный_пароль@l
 
 # Опционально: для продакшена
 NODE_ENV=production
+
+# Настройка secure cookies (требуется для HTTPS)
+# Если используете HTTPS (SSL настроен через Certbot) - установите SECURE_COOKIES=true
+# Если используете только HTTP (без SSL) - установите SECURE_COOKIES=false
+SECURE_COOKIES=false
 ```
 
 Миграции и сид (один раз после деплоя):

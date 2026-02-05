@@ -97,7 +97,12 @@ nano /var/www/agency-finance/.env
 ```
 DATABASE_URL="postgresql://agency_finance:ваш_надёжный_пароль@localhost:5432/agency_finance?schema=public"
 NODE_ENV=production
+SECURE_COOKIES=false
 ```
+
+**Важно:** 
+- Если используете HTTPS (SSL настроен) — установите `SECURE_COOKIES=true`
+- Если используете только HTTP (без SSL) — установите `SECURE_COOKIES=false`
 
 Сохрани: `Ctrl+O`, Enter, `Ctrl+X`. Затем:
 
