@@ -50,12 +50,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+      <div className="mb-8">
+        <h1 className="text-center text-5xl font-bold text-gray-900">
+          Seo Performance Agency Finance
+        </h1>
+      </div>
       <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-md">
         <div>
-          <h1 className="text-center text-4xl font-bold text-gray-900 mb-2">
-            Seo Performance Agency Finance
-          </h1>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Вход в систему
           </h2>
