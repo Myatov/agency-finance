@@ -53,7 +53,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
       <div className="mb-8">
         <h1 className="text-center text-5xl font-bold text-gray-900">
-          Seo Performance Agency Finance
+          Seo Performance Agency
+          <br />
+          Finance
         </h1>
       </div>
       <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-md">
