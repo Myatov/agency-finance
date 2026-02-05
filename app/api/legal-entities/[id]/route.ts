@@ -49,8 +49,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only OWNER and CEO can update legal entities
-    if (user.roleCode !== 'OWNER' && user.roleCode !== 'CEO') {
+    if (user.roleCode !== 'OWNER') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

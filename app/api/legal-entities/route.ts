@@ -44,8 +44,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only OWNER and CEO can create legal entities
-    if (user.roleCode !== 'OWNER' && user.roleCode !== 'CEO') {
+    // Только Владелец может создавать/редактировать юрлица (раздел скрыт от CEO)
+    if (user.roleCode !== 'OWNER') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

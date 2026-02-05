@@ -35,6 +35,13 @@ export default function RolesList() {
     fetchRoles();
   }, []);
 
+  // Раздел Роли только для Владельца (скрыт от CEO)
+  useEffect(() => {
+    if (user && user.roleCode !== 'OWNER') {
+      window.location.href = '/';
+    }
+  }, [user]);
+
   const fetchUser = async () => {
     const res = await fetch('/api/auth/me');
     const data = await res.json();
@@ -98,18 +105,21 @@ export default function RolesList() {
   const canManage = user?.roleCode === 'OWNER';
 
   const sections = [
-    { code: 'projects', label: 'Проекты' },
+    { code: 'sites', label: 'Сайты' },
+    { code: 'services', label: 'Услуги' },
     { code: 'clients', label: 'Клиенты' },
     { code: 'incomes', label: 'Доходы' },
     { code: 'expenses', label: 'Расходы' },
     { code: 'employees', label: 'Сотрудники' },
     { code: 'products', label: 'Продукты' },
     { code: 'reports', label: 'Отчеты' },
+    { code: 'legal-entities', label: 'Юрлица' },
     { code: 'roles', label: 'Роли' },
   ];
 
   const permissionLabels: Record<string, string> = {
     view: 'Просмотр',
+    view_all: 'Просмотр всех',
     create: 'Создание',
     edit: 'Редактирование',
     delete: 'Удаление',

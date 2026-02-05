@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { canAddClient } from '@/lib/permissions';
+import { canAddClient, hasViewAllPermission } from '@/lib/permissions';
 
 export async function GET() {
   try {
@@ -10,7 +10,11 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const viewAll = await hasViewAllPermission(user, 'clients');
+    const where = viewAll ? {} : { sellerEmployeeId: user.id };
+
     const clients = await prisma.client.findMany({
+      where,
       include: {
         legalEntity: true,
         seller: {

@@ -93,7 +93,14 @@ export default function LegalEntitiesList() {
     }
   };
 
-  const canManage = user?.roleCode === 'OWNER' || user?.roleCode === 'CEO';
+  const canManage = user?.roleCode === 'OWNER';
+
+  // Раздел Юрлица только для Владельца (скрыт от CEO)
+  useEffect(() => {
+    if (user && user.roleCode !== 'OWNER') {
+      window.location.href = '/';
+    }
+  }, [user]);
 
   if (loading) {
     return <div className="text-center py-8">Загрузка...</div>;

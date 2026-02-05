@@ -12,7 +12,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (user.roleCode !== 'OWNER' && user.roleCode !== 'CEO') {
+    if (user.roleCode !== 'OWNER') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

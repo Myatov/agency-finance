@@ -9,8 +9,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only OWNER and CEO can view roles
-    if (user.roleCode !== 'OWNER' && user.roleCode !== 'CEO') {
+    // Только Владелец видит раздел Роли (скрыто от CEO)
+    if (user.roleCode !== 'OWNER') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

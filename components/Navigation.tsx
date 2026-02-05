@@ -32,18 +32,18 @@ export default function Navigation() {
 
   useEffect(() => {
     if (user) {
-      // For OWNER/CEO, show all sections immediately
-      if (user.roleCode === 'OWNER' || user.roleCode === 'CEO') {
+          // OWNER видит всё, CEO — всё кроме Ролей и Юрлиц
+      if (user.roleCode === 'OWNER') {
         setAccessibleSections([
-          '/sites',
-          '/services',
-          '/clients',
-          '/incomes',
-          '/expenses',
-          '/employees',
-          '/products',
-          '/reports',
-          '/roles',
+          '/sites', '/services', '/clients', '/incomes', '/expenses',
+          '/employees', '/products', '/reports', '/roles', '/legal-entities',
+        ]);
+        return;
+      }
+      if (user.roleCode === 'CEO') {
+        setAccessibleSections([
+          '/sites', '/services', '/clients', '/incomes', '/expenses',
+          '/employees', '/products', '/reports',
         ]);
         return;
       }
@@ -116,17 +116,18 @@ export default function Navigation() {
     { href: '/cost-items', label: 'Статьи расходов', section: 'expenses' },
   ];
 
-  // Add roles and legal entities sections if user has access
-  if (user.roleCode === 'OWNER' || user.roleCode === 'CEO') {
+  // Роли и Юрлица — только Владелец (скрыто от CEO)
+  if (user.roleCode === 'OWNER') {
     settingsItems.push({ href: '/roles', label: 'Роли', section: 'roles' });
     settingsItems.push({ href: '/legal-entities', label: 'Юрлица' });
   }
 
-  // Filter settings items based on permissions
   const visibleSettingsItems =
-    user.roleCode === 'OWNER' || user.roleCode === 'CEO'
+    user.roleCode === 'OWNER'
       ? settingsItems
-      : settingsItems.filter((item) => item.section && accessibleSections.includes(item.href));
+      : user.roleCode === 'CEO'
+        ? settingsItems.filter((item) => item.href !== '/roles' && item.href !== '/legal-entities')
+        : settingsItems.filter((item) => item.section && accessibleSections.includes(item.href));
 
   const navItems = [
     { href: '/services', label: 'Услуги' },
@@ -142,7 +143,6 @@ export default function Navigation() {
     navItems.push({ href: '#', label: 'Настройки' } as { href: string; label: string });
   }
 
-  // Filter nav items based on permissions
   const visibleNavItems =
     user.roleCode === 'OWNER' || user.roleCode === 'CEO'
       ? navItems

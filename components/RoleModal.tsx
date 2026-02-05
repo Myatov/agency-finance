@@ -37,18 +37,24 @@ export default function RoleModal({
   const [error, setError] = useState('');
 
   const sections = [
-    { code: 'projects', label: 'Проекты' },
+    { code: 'sites', label: 'Сайты' },
+    { code: 'services', label: 'Услуги' },
     { code: 'clients', label: 'Клиенты' },
     { code: 'incomes', label: 'Доходы' },
     { code: 'expenses', label: 'Расходы' },
     { code: 'employees', label: 'Сотрудники' },
     { code: 'products', label: 'Продукты' },
     { code: 'reports', label: 'Отчеты' },
+    { code: 'legal-entities', label: 'Юрлица' },
     { code: 'roles', label: 'Роли' },
   ];
 
+  // Разделы, для которых можно включить «Просмотр всех» (иначе — только свои/назначенные)
+  const sectionsWithViewAll = ['sites', 'services', 'clients', 'incomes', 'expenses'];
+
   const permissions = [
     { code: 'view', label: 'Просмотр' },
+    { code: 'view_all', label: 'Просмотр всех' },
     { code: 'create', label: 'Создание' },
     { code: 'edit', label: 'Редактирование' },
     { code: 'delete', label: 'Удаление' },
@@ -84,23 +90,31 @@ export default function RoleModal({
         });
 
         if (index < 0) {
-          // Adding manage
           newPerms.push({ section, permission: 'manage' });
         }
       } else {
-        // Remove manage if it exists for this section
-        const manageIndex = newPerms.findIndex(
-          (p) => p.section === section && p.permission === 'manage'
-        );
-        if (manageIndex >= 0) {
-          newPerms.splice(manageIndex, 1);
-        }
-
-        // Toggle the permission
-        if (index >= 0) {
-          newPerms.splice(index, 1);
+        if (permission === 'view_all') {
+          const manageIdx = newPerms.findIndex((p) => p.section === section && p.permission === 'manage');
+          if (index >= 0) {
+            newPerms.splice(index, 1);
+            if (manageIdx >= 0) {
+              newPerms.splice(manageIdx, 1);
+              ['view', 'create', 'edit', 'delete'].forEach((p) => newPerms.push({ section, permission: p }));
+            }
+          } else if (manageIdx >= 0) {
+            // Снять «Просмотр всех» при наличии manage: заменить manage на view, create, edit, delete
+            newPerms.splice(manageIdx, 1);
+            ['view', 'create', 'edit', 'delete'].forEach((p) => newPerms.push({ section, permission: p }));
+          } else {
+            newPerms.push({ section, permission: 'view_all' });
+          }
         } else {
-          newPerms.push({ section, permission });
+          const manageIndex = newPerms.findIndex(
+            (p) => p.section === section && p.permission === 'manage'
+          );
+          if (manageIndex >= 0) newPerms.splice(manageIndex, 1);
+          if (index >= 0) newPerms.splice(index, 1);
+          else newPerms.push({ section, permission });
         }
       }
 
@@ -219,15 +233,21 @@ export default function RoleModal({
                         {section.label}
                       </td>
                       {permissions.map((perm) => {
-                        const checked = hasPermission(section.code, perm.code);
+                        const isViewAll = perm.code === 'view_all';
+                        const showCell = !isViewAll || sectionsWithViewAll.includes(section.code);
+                        const checked = hasPermission(section.code, perm.code) || (isViewAll && hasPermission(section.code, 'manage'));
                         return (
                           <td key={perm.code} className="px-4 py-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => togglePermission(section.code, perm.code)}
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            />
+                            {showCell ? (
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => togglePermission(section.code, perm.code)}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              />
+                            ) : (
+                              <span className="text-gray-300">—</span>
+                            )}
                           </td>
                         );
                       })}

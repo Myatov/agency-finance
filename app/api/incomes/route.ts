@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { canAddIncome } from '@/lib/permissions';
+import { canAddIncome, hasViewAllPermission } from '@/lib/permissions';
 import { parseAmount } from '@/lib/utils';
 
 export async function GET(request: NextRequest) {
@@ -21,24 +21,14 @@ export async function GET(request: NextRequest) {
 
     let where: any = {};
 
-    // ACCOUNT_MANAGER sees only their sites
-    if (user.roleCode === 'ACCOUNT_MANAGER') {
-      where.service = {
-        site: {
-          OR: [
-            { accountManagerId: user.id },
-            { creatorId: user.id },
-          ],
-        },
-      };
-    }
-    // Seller sees only sites of their clients
-    if (user.roleCode === 'SELLER') {
-      where.service = {
-        site: {
-          client: { sellerEmployeeId: user.id },
-        },
-      };
+    const viewAll = await hasViewAllPermission(user, 'incomes');
+    if (!viewAll) {
+      where.OR = [
+        { createdByUserId: user.id },
+        { service: { site: { accountManagerId: user.id } } },
+        { service: { site: { creatorId: user.id } } },
+        { service: { site: { client: { sellerEmployeeId: user.id } } } },
+      ];
     }
 
     if (serviceId) {

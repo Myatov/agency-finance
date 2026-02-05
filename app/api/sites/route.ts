@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { canAssignAccountManager, canDeleteSite } from '@/lib/permissions';
+import { canAssignAccountManager, canDeleteSite, hasViewAllPermission } from '@/lib/permissions';
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,12 +17,11 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
 
-    // Build where clause based on user role
     let where: any = {};
     const additionalFilters: any[] = [];
 
-    // ACCOUNT_MANAGER sees only their sites
-    if (user.roleCode === 'ACCOUNT_MANAGER') {
+    const viewAll = await hasViewAllPermission(user, 'sites');
+    if (!viewAll) {
       additionalFilters.push({
         OR: [
           { accountManagerId: user.id },
@@ -30,11 +29,6 @@ export async function GET(request: NextRequest) {
         ],
       });
     }
-    // OWNER/CEO/FINANCE see all
-    else if (['OWNER', 'CEO', 'FINANCE'].includes(user.roleCode)) {
-      // No restrictions
-    }
-    // Others see all (read-only)
 
     // Apply filters
     if (isActive !== null && isActive !== undefined) {

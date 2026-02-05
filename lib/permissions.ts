@@ -1,25 +1,45 @@
 import { prisma } from './db';
 import { SessionUser } from './auth';
 
+const SECTIONS_VIEW_ALL = ['sites', 'services', 'clients', 'incomes', 'expenses'] as const;
+
+// Проверка: может ли пользователь видеть все элементы раздела (иначе — только свои/назначенные)
+export async function hasViewAllPermission(
+  user: SessionUser,
+  section: string
+): Promise<boolean> {
+  if (!SECTIONS_VIEW_ALL.includes(section as any)) return true;
+  if (user.roleCode === 'OWNER') return true;
+  if (user.roleCode === 'CEO') {
+    if (section === 'roles' || section === 'legal-entities') return false;
+    return true;
+  }
+  const hasManage = await prisma.rolePermission.findFirst({
+    where: { roleId: user.roleId, section, permission: 'manage' },
+  });
+  if (hasManage) return true;
+  const hasViewAll = await prisma.rolePermission.findFirst({
+    where: { roleId: user.roleId, section, permission: 'view_all' },
+  });
+  return !!hasViewAll;
+}
+
 // Check if user has specific permission for a section
 export async function hasPermission(
   user: SessionUser,
   section: string,
-  permission: 'view' | 'create' | 'edit' | 'delete' | 'manage'
+  permission: 'view' | 'create' | 'edit' | 'delete' | 'manage' | 'view_all'
 ): Promise<boolean> {
-  // System roles: OWNER and CEO have full access (except roles for CEO)
+  // System roles: OWNER and CEO have full access (except roles/legal-entities for CEO)
   if (user.roleCode === 'OWNER') {
     return true;
   }
   if (user.roleCode === 'CEO') {
-    // CEO has full access except to roles section
-    if (section === 'roles') {
-      return false;
-    }
+    if (section === 'roles' || section === 'legal-entities') return false;
     return true;
   }
 
-  // Check if user has 'manage' permission (implies all other permissions)
+  // Check if user has 'manage' permission (implies all other permissions including view_all)
   const hasManage = await prisma.rolePermission.findFirst({
     where: {
       roleId: user.roleId,

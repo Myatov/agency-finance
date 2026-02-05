@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { hasViewAllPermission } from '@/lib/permissions';
 import { ServiceStatus, BillingType } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
@@ -22,19 +23,15 @@ export async function GET(request: NextRequest) {
       where.status = status;
     }
 
-    // Filter by permissions: ACCOUNT_MANAGER sees only their sites, SELLER sees only their clients' sites
-    if (user.roleCode === 'ACCOUNT_MANAGER') {
-      where.site = {
-        accountManagerId: user.id,
-      };
-    } else if (user.roleCode === 'SELLER') {
-      where.site = {
-        client: {
-          sellerEmployeeId: user.id,
-        },
-      };
+    const viewAll = await hasViewAllPermission(user, 'services');
+    if (!viewAll) {
+      where.OR = [
+        { site: { accountManagerId: user.id } },
+        { site: { creatorId: user.id } },
+        { responsibleUserId: user.id },
+        { site: { client: { sellerEmployeeId: user.id } } },
+      ];
     }
-    // OWNER and CEO see all services
 
     const services = await prisma.service.findMany({
       where,

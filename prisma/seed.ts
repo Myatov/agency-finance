@@ -71,11 +71,11 @@ async function main() {
     }),
   };
 
-  // Create roles
-  const sections = ['sites', 'clients', 'incomes', 'expenses', 'employees', 'products', 'reports', 'roles'];
-  const allManagePermissions = sections.flatMap((section) => [{ section, permission: 'manage' }]);
+  // Create roles: полный список разделов (включая Услуги и Юрлица)
+  const allSections = ['sites', 'services', 'clients', 'incomes', 'expenses', 'employees', 'products', 'reports', 'legal-entities', 'roles'];
+  const allManagePermissions = allSections.flatMap((section) => [{ section, permission: 'manage' }]);
 
-  // OWNER - full access to everything
+  // OWNER (Владелец) — полный доступ ко всему, включая Роли и Юрлица
   const roleOwner = await prisma.role.upsert({
     where: { code: 'OWNER' },
     update: {},
@@ -87,7 +87,7 @@ async function main() {
   });
   await createPermissions(roleOwner.id, allManagePermissions);
 
-  // CEO - full access to everything except roles
+  // CEO — полный доступ ко всему, кроме Ролей и Юрлиц (скрытые от CEO разделы)
   const roleCEO = await prisma.role.upsert({
     where: { code: 'CEO' },
     update: {},
@@ -99,7 +99,7 @@ async function main() {
   });
   await createPermissions(
     roleCEO.id,
-    sections.filter((s) => s !== 'roles').flatMap((section) => [{ section, permission: 'manage' }])
+    allSections.filter((s) => s !== 'roles' && s !== 'legal-entities').flatMap((section) => [{ section, permission: 'manage' }])
   );
 
   // Аккаунт-менеджер

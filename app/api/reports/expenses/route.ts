@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { canViewReports } from '@/lib/permissions';
+import { canViewReports, hasViewAllPermission } from '@/lib/permissions';
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,6 +26,16 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
 
     let where: any = {};
+
+    const viewAll = await hasViewAllPermission(user, 'expenses');
+    if (!viewAll) {
+      where.OR = [
+        { createdByUserId: user.id },
+        { employeeId: user.id },
+        { site: { accountManagerId: user.id } },
+        { site: { creatorId: user.id } },
+      ];
+    }
 
     if (dateFrom || dateTo) {
       where.paymentAt = {};
