@@ -30,6 +30,11 @@ export async function GET(
             niche: true,
           },
         },
+        clientContacts: {
+          include: {
+            contact: true,
+          },
+        },
       },
     });
 
@@ -76,6 +81,7 @@ export async function PUT(
     const ks = opt(body.ks);
     const paymentRequisites = opt(body.paymentRequisites);
     const contacts = opt(body.contacts);
+    const clientContacts = Array.isArray(body.clientContacts) ? body.clientContacts : undefined;
 
     if (!name || !sellerEmployeeId) {
       return NextResponse.json(
@@ -115,15 +121,44 @@ export async function PUT(
       contacts,
     };
 
-    const client = await prisma.client.update({
+    await prisma.$transaction(async (tx) => {
+      await tx.client.update({
+        where: { id: params.id },
+        data: updateData,
+      });
+      if (clientContacts) {
+        await tx.clientContact.deleteMany({ where: { clientId: params.id } });
+        const validRoles = ['OWNER', 'MARKETING', 'FINANCE', 'IT', 'OTHER'];
+        for (const link of clientContacts) {
+          const contactId = link.contactId != null ? String(link.contactId).trim() : null;
+          if (!contactId) continue;
+          const role = link.role && validRoles.includes(String(link.role).toUpperCase()) ? String(link.role).toUpperCase() : 'OTHER';
+          const isPrimary = Boolean(link.isPrimary);
+          await tx.clientContact.create({
+            data: {
+              clientId: params.id,
+              contactId,
+              role: role as 'OWNER' | 'MARKETING' | 'FINANCE' | 'IT' | 'OTHER',
+              isPrimary,
+            },
+          });
+        }
+      }
+    });
+
+    const client = await prisma.client.findUnique({
       where: { id: params.id },
-      data: updateData,
       include: {
         legalEntity: true,
         seller: {
           select: {
             id: true,
             fullName: true,
+          },
+        },
+        clientContacts: {
+          include: {
+            contact: true,
           },
         },
       },

@@ -30,6 +30,11 @@ export async function GET() {
             niche: true,
           },
         },
+        clientContacts: {
+          include: {
+            contact: true,
+          },
+        },
       },
       orderBy: { name: 'asc' },
     });
@@ -72,6 +77,7 @@ export async function POST(request: NextRequest) {
     const ks = opt(body.ks);
     const paymentRequisites = opt(body.paymentRequisites);
     const contacts = opt(body.contacts);
+    const clientContacts = Array.isArray(body.clientContacts) ? body.clientContacts : undefined;
 
     if (!name || !sellerEmployeeId) {
       return NextResponse.json(
@@ -122,7 +128,34 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ client });
+    if (clientContacts && clientContacts.length > 0) {
+      const validRoles = ['OWNER', 'MARKETING', 'FINANCE', 'IT', 'OTHER'];
+      for (const link of clientContacts) {
+        const contactId = link.contactId != null ? String(link.contactId).trim() : null;
+        if (!contactId) continue;
+        const role = link.role && validRoles.includes(String(link.role).toUpperCase()) ? String(link.role).toUpperCase() : 'OTHER';
+        const isPrimary = Boolean(link.isPrimary);
+        await prisma.clientContact.create({
+          data: {
+            clientId: client.id,
+            contactId,
+            role: role as 'OWNER' | 'MARKETING' | 'FINANCE' | 'IT' | 'OTHER',
+            isPrimary,
+          },
+        });
+      }
+    }
+
+    const clientWithContacts = await prisma.client.findUnique({
+      where: { id: client.id },
+      include: {
+        legalEntity: true,
+        seller: { select: { id: true, fullName: true } },
+        clientContacts: { include: { contact: true } },
+      },
+    });
+
+    return NextResponse.json({ client: clientWithContacts ?? client });
   } catch (error) {
     console.error('Error creating client:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';

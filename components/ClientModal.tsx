@@ -1,6 +1,22 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import ContactModal, { type Contact } from './ContactModal';
+
+const CONTACT_ROLES = [
+  { value: 'OWNER', label: 'Владелец' },
+  { value: 'MARKETING', label: 'Маркетинг' },
+  { value: 'FINANCE', label: 'Финансы' },
+  { value: 'IT', label: 'IT' },
+  { value: 'OTHER', label: 'Другое' },
+] as const;
+
+interface ClientContactLink {
+  contactId: string;
+  role: string;
+  isPrimary: boolean;
+  contact?: { id: string; name: string; phone1?: string | null; telegram?: string | null; whatsapp?: string | null };
+}
 
 interface Client {
   id: string;
@@ -19,6 +35,12 @@ interface Client {
   ks?: string | null;
   paymentRequisites?: string | null;
   contacts?: string | null;
+  clientContacts?: Array<{
+    contactId: string;
+    role: string | null;
+    isPrimary: boolean;
+    contact: { id: string; name: string; phone1?: string | null; telegram?: string | null; whatsapp?: string | null };
+  }>;
 }
 
 interface LegalEntity {
@@ -61,10 +83,16 @@ export default function ClientModal({
   });
   const [users, setUsers] = useState<User[]>([]);
   const [legalEntities, setLegalEntities] = useState<LegalEntity[]>([]);
+  const [clientContactsLinks, setClientContactsLinks] = useState<ClientContactLink[]>([]);
+  const [contactSearch, setContactSearch] = useState('');
+  const [contactSearchResults, setContactSearchResults] = useState<Contact[]>([]);
+  const [contactSearching, setContactSearching] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const formDataRef = useRef(formData);
   formDataRef.current = formData;
+  const contactSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -91,6 +119,20 @@ export default function ClientModal({
         paymentRequisites: c.paymentRequisites ?? '',
         contacts: c.contacts ?? '',
       });
+      if (c.clientContacts && Array.isArray(c.clientContacts)) {
+        setClientContactsLinks(
+          c.clientContacts.map((cc) => ({
+            contactId: cc.contactId,
+            role: cc.role ?? 'OTHER',
+            isPrimary: cc.isPrimary,
+            contact: cc.contact,
+          }))
+        );
+      } else {
+        setClientContactsLinks([]);
+      }
+    } else {
+      setClientContactsLinks([]);
     }
   }, [client]);
 
@@ -98,6 +140,51 @@ export default function ClientModal({
     const res = await fetch('/api/users');
     const data = await res.json();
     setUsers(data.users || []);
+  };
+
+  useEffect(() => {
+    const q = contactSearch.trim();
+    if (!q || q.length < 2) {
+      setContactSearchResults([]);
+      return;
+    }
+    if (contactSearchRef.current) clearTimeout(contactSearchRef.current);
+    contactSearchRef.current = setTimeout(async () => {
+      setContactSearching(true);
+      try {
+        const res = await fetch(`/api/contacts?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        const list = data.contacts || [];
+        setContactSearchResults(list);
+      } catch {
+        setContactSearchResults([]);
+      } finally {
+        setContactSearching(false);
+      }
+      contactSearchRef.current = null;
+    }, 300);
+    return () => {
+      if (contactSearchRef.current) clearTimeout(contactSearchRef.current);
+    };
+  }, [contactSearch]);
+
+  const addContactToClient = (c: Contact) => {
+    if (clientContactsLinks.some((l) => l.contactId === c.id)) return;
+    setClientContactsLinks((prev) => [...prev, { contactId: c.id, role: 'OTHER', isPrimary: prev.length === 0, contact: c }]);
+    setContactSearch('');
+    setContactSearchResults([]);
+  };
+
+  const removeContactFromClient = (contactId: string) => {
+    setClientContactsLinks((prev) => prev.filter((l) => l.contactId !== contactId));
+  };
+
+  const setContactRole = (contactId: string, role: string) => {
+    setClientContactsLinks((prev) => prev.map((l) => (l.contactId === contactId ? { ...l, role } : l)));
+  };
+
+  const setPrimaryContact = (contactId: string) => {
+    setClientContactsLinks((prev) => prev.map((l) => ({ ...l, isPrimary: l.contactId === contactId })));
   };
 
   const fetchLegalEntities = async () => {
@@ -156,6 +243,7 @@ export default function ClientModal({
         ks: toNull(latest.ks),
         paymentRequisites: toNull(latest.paymentRequisites),
         contacts: toNull(latest.contacts),
+        clientContacts: clientContactsLinks.map((l) => ({ contactId: l.contactId, role: l.role, isPrimary: l.isPrimary })),
       };
       const res = await fetch(url, {
         method,
@@ -400,9 +488,110 @@ export default function ClientModal({
             />
           </div>
 
+          <div className="border-t pt-4 mt-4">
+            <h3 className="text-lg font-semibold mb-2">Контакты клиента</h3>
+            <p className="text-sm text-gray-500 mb-2">
+              Поиск по справочнику контактов или создание нового. Роль и «Основной контакт» задаются для этого клиента.
+            </p>
+            <div className="mb-3">
+              <input
+                type="text"
+                placeholder="Поиск контакта по имени, телефону, Telegram, WhatsApp..."
+                value={contactSearch}
+                onChange={(e) => setContactSearch(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+              {contactSearch.trim().length >= 2 && (
+                <div className="mt-1 border border-gray-200 rounded-md bg-white shadow-lg max-h-48 overflow-y-auto z-10">
+                  {contactSearching ? (
+                    <div className="px-3 py-2 text-sm text-gray-500">Поиск...</div>
+                  ) : (
+                    <>
+                      {contactSearchResults
+                        .filter((c) => !clientContactsLinks.some((l) => l.contactId === c.id))
+                        .slice(0, 10)
+                        .map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => addContactToClient(c)}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+                          >
+                            {c.name}
+                            {(c.phone1 || c.telegram || c.whatsapp) && (
+                              <span className="text-gray-500 ml-2">
+                                {[c.phone1, c.telegram, c.whatsapp].filter(Boolean).join(', ')}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      {contactSearch.trim().length >= 2 &&
+                        !contactSearching &&
+                        contactSearchResults.filter((c) => !clientContactsLinks.some((l) => l.contactId === c.id)).length === 0 && (
+                          <div className="px-3 py-2 text-sm text-gray-500">Ничего не найдено</div>
+                        )}
+                      <div className="border-t">
+                        <button
+                          type="button"
+                          onClick={() => setShowContactModal(true)}
+                          className="w-full text-left px-3 py-2 hover:bg-blue-50 text-blue-700 text-sm font-medium"
+                        >
+                          ➕ Создать новый контакт
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+            <ul className="space-y-2">
+              {clientContactsLinks.map((link) => (
+                <li
+                  key={link.contactId}
+                  className="flex items-center gap-2 flex-wrap p-2 bg-gray-50 rounded-md"
+                >
+                  <span className="font-medium">{link.contact?.name ?? link.contactId}</span>
+                  {link.isPrimary && (
+                    <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">Основной</span>
+                  )}
+                  <select
+                    value={link.role}
+                    onChange={(e) => setContactRole(link.contactId, e.target.value)}
+                    className="text-sm border border-gray-300 rounded px-2 py-1"
+                  >
+                    {CONTACT_ROLES.map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                  <label className="text-sm flex items-center gap-1">
+                    <input
+                      type="radio"
+                      name="primaryContact"
+                      checked={link.isPrimary}
+                      onChange={() => setPrimaryContact(link.contactId)}
+                    />
+                    Основной
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => removeContactFromClient(link.contactId)}
+                    className="text-red-600 hover:text-red-800 text-sm"
+                  >
+                    Удалить
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {clientContactsLinks.length === 0 && (
+              <p className="text-sm text-gray-500">Нет привязанных контактов. Введите поиск или создайте контакт.</p>
+            )}
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Контакты
+              Контакты (произвольный текст, устаревшее)
             </label>
             <textarea
               name="contacts"
@@ -433,6 +622,23 @@ export default function ClientModal({
           </div>
         </form>
       </div>
+
+      {showContactModal && (
+        <ContactModal
+          contact={null}
+          onClose={() => setShowContactModal(false)}
+          onSuccess={(created) => {
+            setShowContactModal(false);
+            if (created) addContactToClient(created);
+          }}
+          onDuplicateFound={(duplicates) => {
+            if (duplicates.length > 0) {
+              addContactToClient(duplicates[0]);
+              setShowContactModal(false);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

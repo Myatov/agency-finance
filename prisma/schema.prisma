@@ -113,13 +113,13 @@ model LegalEntity {
 }
 
 model Client {
-  id                String       @id @default(uuid())
+  id                String          @id @default(uuid())
   name              String
   legalEntityId     String?
   sellerEmployeeId  String
   legalEntityName   String?
   contractBasis     String?
-  legalAddress      String?
+  legalAddress     String?
   inn               String?
   kpp               String?
   ogrn              String?
@@ -129,19 +129,64 @@ model Client {
   ks                String?
   paymentRequisites String?
   contacts          String?
-  isSystem          Boolean      @default(false)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  legalEntity       LegalEntity? @relation(fields: [legalEntityId], references: [id])
-  seller            User         @relation("ClientSeller", fields: [sellerEmployeeId], references: [id])
+  isSystem          Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  legalEntity       LegalEntity?    @relation(fields: [legalEntityId], references: [id])
+  seller            User            @relation("ClientSeller", fields: [sellerEmployeeId], references: [id])
   sites             Site[]
   contractDocuments ContractDocument[]
   closeoutPackages  CloseoutPackage[]
   closeoutDocuments CloseoutDocument[]
+  clientContacts    ClientContact[]
 
   @@index([sellerEmployeeId])
   @@index([legalEntityId])
   @@index([sellerEmployeeId, isSystem])
+}
+
+enum ContactRoleAtClient {
+  OWNER
+  MARKETING
+  FINANCE
+  IT
+  OTHER
+}
+
+model Contact {
+  id          String          @id @default(uuid())
+  name        String
+  phone1      String?
+  phone2      String?
+  birthDate   DateTime?
+  telegram    String?
+  whatsapp    String?
+  position    String?
+  note        String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  clientLinks ClientContact[]
+
+  @@index([name])
+  @@index([phone1])
+  @@index([telegram])
+  @@index([whatsapp])
+}
+
+model ClientContact {
+  id         String            @id @default(uuid())
+  clientId   String
+  contactId  String
+  role       ContactRoleAtClient? @default(OTHER)
+  isPrimary  Boolean           @default(false)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  client     Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contact    Contact           @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, contactId])
+  @@index([clientId])
+  @@index([contactId])
 }
 
 model Product {
