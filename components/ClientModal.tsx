@@ -118,7 +118,6 @@ export default function ClientModal({
   const selectedLegalEntity = legalEntities.find((le) => le.id === formData.legalEntityId);
   // Показывать блок реквизитов при выборе любого юрлица, чтобы поля всегда сохранялись
   const showRequisitesBlock = !!formData.legalEntityId;
-  const requiresRequisites = selectedLegalEntity && (selectedLegalEntity.type === 'IP' || selectedLegalEntity.type === 'OOO');
   // Для этих юрлиц поле «Основание платежа» не показываем
   const hideContractBasis = selectedLegalEntity && ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'].includes(selectedLegalEntity.name);
 
@@ -256,7 +255,6 @@ export default function ClientModal({
                 <input
                   name="legalEntityName"
                   type="text"
-                  required={requiresRequisites}
                   value={formData.legalEntityName}
                   onChange={(e) => setFormData((prev) => ({ ...prev, legalEntityName: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
@@ -271,7 +269,6 @@ export default function ClientModal({
                   <input
                     name="contractBasis"
                     type="text"
-                    required={requiresRequisites}
                     value={formData.contractBasis}
                     onChange={(e) => setFormData((prev) => ({ ...prev, contractBasis: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
@@ -286,7 +283,6 @@ export default function ClientModal({
                 <input
                   name="legalAddress"
                   type="text"
-                  required={requiresRequisites}
                   value={formData.legalAddress}
                   onChange={(e) => setFormData((prev) => ({ ...prev, legalAddress: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
@@ -301,7 +297,6 @@ export default function ClientModal({
                   <input
                     name="inn"
                     type="text"
-                    required={requiresRequisites}
                     value={formData.inn}
                     onChange={(e) => setFormData((prev) => ({ ...prev, inn: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
@@ -314,7 +309,6 @@ export default function ClientModal({
                   <input
                     name="kpp"
                     type="text"
-                    required={requiresRequisites}
                     value={formData.kpp}
                     onChange={(e) => setFormData((prev) => ({ ...prev, kpp: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
@@ -327,7 +321,6 @@ export default function ClientModal({
                   <input
                     name="ogrn"
                     type="text"
-                    required={requiresRequisites}
                     value={formData.ogrn}
                     onChange={(e) => setFormData((prev) => ({ ...prev, ogrn: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
@@ -342,7 +335,6 @@ export default function ClientModal({
                 <input
                   name="rs"
                   type="text"
-                  required={requiresRequisites}
                   value={formData.rs}
                   onChange={(e) => setFormData((prev) => ({ ...prev, rs: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
@@ -356,7 +348,6 @@ export default function ClientModal({
                 <input
                   name="bankName"
                   type="text"
-                  required={requiresRequisites}
                   value={formData.bankName}
                   onChange={(e) => setFormData((prev) => ({ ...prev, bankName: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
@@ -371,7 +362,6 @@ export default function ClientModal({
                   <input
                     name="bik"
                     type="text"
-                    required={requiresRequisites}
                     value={formData.bik}
                     onChange={(e) => setFormData((prev) => ({ ...prev, bik: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
@@ -384,7 +374,6 @@ export default function ClientModal({
                   <input
                     name="ks"
                     type="text"
-                    required={requiresRequisites}
                     value={formData.ks}
                     onChange={(e) => setFormData((prev) => ({ ...prev, ks: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
