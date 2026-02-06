@@ -76,17 +76,47 @@ else
 fi
 echo ""
 
-echo "🔟 Запуск приложения через PM2..."
+echo "🔟 Проверка наличия сборки..."
+if [ ! -d ".next" ]; then
+  echo "❌ .next не существует! Запускаю сборку..."
+  npm run build
+  if [ ! -d ".next" ]; then
+    echo "❌ Сборка не удалась! Проверьте ошибки выше."
+    exit 1
+  fi
+fi
+echo "✅ Сборка существует"
+echo ""
+
+echo "1️⃣1️⃣ Запуск приложения через PM2..."
 # Удаляем старый процесс если есть
 pm2 delete agency-finance 2>/dev/null || true
-sleep 1
-# Запускаем новый
-pm2 start npm --name agency-finance -- start
 sleep 2
+
+# Проверяем что порт свободен
+if lsof -ti:3000 > /dev/null 2>&1; then
+  echo "⚠️ Порт 3000 все еще занят, убиваю процессы..."
+  lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+  sleep 2
+fi
+
+# Запускаем через PM2 с явным указанием рабочей директории
+cd /var/www/agency-finance
+pm2 start npm --name agency-finance -- start --cwd /var/www/agency-finance
+sleep 5
+
 # Проверяем что запустилось
-if ! pm2 list | grep -q "agency-finance.*online"; then
-  echo "⚠️ Приложение не запустилось через PM2, пробую еще раз..."
-  pm2 restart agency-finance --update-env || pm2 start npm --name agency-finance -- start
+PM2_STATUS=$(pm2 jlist | jq -r '.[] | select(.name=="agency-finance") | .pm2_env.status' 2>/dev/null || echo "notfound")
+if [ "$PM2_STATUS" != "online" ]; then
+  echo "⚠️ Приложение не запустилось (статус: $PM2_STATUS)"
+  echo "Проверяю логи..."
+  pm2 logs agency-finance --lines 20 --nostream 2>&1 | tail -20
+  echo ""
+  echo "Пробую запустить напрямую для диагностики..."
+  cd /var/www/agency-finance
+  timeout 5 npm start 2>&1 | head -20 || echo "Запуск напрямую тоже не удался"
+else
+  echo "✅ Приложение запущено через PM2"
 fi
 echo ""
 
