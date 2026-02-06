@@ -30,20 +30,33 @@ if [ -f .env ]; then
 fi
 
 # 3. Дамп БД (если есть DATABASE_URL и pg_dump)
-if [ -f .env ]; then
-  set +e
-  export $(grep -v '^#' .env | xargs) 2>/dev/null
-  set -e
-fi
-if [ -n "$DATABASE_URL" ] && command -v pg_dump >/dev/null 2>&1; then
-  echo "Дамп базы данных..."
-  mkdir -p "$BACKUP_DIR"
-  pg_dump "$DATABASE_URL" -Fc -f "$BACKUP_DIR/database.dump" 2>/dev/null && echo "  -> database.dump" || echo "  (ошибка pg_dump — проверьте DATABASE_URL и доступ к БД)"
-else
-  if [ -z "$DATABASE_URL" ]; then
-    echo "  DATABASE_URL не задан — дамп БД пропущен"
+if [ -f .env ] && command -v pg_dump >/dev/null 2>&1; then
+  DATABASE_URL=""
+  while IFS= read -r line; do
+    [[ "$line" =~ ^#.*$ ]] && continue
+    [[ "$line" =~ ^DATABASE_URL=(.*)$ ]] && DATABASE_URL="${BASH_REMATCH[1]}" && break
+  done < .env
+  # Убрать кавычки вокруг значения
+  DATABASE_URL="${DATABASE_URL%\"}"
+  DATABASE_URL="${DATABASE_URL#\"}"
+  DATABASE_URL="${DATABASE_URL%\'}"
+  DATABASE_URL="${DATABASE_URL#\'}"
+  if [ -n "$DATABASE_URL" ]; then
+    echo "Дамп базы данных..."
+    if pg_dump "$DATABASE_URL" -Fc -f "$BACKUP_DIR/database.dump"; then
+      echo "  -> database.dump"
+    else
+      echo "  Ошибка pg_dump (см. выше). Удаляю пустой файл."
+      rm -f "$BACKUP_DIR/database.dump"
+    fi
   else
+    echo "  DATABASE_URL не найден в .env — дамп БД пропущен"
+  fi
+else
+  if ! command -v pg_dump >/dev/null 2>&1; then
     echo "  pg_dump не найден — дамп БД пропущен (установите postgresql-client)"
+  elif [ ! -f .env ]; then
+    echo "  .env не найден — дамп БД пропущен"
   fi
 fi
 
