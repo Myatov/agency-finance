@@ -8,7 +8,6 @@ interface Site {
   websiteUrl: string | null;
   description: string | null;
   niche: string;
-  nicheId: string | null;
   clientId: string;
   accountManagerId: string | null;
   isActive: boolean;
@@ -74,18 +73,29 @@ export default function SiteModal({
     fetchUser();
 
     if (site) {
-      setFormData({
+      setFormData((prev) => ({
+        ...prev,
         title: site.title,
         websiteUrl: site.websiteUrl || '',
         description: site.description || '',
         niche: site.niche,
-        nicheId: site.nicheId || '',
+        nicheId: '', // заполнится после загрузки ниш по совпадению имени
         clientId: site.clientId,
         accountManagerId: site.accountManagerId || '',
         isActive: site.isActive,
-      });
+      }));
     }
   }, [site]);
+
+  // При редактировании подставляем nicheId по имени ниши
+  useEffect(() => {
+    if (site && niches.length > 0 && formData.niche === site.niche) {
+      const found = niches.find((n) => n.name === site.niche);
+      if (found && !formData.nicheId) {
+        setFormData((prev) => ({ ...prev, nicheId: found.id }));
+      }
+    }
+  }, [site, niches, formData.niche, formData.nicheId]);
 
   const fetchClients = async () => {
     const res = await fetch('/api/clients');

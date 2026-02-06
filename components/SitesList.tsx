@@ -11,15 +11,6 @@ interface Site {
   description: string | null;
   isActive: boolean;
   niche: string;
-  nicheId: string | null;
-  nicheRef?: {
-    id: string;
-    name: string;
-    parent?: {
-      id: string;
-      name: string;
-    } | null;
-  } | null;
   clientId: string;
   client: {
     id: string;
@@ -274,16 +265,7 @@ export default function SitesList() {
                     {site.client.seller.fullName}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {(() => {
-                      const nicheRef = (site as any).nicheRef;
-                      if (nicheRef) {
-                        // Показываем иерархию: "Родитель > Дочерняя"
-                        return nicheRef.parent 
-                          ? `${nicheRef.parent.name} > ${nicheRef.name}`
-                          : nicheRef.name;
-                      }
-                      return site.niche;
-                    })()}
+                    {site.niche}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {site.services && site.services.length > 0 ? (

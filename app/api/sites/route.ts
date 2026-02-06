@@ -67,160 +67,51 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Пытаемся получить сайты с nicheRef, если таблица не существует - без него
-    let sites;
-    try {
-      // Получаем сайты с nicheRef (без вложенного parent для надежности)
-      sites = await prisma.site.findMany({
-        where,
-        include: {
-          client: {
-            include: {
-              seller: {
-                select: {
-                  id: true,
-                  fullName: true,
-                },
+    const sites = await prisma.site.findMany({
+      where,
+      include: {
+        client: {
+          include: {
+            seller: {
+              select: {
+                id: true,
+                fullName: true,
               },
-            },
-          },
-          accountManager: {
-            select: {
-              id: true,
-              fullName: true,
-            },
-          },
-          creator: {
-            select: {
-              id: true,
-              fullName: true,
-            },
-          },
-          nicheRef: {
-            select: {
-              id: true,
-              name: true,
-              parentId: true,
-            },
-          },
-          services: {
-            where: {
-              status: 'ACTIVE',
-            },
-            select: {
-              id: true,
-              product: {
-                select: {
-                  name: true,
-                },
-              },
-            },
-            take: 5,
-          },
-          expenses: {
-            orderBy: { paymentAt: 'desc' },
-            take: 1,
-            select: {
-              id: true,
-              amount: true,
-              paymentAt: true,
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      // Загружаем parent для каждой ниши отдельно, если нужно
-      if (sites.some(s => s.nicheRef?.parentId)) {
-        const nicheIdsWithParents = sites
-          .map(s => s.nicheRef?.parentId)
-          .filter((id): id is string => !!id);
-        const uniqueParentIds = [...new Set(nicheIdsWithParents)];
-        
-        if (uniqueParentIds.length > 0) {
-          try {
-            const parents = await prisma.niche.findMany({
-              where: { id: { in: uniqueParentIds } },
-              select: { id: true, name: true, sortOrder: true },
-            });
-            const parentsMap = new Map(parents.map(p => [p.id, p]));
-            
-            // Добавляем parent к каждой nicheRef
-            sites = sites.map(site => {
-              if (site.nicheRef?.parentId) {
-                const parent = parentsMap.get(site.nicheRef.parentId);
-                return {
-                  ...site,
-                  nicheRef: {
-                    ...site.nicheRef,
-                    parent: parent || null,
-                  },
-                };
-              }
-              return site;
-            });
-          } catch (parentError: any) {
-            console.warn('Cannot fetch parents for niches:', parentError.message);
-            // Продолжаем без parent
-          }
-        }
-      }
-    } catch (dbError: any) {
-      // При любой ошибке (нет колонки, нет таблицы, неверная схема и т.д.) — загружаем сайты без nicheRef
-      console.warn('Fetching sites with nicheRef failed, falling back to without nicheRef:', dbError?.message || dbError);
-      sites = await prisma.site.findMany({
-        where,
-        include: {
-          client: {
-            include: {
-              seller: {
-                select: {
-                  id: true,
-                  fullName: true,
-                },
-              },
-            },
-          },
-          accountManager: {
-            select: {
-              id: true,
-              fullName: true,
-            },
-          },
-          creator: {
-            select: {
-              id: true,
-              fullName: true,
-            },
-          },
-          services: {
-            where: {
-              status: 'ACTIVE',
-            },
-            select: {
-              id: true,
-              product: {
-                select: {
-                  name: true,
-                },
-              },
-            },
-            take: 5,
-          },
-          expenses: {
-            orderBy: { paymentAt: 'desc' },
-            take: 1,
-            select: {
-              id: true,
-              amount: true,
-              paymentAt: true,
-            },
+        accountManager: {
+          select: {
+            id: true,
+            fullName: true,
           },
         },
-        orderBy: { createdAt: 'desc' },
-      });
-      sites = sites.map(s => ({ ...s, nicheRef: null }));
-    }
+        creator: {
+          select: {
+            id: true,
+            fullName: true,
+          },
+        },
+        services: {
+          where: { status: 'ACTIVE' },
+          select: {
+            id: true,
+            product: { select: { name: true } },
+          },
+          take: 5,
+        },
+        expenses: {
+          orderBy: { paymentAt: 'desc' },
+          take: 1,
+          select: {
+            id: true,
+            amount: true,
+            paymentAt: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
     // Convert BigInt to string for JSON serialization
     const serializedSites = sites.map((s) => ({
@@ -273,66 +164,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Если nicheId указан, получаем название ниши из БД, иначе используем переданное niche
-    let finalNiche = '';
-    let finalNicheId = null;
-    
-    // Обрабатываем nicheId и niche
+    // Ниша хранится только как строка (поле niche). Если передан nicheId — берём название из справочника.
+    let nicheName = typeof niche === 'string' && niche.trim() ? niche.trim() : '';
     if (nicheId && typeof nicheId === 'string' && nicheId.trim()) {
-      // Если указан nicheId, проверяем что ниша существует и получаем её название
       try {
-        const nicheRecord = await prisma.niche.findUnique({
+        const rec = await prisma.niche.findUnique({
           where: { id: nicheId.trim() },
           select: { name: true },
         });
-        if (nicheRecord) {
-          finalNiche = nicheRecord.name;
-          finalNicheId = nicheId.trim();
-        } else {
-          return NextResponse.json(
-            { error: 'Указанная ниша не найдена' },
-            { status: 400 }
-          );
-        }
-      } catch (dbError: any) {
-        // Если таблица Niche не существует, используем переданное niche
-        if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
-          console.warn('Table Niche does not exist, using provided niche name');
-          finalNiche = niche || '';
-          finalNicheId = null;
-        } else {
-          console.error('Error fetching niche:', dbError);
-          return NextResponse.json(
-            { error: `Ошибка при проверке ниши: ${dbError.message || 'Unknown error'}` },
-            { status: 500 }
-          );
-        }
+        if (rec) nicheName = rec.name;
+      } catch {
+        // Таблица Niche недоступна — используем переданное название
       }
-    } else if (niche && typeof niche === 'string' && niche.trim()) {
-      // Если nicheId не указан, но указана niche, используем её
-      finalNiche = niche.trim();
-      finalNicheId = null;
-    } else {
-      // Если ничего не указано
+    }
+    if (!nicheName) {
       return NextResponse.json(
         { error: 'Поле "Ниша" обязательно для заполнения' },
         { status: 400 }
       );
     }
 
-    // Проверяем, что finalNiche не пустой
-    if (!finalNiche || !finalNiche.trim()) {
-      return NextResponse.json(
-        { error: 'Поле "Ниша" обязательно для заполнения' },
-        { status: 400 }
-      );
-    }
-
-    // Check if user can assign account manager
-    // ACCOUNT_MANAGER can assign themselves when creating a site
     const canAssign = await canAssignAccountManager(user);
     const isAccountManagerAssigningSelf = user.roleCode === 'ACCOUNT_MANAGER' && accountManagerId === user.id;
-    
     if (accountManagerId && !canAssign && !isAccountManagerAssigningSelf) {
       return NextResponse.json(
         { error: 'You cannot assign account manager' },
@@ -340,52 +193,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const baseData = {
-      title: title.trim(),
-      websiteUrl: websiteUrl ? websiteUrl.trim() : null,
-      description: description ? description.trim() : null,
-      niche: finalNiche.trim(),
-      clientId,
-      accountManagerId: accountManagerId || null,
-      creatorId: user.id,
-      isActive: isActive ?? false,
-    };
-
-    const includeRelations = {
-      client: {
-        include: {
-          seller: { select: { id: true, fullName: true } },
-        },
+    const site = await prisma.site.create({
+      data: {
+        title: title.trim(),
+        websiteUrl: websiteUrl ? websiteUrl.trim() : null,
+        description: description ? description.trim() : null,
+        niche: nicheName,
+        clientId,
+        accountManagerId: accountManagerId || null,
+        creatorId: user.id,
+        isActive: isActive ?? false,
       },
-      accountManager: { select: { id: true, fullName: true } },
-    };
-
-    let site;
-    try {
-      // Сначала пробуем с nicheId
-      if (finalNicheId) {
-        try {
-          site = await prisma.site.create({
-            data: { ...baseData, nicheId: finalNicheId },
-            include: includeRelations,
-          });
-        } catch (withNicheIdError: any) {
-          console.warn('Create site with nicheId failed, retrying without:', withNicheIdError?.message);
-          site = await prisma.site.create({
-            data: baseData,
-            include: includeRelations,
-          });
-        }
-      } else {
-        site = await prisma.site.create({
-          data: baseData,
-          include: includeRelations,
-        });
-      }
-    } catch (createError: any) {
-      console.error('Error creating site:', createError);
-      throw createError;
-    }
+      include: {
+        client: {
+          include: {
+            seller: { select: { id: true, fullName: true } },
+          },
+        },
+        accountManager: { select: { id: true, fullName: true } },
+      },
+    });
 
     return NextResponse.json({ site });
   } catch (error: any) {

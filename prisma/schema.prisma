@@ -162,7 +162,6 @@ model Site {
   description      String?
   isActive         Boolean   @default(false)
   niche            String
-  nicheId          String?
   clientId         String
   accountManagerId String?
   creatorId        String
@@ -173,13 +172,11 @@ model Site {
   accountManager   User?     @relation("SiteAccountManager", fields: [accountManagerId], references: [id])
   client           Client    @relation(fields: [clientId], references: [id])
   creator          User      @relation("SiteCreator", fields: [creatorId], references: [id])
-  nicheRef         Niche?    @relation(fields: [nicheId], references: [id], onDelete: SetNull)
   contractDocuments ContractDocument[]
   contractSections  ContractSection[]
   closeoutPackages  CloseoutPackage[]
 
   @@index([clientId])
-  @@index([nicheId])
   @@index([accountManagerId])
   @@index([creatorId])
   @@index([isActive])
@@ -269,7 +266,6 @@ model Niche {
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  sites     Site[]
   parent    Niche?   @relation("NicheHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   children  Niche[]  @relation("NicheHierarchy")
 

@@ -185,9 +185,9 @@ export async function DELETE(
         return NextResponse.json({ error: 'Ниша не найдена' }, { status: 404 });
       }
 
-      // Проверяем, используется ли ниша в сайтах
+      // Проверяем, используется ли ниша в сайтах (по названию)
       const sitesCount = await prisma.site.count({
-        where: { nicheId: params.id },
+        where: { niche: niche.name },
       });
 
       if (sitesCount > 0) {

@@ -13,114 +13,47 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Пытаемся получить сайт с nicheRef, если таблица не существует - без него
-    let site;
-    try {
-      site = await prisma.site.findUnique({
-        where: { id: params.id },
-        include: {
-          client: {
-            include: {
-              seller: {
-                select: {
-                  id: true,
-                  fullName: true,
-                },
+    const site = await prisma.site.findUnique({
+      where: { id: params.id },
+      include: {
+        client: {
+          include: {
+            seller: {
+              select: {
+                id: true,
+                fullName: true,
               },
             },
-          },
-          accountManager: {
-            select: {
-              id: true,
-              fullName: true,
-            },
-          },
-          creator: {
-            select: {
-              id: true,
-              fullName: true,
-            },
-          },
-          nicheRef: {
-            select: {
-              id: true,
-              name: true,
-              parent: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            },
-          },
-          services: {
-            include: {
-              product: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            },
-            orderBy: [
-              { status: 'asc' },
-              { startDate: 'desc' },
-            ],
           },
         },
-      });
-    } catch (dbError: any) {
-      // Если таблица Niche не существует, делаем запрос без nicheRef
-      if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
-        console.warn('Table Niche does not exist, fetching site without nicheRef');
-        site = await prisma.site.findUnique({
-          where: { id: params.id },
+        accountManager: {
+          select: {
+            id: true,
+            fullName: true,
+          },
+        },
+        creator: {
+          select: {
+            id: true,
+            fullName: true,
+          },
+        },
+        services: {
           include: {
-            client: {
-              include: {
-                seller: {
-                  select: {
-                    id: true,
-                    fullName: true,
-                  },
-                },
-              },
-            },
-            accountManager: {
+            product: {
               select: {
                 id: true,
-                fullName: true,
+                name: true,
               },
-            },
-            creator: {
-              select: {
-                id: true,
-                fullName: true,
-              },
-            },
-            services: {
-              include: {
-                product: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
-              },
-              orderBy: [
-                { status: 'asc' },
-                { startDate: 'desc' },
-              ],
             },
           },
-        });
-        if (site) {
-          site = { ...site, nicheRef: null };
-        }
-      } else {
-        throw dbError;
-      }
-    }
+          orderBy: [
+            { status: 'asc' },
+            { startDate: 'desc' },
+          ],
+        },
+      },
+    });
 
     if (!site) {
       return NextResponse.json({ error: 'Site not found' }, { status: 404 });
@@ -167,99 +100,50 @@ export async function PUT(
       isActive,
     } = body;
 
-    // Если nicheId не указан, но указана niche (для обратной совместимости)
-    const finalNiche = nicheId ? null : (niche !== undefined ? niche : site.niche);
-    const finalNicheId = nicheId !== undefined ? nicheId : site.nicheId;
+    // Ниша только строка: при переданном nicheId берём название из справочника
+    let nicheName: string | undefined =
+      typeof niche === 'string' && niche.trim() ? niche.trim() : undefined;
+    if (!nicheName && nicheId && typeof nicheId === 'string' && nicheId.trim()) {
+      try {
+        const rec = await prisma.niche.findUnique({
+          where: { id: nicheId.trim() },
+          select: { name: true },
+        });
+        if (rec) nicheName = rec.name;
+      } catch {
+        // ignore
+      }
+    }
+    if (nicheName === undefined) {
+      nicheName = site.niche;
+    }
 
-    // Build update data
     const updateData: any = {
       title,
-      websiteUrl: websiteUrl || null,
-      description: description || null,
-      niche: finalNiche,
-      nicheId: finalNicheId,
+      websiteUrl: websiteUrl ?? null,
+      description: description ?? null,
+      niche: nicheName,
       clientId,
       isActive: isActive !== undefined ? isActive : site.isActive,
     };
 
-    // Only update accountManagerId if user can assign it
     const canAssign = await canAssignAccountManager(user);
-    if (canAssign) {
-      // User can assign, so update accountManagerId if provided
-      if (accountManagerId !== undefined) {
-        updateData.accountManagerId = accountManagerId || null;
-      }
+    if (canAssign && accountManagerId !== undefined) {
+      updateData.accountManagerId = accountManagerId || null;
     }
-    // If user can't assign, don't update accountManagerId at all (keep existing value)
 
-    // Пытаемся обновить с nicheRef, если таблица не существует - без него
-    let updated;
-    try {
-      updated = await prisma.site.update({
-        where: { id: params.id },
-        data: updateData,
-        include: {
-          client: {
-            include: {
-              seller: {
-                select: {
-                  id: true,
-                  fullName: true,
-                },
-              },
-            },
-          },
-          accountManager: {
-            select: {
-              id: true,
-              fullName: true,
-            },
-          },
-          nicheRef: {
-            select: {
-              id: true,
-              name: true,
-              parent: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            },
+    const updated = await prisma.site.update({
+      where: { id: params.id },
+      data: updateData,
+      include: {
+        client: {
+          include: {
+            seller: { select: { id: true, fullName: true } },
           },
         },
-      });
-    } catch (dbError: any) {
-      // Если таблица Niche не существует, делаем обновление без nicheRef
-      if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
-        console.warn('Table Niche does not exist, updating site without nicheRef');
-        updated = await prisma.site.update({
-          where: { id: params.id },
-          data: updateData,
-          include: {
-            client: {
-              include: {
-                seller: {
-                  select: {
-                    id: true,
-                    fullName: true,
-                  },
-                },
-              },
-            },
-            accountManager: {
-              select: {
-                id: true,
-                fullName: true,
-              },
-            },
-          },
-        });
-        updated = { ...updated, nicheRef: null };
-      } else {
-        throw dbError;
-      }
-    }
+        accountManager: { select: { id: true, fullName: true } },
+      },
+    });
 
     return NextResponse.json({ site: updated });
   } catch (error) {
