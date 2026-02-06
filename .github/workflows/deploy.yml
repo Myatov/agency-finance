@@ -5,6 +5,11 @@ on:
     branches:
       - main
 
+# Предотвращаем параллельные деплои
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest

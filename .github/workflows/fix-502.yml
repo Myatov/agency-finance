@@ -3,6 +3,11 @@ name: Fix 502 Bad Gateway
 on:
   workflow_dispatch:
 
+# Предотвращаем параллельные запуски
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
 jobs:
   fix:
     runs-on: ubuntu-latest
