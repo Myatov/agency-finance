@@ -30,6 +30,7 @@ export default function NichesList() {
   const [formParentId, setFormParentId] = useState<string>('');
   const [error, setError] = useState('');
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
+  const [draggedParentId, setDraggedParentId] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -62,6 +63,11 @@ export default function NichesList() {
 
   const canManage = user?.roleCode === 'OWNER' || user?.roleCode === 'CEO';
 
+  // Группируем ниши: корневые и дочерние
+  const rootNiches = niches.filter(n => !n.parentId).sort((a, b) => a.sortOrder - b.sortOrder);
+  const getChildren = (parentId: string) => 
+    niches.filter(n => n.parentId === parentId).sort((a, b) => a.sortOrder - b.sortOrder);
+
   const handleAdd = () => {
     setEditingNiche(null);
     setFormName('');
@@ -89,9 +95,10 @@ export default function NichesList() {
     }
   };
 
-  const handleDragStart = (e: React.DragEvent, id: string) => {
+  const handleDragStart = (e: React.DragEvent, niche: Niche) => {
     if (!canManage) return;
-    setDraggedItem(id);
+    setDraggedItem(niche.id);
+    setDraggedParentId(niche.parentId);
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -106,31 +113,64 @@ export default function NichesList() {
     (e.currentTarget as HTMLElement).classList.remove('bg-blue-50');
   };
 
-  const handleDrop = async (e: React.DragEvent, targetId: string) => {
+  const handleDrop = async (e: React.DragEvent, targetNiche: Niche) => {
     if (!canManage || !draggedItem) return;
     e.preventDefault();
     (e.currentTarget as HTMLElement).classList.remove('bg-blue-50');
-    if (draggedItem === targetId) {
+    
+    if (draggedItem === targetNiche.id) {
       setDraggedItem(null);
+      setDraggedParentId(null);
       return;
     }
-    const fromIdx = niches.findIndex((n) => n.id === draggedItem);
-    const toIdx = niches.findIndex((n) => n.id === targetId);
+
+    // Можно перемещать только в рамках одной группы (корневые или дочерние одной родительской)
+    if (draggedParentId !== targetNiche.parentId) {
+      setDraggedItem(null);
+      setDraggedParentId(null);
+      return;
+    }
+
+    const group = draggedParentId 
+      ? niches.filter(n => n.parentId === draggedParentId).sort((a, b) => a.sortOrder - b.sortOrder)
+      : rootNiches;
+
+    const fromIdx = group.findIndex((n) => n.id === draggedItem);
+    const toIdx = group.findIndex((n) => n.id === targetNiche.id);
+    
     if (fromIdx === -1 || toIdx === -1) {
       setDraggedItem(null);
+      setDraggedParentId(null);
       return;
     }
-    const next = [...niches];
+
+    const next = [...group];
     const [removed] = next.splice(fromIdx, 1);
     next.splice(toIdx, 0, removed);
-    setNiches(next);
+    
+    // Обновляем локально
+    const updatedNiches = niches.map(n => {
+      const found = next.find(nn => nn.id === n.id);
+      if (found) {
+        const newIndex = next.indexOf(found);
+        return { ...n, sortOrder: newIndex };
+      }
+      return n;
+    });
+    setNiches(updatedNiches);
     setDraggedItem(null);
+    setDraggedParentId(null);
 
+    // Сохраняем на сервере
     const res = await fetch('/api/niches/reorder', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nicheIds: next.map((n) => n.id) }),
+      body: JSON.stringify({ 
+        nicheIds: next.map((n) => n.id),
+        parentId: draggedParentId,
+      }),
     });
+    
     if (!res.ok) {
       fetchNiches();
       const data = await res.json();
@@ -140,7 +180,8 @@ export default function NichesList() {
 
   const handleDragEnd = () => {
     setDraggedItem(null);
-    document.querySelectorAll('tbody tr').forEach((r) => r.classList.remove('bg-blue-50'));
+    setDraggedParentId(null);
+    document.querySelectorAll('tbody tr, tbody .group-row').forEach((r) => r.classList.remove('bg-blue-50'));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -173,6 +214,56 @@ export default function NichesList() {
     setFormName('');
     setFormParentId('');
     fetchNiches();
+  };
+
+  const renderNicheRow = (niche: Niche, isChild: boolean = false, index: number = 0) => {
+    const children = getChildren(niche.id);
+    const isDragging = draggedItem === niche.id;
+    
+    return (
+      <>
+        <tr
+          key={niche.id}
+          draggable={canManage && !isChild}
+          onDragStart={canManage && !isChild ? (e) => handleDragStart(e, niche) : undefined}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={canManage && !isChild ? (e) => handleDrop(e, niche) : undefined}
+          onDragEnd={handleDragEnd}
+          className={`group-row ${isDragging ? 'opacity-50' : ''} ${canManage && !isChild ? 'cursor-move' : ''} ${!isChild ? 'bg-gray-50 font-semibold' : ''}`}
+        >
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {!isChild && index + 1}
+          </td>
+          <td className={`px-6 py-4 whitespace-nowrap text-sm ${!isChild ? 'font-bold text-gray-900' : 'text-gray-700'}`} style={{ paddingLeft: isChild ? '48px' : '24px' }}>
+            {isChild && <span className="text-gray-400 mr-2">└</span>}
+            {niche.name}
+            {children.length > 0 && !isChild && (
+              <span className="ml-2 text-xs text-gray-500 font-normal">({children.length} подкатегорий)</span>
+            )}
+          </td>
+          {canManage && (
+            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+              <button
+                onClick={() => handleEdit(niche)}
+                className="text-blue-600 hover:text-blue-900 mr-4"
+              >
+                Редактировать
+              </button>
+              <button
+                onClick={() => handleDelete(niche)}
+                className="text-red-600 hover:text-red-900"
+              >
+                Удалить
+              </button>
+            </td>
+          )}
+        </tr>
+        {children.map((child, childIndex) => 
+          renderNicheRow(child, true, childIndex)
+        )}
+      </>
+    );
   };
 
   if (loading) {
@@ -211,48 +302,14 @@ export default function NichesList() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {niches.length === 0 ? (
+            {rootNiches.length === 0 ? (
               <tr>
                 <td colSpan={canManage ? 3 : 2} className="px-6 py-4 text-center text-gray-500">
                   Нет ниш. Добавьте первую нишу.
                 </td>
               </tr>
             ) : (
-              niches.map((niche, index) => (
-                <tr
-                  key={niche.id}
-                  draggable={canManage}
-                  onDragStart={(e) => handleDragStart(e, niche.id)}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, niche.id)}
-                  onDragEnd={handleDragEnd}
-                  className={draggedItem === niche.id ? 'opacity-50' : 'cursor-move'}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {index + 1}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {niche.name}
-                  </td>
-                  {canManage && (
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleEdit(niche)}
-                        className="text-blue-600 hover:text-blue-900 mr-4"
-                      >
-                        Редактировать
-                      </button>
-                      <button
-                        onClick={() => handleDelete(niche)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Удалить
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))
+              rootNiches.map((niche, index) => renderNicheRow(niche, false, index))
             )}
           </tbody>
         </table>
@@ -288,8 +345,8 @@ export default function NichesList() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 >
                   <option value="">Корневая ниша (без родителя)</option>
-                  {niches
-                    .filter(n => !n.parentId && (!editingNiche || n.id !== editingNiche.id))
+                  {rootNiches
+                    .filter(n => !editingNiche || n.id !== editingNiche.id)
                     .map((niche) => (
                       <option key={niche.id} value={niche.id}>
                         {niche.name}

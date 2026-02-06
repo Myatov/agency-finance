@@ -18,14 +18,15 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { nicheIds } = body;
+    const { nicheIds, parentId } = body;
 
     if (!Array.isArray(nicheIds)) {
       return NextResponse.json({ error: 'nicheIds must be an array' }, { status: 400 });
     }
 
     try {
-      // Обновляем sortOrder для каждой ниши
+      // Обновляем sortOrder только для ниш с одинаковым parentId
+      // parentId может быть null для корневых ниш или строкой для дочерних
       await Promise.all(
         nicheIds.map((nicheId: string, index: number) =>
           prisma.niche.update({
