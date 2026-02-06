@@ -58,6 +58,7 @@ export default function SitesList() {
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [showServices, setShowServices] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [sitesError, setSitesError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     isActive: 'true',
     accountManagerId: '',
@@ -81,6 +82,7 @@ export default function SitesList() {
 
   const fetchSites = async () => {
     setLoading(true);
+    setSitesError(null);
     const params = new URLSearchParams();
     if (filters.isActive) params.set('isActive', filters.isActive);
     if (filters.accountManagerId) params.set('accountManagerId', filters.accountManagerId);
@@ -89,8 +91,13 @@ export default function SitesList() {
     if (filters.dateTo) params.set('dateTo', filters.dateTo);
 
     const res = await fetch(`/api/sites?${params}`);
-    const data = await res.json();
-    setSites(data.sites || []);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setSitesError(data.error || 'Ошибка загрузки сайтов');
+      setSites([]);
+    } else {
+      setSites(data.sites || []);
+    }
     setLoading(false);
   };
 
@@ -213,6 +220,11 @@ export default function SitesList() {
 
       {/* Sites Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
+        {sitesError && (
+          <div className="px-6 py-4 bg-amber-50 border-b border-amber-200 text-amber-800">
+            {sitesError}
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -335,7 +347,7 @@ export default function SitesList() {
             </tbody>
           </table>
         </div>
-        {sites.length === 0 && (
+        {sites.length === 0 && !sitesError && (
           <div className="text-center py-8 text-gray-500">Сайты не найдены</div>
         )}
       </div>

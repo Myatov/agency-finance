@@ -124,16 +124,16 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ sites: serializedSites });
   } catch (error: any) {
+    const msg = error?.message ?? '';
+    if (msg.includes('niche') && (msg.includes('does not exist') || msg.includes('Unknown column') || msg.includes('column'))) {
+      return NextResponse.json({
+        error: 'В базе отсутствует колонка niche в таблице Site. Выполните миграцию: prisma/ensure-site-has-niche-column.sql',
+      }, { status: 503 });
+    }
     console.error('Error fetching sites:', error);
-    console.error('Error details:', {
-      message: error?.message,
-      code: error?.code,
-      meta: error?.meta,
-      stack: error?.stack,
-    });
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      details: process.env.NODE_ENV === 'development' ? msg : undefined,
     }, { status: 500 });
   }
 }
@@ -218,14 +218,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ site });
   } catch (error: any) {
     const message = error?.message ?? String(error);
-    const code = error?.code;
-    console.error('Error creating site:', message, { code, meta: error?.meta });
+    if (message.includes('niche') && (message.includes('does not exist') || message.includes('Unknown column') || message.includes('column'))) {
+      return NextResponse.json({
+        error: 'В базе отсутствует колонка niche в таблице Site. Выполните миграцию: prisma/ensure-site-has-niche-column.sql',
+      }, { status: 503 });
+    }
+    console.error('Error creating site:', message, { code: error?.code, meta: error?.meta });
     return NextResponse.json(
-      {
-        error: 'Не удалось создать сайт',
-        details: message,
-        code: code ?? undefined,
-      },
+      { error: 'Не удалось создать сайт', details: message },
       { status: 500 }
     );
   }

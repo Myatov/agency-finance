@@ -60,7 +60,13 @@ export async function GET(
     }
 
     return NextResponse.json({ site });
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error?.message ?? '';
+    if (msg.includes('niche') && (msg.includes('does not exist') || msg.includes('Unknown column') || msg.includes('column'))) {
+      return NextResponse.json({
+        error: 'В базе отсутствует колонка niche в таблице Site. Выполните миграцию: prisma/ensure-site-has-niche-column.sql',
+      }, { status: 503 });
+    }
     console.error('Error fetching site:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -146,7 +152,13 @@ export async function PUT(
     });
 
     return NextResponse.json({ site: updated });
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error?.message ?? '';
+    if (msg.includes('niche') && (msg.includes('does not exist') || msg.includes('Unknown column') || msg.includes('column'))) {
+      return NextResponse.json({
+        error: 'В базе отсутствует колонка niche в таблице Site. Выполните миграцию: prisma/ensure-site-has-niche-column.sql',
+      }, { status: 503 });
+    }
     console.error('Error updating site:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -197,7 +209,13 @@ export async function DELETE(
     });
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error?.message ?? '';
+    if (msg.includes('niche') && (msg.includes('does not exist') || msg.includes('Unknown column') || msg.includes('column'))) {
+      return NextResponse.json({
+        error: 'В базе отсутствует колонка niche в таблице Site. Выполните миграцию: prisma/ensure-site-has-niche-column.sql',
+      }, { status: 503 });
+    }
     console.error('Error deleting site:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

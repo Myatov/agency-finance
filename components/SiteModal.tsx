@@ -307,13 +307,13 @@ export default function SiteModal({
                 return 0;
               };
 
-              // Сортируем как в справочнике (по родителю, потом по дочерней), затем разворачиваем — в форме показываем в обратном порядке
+              // Сортируем как в справочнике: по порядку родителя, затем по sortOrder дочерней ниши
               availableNiches = [...availableNiches].sort((a, b) => {
                 const parentAOrder = getParentSortOrder(a);
                 const parentBOrder = getParentSortOrder(b);
                 if (parentAOrder !== parentBOrder) return parentAOrder - parentBOrder;
                 return a.sortOrder - b.sortOrder;
-              }).reverse();
+              });
 
               return (
                 <select
