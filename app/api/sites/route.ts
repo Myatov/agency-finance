@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
     let finalNiche = '';
     let finalNicheId = null;
     
-    if (nicheId) {
+    if (nicheId && nicheId.trim()) {
       // Если указан nicheId, проверяем что ниша существует и получаем её название
       try {
         const nicheRecord = await prisma.niche.findUnique({
@@ -257,13 +257,25 @@ export async function POST(request: NextRequest) {
           finalNiche = niche || '';
           finalNicheId = null;
         } else {
-          throw dbError;
+          console.error('Error fetching niche:', dbError);
+          return NextResponse.json(
+            { error: 'Ошибка при проверке ниши' },
+            { status: 500 }
+          );
         }
       }
     } else {
       // Если nicheId не указан, используем переданное niche
       finalNiche = niche || '';
       finalNicheId = null;
+    }
+    
+    // Проверяем что niche не пустое (поле обязательное)
+    if (!finalNiche || !finalNiche.trim()) {
+      return NextResponse.json(
+        { error: 'Поле "Ниша" обязательно для заполнения' },
+        { status: 400 }
+      );
     }
 
     // Check if user can assign account manager
