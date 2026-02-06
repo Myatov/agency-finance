@@ -70,26 +70,26 @@ export default function ClientModal({
   }, []);
 
   useEffect(() => {
-    if (client && legalEntities.length > 0) {
+    if (client) {
       setFormData({
         name: client.name,
         legalEntityId: client.legalEntityId || '',
         sellerEmployeeId: client.sellerEmployeeId,
-        legalEntityName: client.legalEntityName || '',
-        contractBasis: client.contractBasis || '',
-        legalAddress: client.legalAddress || '',
-        inn: client.inn || '',
-        kpp: client.kpp || '',
-        ogrn: client.ogrn || '',
-        rs: client.rs || '',
-        bankName: client.bankName || '',
-        bik: client.bik || '',
-        ks: client.ks || '',
-        paymentRequisites: client.paymentRequisites || '',
-        contacts: client.contacts || '',
+        legalEntityName: client.legalEntityName ?? '',
+        contractBasis: client.contractBasis ?? '',
+        legalAddress: client.legalAddress ?? '',
+        inn: client.inn ?? '',
+        kpp: client.kpp ?? '',
+        ogrn: client.ogrn ?? '',
+        rs: client.rs ?? '',
+        bankName: client.bankName ?? '',
+        bik: client.bik ?? '',
+        ks: client.ks ?? '',
+        paymentRequisites: client.paymentRequisites ?? '',
+        contacts: client.contacts ?? '',
       });
     }
-  }, [client, legalEntities]);
+  }, [client]);
 
   const fetchUsers = async () => {
     const res = await fetch('/api/users');
