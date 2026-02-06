@@ -38,4 +38,5 @@ jobs:
             echo "🔄 Restarting application..."
             pm2 restart agency-finance --update-env
             echo "✅ Application restarted"
-            pm2 logs agency-finance --lines 15
+            sleep 2
+            pm2 status
