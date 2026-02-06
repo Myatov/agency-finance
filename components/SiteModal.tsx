@@ -22,6 +22,7 @@ interface Niche {
   parent?: {
     id: string;
     name: string;
+    sortOrder?: number;
   } | null;
 }
 
@@ -257,17 +258,20 @@ export default function SiteModal({
               // Если нет дочерних ниш, показываем все (для обратной совместимости)
               let availableNiches = childNiches.length > 0 ? childNiches : niches;
               
-              // Сортируем: сначала группируем по родителям, затем по sortOrder внутри группы
+              // Сортируем: сначала по sortOrder родителя, затем по sortOrder дочерней ниши
               availableNiches = availableNiches.sort((a, b) => {
-                // Если у обеих есть родители, сортируем сначала по имени родителя
+                // Если у обеих есть родители, сортируем сначала по sortOrder родителя
                 if (a.parentId && b.parentId) {
                   const parentA = niches.find(n => n.id === a.parentId);
                   const parentB = niches.find(n => n.id === b.parentId);
                   if (parentA && parentB) {
-                    const parentCompare = parentA.name.localeCompare(parentB.name, 'ru');
-                    if (parentCompare !== 0) return parentCompare;
+                    // Сначала сортируем по sortOrder родителя
+                    const parentOrderCompare = (parentA.sortOrder || 0) - (parentB.sortOrder || 0);
+                    if (parentOrderCompare !== 0) return parentOrderCompare;
+                    // Если родители одинаковые, сортируем по sortOrder дочерней ниши
+                    return a.sortOrder - b.sortOrder;
                   }
-                  // Если родители одинаковые, сортируем по sortOrder
+                  // Если не нашли родителя, сортируем по sortOrder дочерней ниши
                   return a.sortOrder - b.sortOrder;
                 }
                 // Если только у одной есть родитель, она идет после
