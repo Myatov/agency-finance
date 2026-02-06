@@ -39,12 +39,15 @@ function checkPrismaClient() {
     const indexContent = fs.readFileSync(path.join(clientPath, 'index.d.ts'), 'utf-8');
     const schemaContent = fs.readFileSync(schemaPath, 'utf-8');
     
-    // Проверяем наличие CostCategory и FinancialModelExpenseType
+    // Проверяем наличие CostCategory, FinancialModelExpenseType и Niche
     const hasCostCategoryInSchema = schemaContent.includes('model CostCategory');
     const hasCostCategoryInClient = indexContent.includes('costCategory') || indexContent.includes('CostCategory');
     
     const hasFinancialModelInSchema = schemaContent.includes('model FinancialModelExpenseType');
     const hasFinancialModelInClient = indexContent.includes('financialModelExpenseType') || indexContent.includes('FinancialModelExpenseType');
+    
+    const hasNicheInSchema = schemaContent.includes('model Niche');
+    const hasNicheInClient = indexContent.includes('niche') && indexContent.includes('Niche');
     
     // Expense.legalEntityId — должен быть в ExpenseUncheckedCreateInput
     const hasExpenseLegalEntityInSchema = /model Expense[\s\S]*?legalEntityId\s+String\?/m.test(schemaContent);
@@ -56,6 +59,11 @@ function checkPrismaClient() {
     
     if (hasFinancialModelInSchema && !hasFinancialModelInClient) {
       console.log('⚠️  FinancialModelExpenseType model missing in Prisma Client, regenerating...');
+      return false;
+    }
+    
+    if (hasNicheInSchema && !hasNicheInClient) {
+      console.log('⚠️  Niche model missing in Prisma Client, regenerating...');
       return false;
     }
     
