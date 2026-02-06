@@ -77,7 +77,7 @@ for i in {1..3}; do
   sleep 3
   HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 2>&1 || echo "000")
   echo "Попытка $i: HTTP $HTTP_CODE"
-  if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ] || [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "404" ]; then
+  if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ] || [ "$HTTP_CODE" = "307" ] || [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "404" ]; then
     echo "✅ Приложение работает! (HTTP $HTTP_CODE)"
     echo ""
     echo "=========================================="

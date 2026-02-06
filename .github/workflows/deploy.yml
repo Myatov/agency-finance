@@ -40,6 +40,8 @@ jobs:
             npx prisma db execute --file prisma/add-client-requisites-columns.sql || true
             echo "🔄 Applying DB migration (Niche table) if needed..."
             npx prisma db execute --file prisma/create-niche-table.sql || true
+            echo "🔄 Applying DB migration (Site.nicheId) if needed..."
+            npx prisma db execute --file prisma/add-niche-id-to-site.sql || true
             echo "🔄 Running safe deploy script..."
             if bash scripts/safe-deploy.sh; then
               echo "✅ Safe deploy completed successfully"
@@ -71,7 +73,8 @@ jobs:
             echo "📋 Testing application health:"
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 2>&1 || echo "000")
             echo "HTTP Status: $HTTP_CODE"
-            if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "302" ] && [ "$HTTP_CODE" != "401" ] && [ "$HTTP_CODE" != "404" ]; then
+            # 200, 302, 307, 401, 404 - это нормальные коды ответа
+            if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "302" ] && [ "$HTTP_CODE" != "307" ] && [ "$HTTP_CODE" != "401" ] && [ "$HTTP_CODE" != "404" ]; then
               echo "⚠️ Application not responding (HTTP $HTTP_CODE), attempting quick fix..."
               echo "🔄 Stopping all processes..."
               pm2 stop agency-finance 2>/dev/null || true
@@ -84,7 +87,7 @@ jobs:
               echo "📋 Final health check:"
               HTTP_CODE2=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 2>&1 || echo "000")
               echo "HTTP Status after recovery: $HTTP_CODE2"
-              if [ "$HTTP_CODE2" != "200" ] && [ "$HTTP_CODE2" != "302" ] && [ "$HTTP_CODE2" != "401" ] && [ "$HTTP_CODE2" != "404" ]; then
+              if [ "$HTTP_CODE2" != "200" ] && [ "$HTTP_CODE2" != "302" ] && [ "$HTTP_CODE2" != "307" ] && [ "$HTTP_CODE2" != "401" ] && [ "$HTTP_CODE2" != "404" ]; then
                 echo "⚠️ Application still not responding. Check logs: pm2 logs agency-finance --lines 100"
               fi
             fi
