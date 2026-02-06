@@ -53,6 +53,20 @@ npm run db:generate
 npm run db:seed
 ```
 
+**Если не создаётся сайт (ошибка при добавлении):**
+
+Убедитесь, что в таблице `Site` есть колонка `niche` (ниша хранится только как строка). На сервере выполните:
+
+```bash
+psql "$DATABASE_URL" -f prisma/ensure-site-has-niche-column.sql
+```
+
+После деплоя кода без `nicheId` можно удалить старую колонку (опционально):
+
+```bash
+psql "$DATABASE_URL" -f prisma/remove-niche-id-from-site.sql
+```
+
 **Если возникает ошибка "Database schema error: CostCategory model not available":**
 
 Это означает, что Prisma Client на сервере не был перегенерирован после миграции схемы БД.

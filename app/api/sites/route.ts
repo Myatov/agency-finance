@@ -166,23 +166,24 @@ export async function POST(request: NextRequest) {
 
     // Ниша хранится только как строка (поле niche). Если передан nicheId — берём название из справочника.
     let nicheName = typeof niche === 'string' && niche.trim() ? niche.trim() : '';
-    if (nicheId && typeof nicheId === 'string' && nicheId.trim()) {
+    if (!nicheName && nicheId && typeof nicheId === 'string' && nicheId.trim()) {
       try {
         const rec = await prisma.niche.findUnique({
           where: { id: nicheId.trim() },
           select: { name: true },
         });
-        if (rec) nicheName = rec.name;
+        if (rec?.name) nicheName = rec.name;
       } catch {
-        // Таблица Niche недоступна — используем переданное название
+        // Справочник недоступен — nicheName остаётся пустым, проверим ниже
       }
     }
-    if (!nicheName) {
+    if (!nicheName || !nicheName.trim()) {
       return NextResponse.json(
         { error: 'Поле "Ниша" обязательно для заполнения' },
         { status: 400 }
       );
     }
+    nicheName = nicheName.trim();
 
     const canAssign = await canAssignAccountManager(user);
     const isAccountManagerAssigningSelf = user.roleCode === 'ACCOUNT_MANAGER' && accountManagerId === user.id;
@@ -196,13 +197,13 @@ export async function POST(request: NextRequest) {
     const site = await prisma.site.create({
       data: {
         title: title.trim(),
-        websiteUrl: websiteUrl ? websiteUrl.trim() : null,
-        description: description ? description.trim() : null,
+        websiteUrl: websiteUrl ? String(websiteUrl).trim() || null : null,
+        description: description ? String(description).trim() || null : null,
         niche: nicheName,
-        clientId,
-        accountManagerId: accountManagerId || null,
+        clientId: String(clientId).trim(),
+        accountManagerId: accountManagerId ? String(accountManagerId).trim() || null : null,
         creatorId: user.id,
-        isActive: isActive ?? false,
+        isActive: Boolean(isActive),
       },
       include: {
         client: {
@@ -216,16 +217,16 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ site });
   } catch (error: any) {
-    console.error('Error creating site:', error);
-    console.error('Error details:', {
-      message: error?.message,
-      code: error?.code,
-      meta: error?.meta,
-      stack: error?.stack,
-    });
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error?.message : undefined
-    }, { status: 500 });
+    const message = error?.message ?? String(error);
+    const code = error?.code;
+    console.error('Error creating site:', message, { code, meta: error?.meta });
+    return NextResponse.json(
+      {
+        error: 'Не удалось создать сайт',
+        details: message,
+        code: code ?? undefined,
+      },
+      { status: 500 }
+    );
   }
 }

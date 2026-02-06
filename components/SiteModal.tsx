@@ -209,17 +209,24 @@ export default function SiteModal({
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(data.error || 'Ошибка сохранения');
+        const msg = [data.error, data.details].filter(Boolean).join(': ') || 'Ошибка сохранения';
+        setError(msg);
+        setLoading(false);
+        return;
+      }
+
+      if (!site && !data.site) {
+        setError('Сервер не вернул созданный сайт');
         setLoading(false);
         return;
       }
 
       onSuccess();
     } catch (err) {
-      setError('Ошибка соединения');
+      setError(err instanceof Error ? err.message : 'Ошибка соединения');
       setLoading(false);
     }
   };
