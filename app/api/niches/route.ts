@@ -22,7 +22,24 @@ export async function GET() {
     // Проверяем существование таблицы Niche
     try {
       const niches = await prisma.niche.findMany({
-        orderBy: { sortOrder: 'asc' },
+        include: {
+          parent: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          children: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: [
+          { parentId: 'asc' },
+          { sortOrder: 'asc' },
+        ],
       });
       return NextResponse.json({ niches });
     } catch (dbError: any) {
@@ -53,15 +70,33 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name } = body;
+    const { name, parentId } = body;
 
     if (!name || typeof name !== 'string' || !name.trim()) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
+    // Если указан parentId, проверяем что родитель существует и не является дочерним элементом
+    if (parentId) {
+      const parent = await prisma.niche.findUnique({
+        where: { id: parentId },
+        include: { parent: true },
+      });
+      if (!parent) {
+        return NextResponse.json({ error: 'Родительская ниша не найдена' }, { status: 400 });
+      }
+      if (parent.parentId) {
+        return NextResponse.json({ error: 'Нельзя создавать вложенность глубже 2 уровней' }, { status: 400 });
+      }
+    }
+
     // Проверяем существование таблицы
     try {
+      // Для корневых элементов берем максимальный sortOrder среди корневых
+      // Для дочерних - среди дочерних того же родителя
+      const where = parentId ? { parentId } : { parentId: null };
       const maxOrder = await prisma.niche.findFirst({
+        where,
         orderBy: { sortOrder: 'desc' },
         select: { sortOrder: true },
       });
@@ -69,7 +104,16 @@ export async function POST(request: NextRequest) {
       const niche = await prisma.niche.create({
         data: {
           name: name.trim(),
+          parentId: parentId || null,
           sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+        },
+        include: {
+          parent: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       });
 

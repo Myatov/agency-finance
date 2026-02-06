@@ -21,16 +21,62 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name } = body;
+    const { name, parentId } = body;
 
     if (!name || typeof name !== 'string' || !name.trim()) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
+    // Проверяем текущую нишу
+    const currentNiche = await prisma.niche.findUnique({
+      where: { id: params.id },
+      include: { children: true },
+    });
+
+    if (!currentNiche) {
+      return NextResponse.json({ error: 'Ниша не найдена' }, { status: 404 });
+    }
+
+    // Нельзя сделать нишу дочерней самой себе
+    if (parentId === params.id) {
+      return NextResponse.json({ error: 'Нельзя сделать нишу дочерней самой себе' }, { status: 400 });
+    }
+
+    // Если указан parentId, проверяем что родитель существует и не является дочерним элементом
+    if (parentId) {
+      const parent = await prisma.niche.findUnique({
+        where: { id: parentId },
+        include: { parent: true },
+      });
+      if (!parent) {
+        return NextResponse.json({ error: 'Родительская ниша не найдена' }, { status: 400 });
+      }
+      if (parent.parentId) {
+        return NextResponse.json({ error: 'Нельзя создавать вложенность глубже 2 уровней' }, { status: 400 });
+      }
+      // Нельзя сделать родителем дочерний элемент текущей ниши
+      if (currentNiche.children.some(child => child.id === parentId)) {
+        return NextResponse.json({ error: 'Нельзя сделать дочерний элемент родителем' }, { status: 400 });
+      }
+    }
+
     try {
+      const updateData: any = { name: name.trim() };
+      if (parentId !== undefined) {
+        updateData.parentId = parentId || null;
+      }
+
       const niche = await prisma.niche.update({
         where: { id: params.id },
-        data: { name: name.trim() },
+        data: updateData,
+        include: {
+          parent: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
       });
       return NextResponse.json({ niche });
     } catch (dbError: any) {
@@ -71,6 +117,16 @@ export async function DELETE(
     }
 
     try {
+      // Проверяем текущую нишу
+      const niche = await prisma.niche.findUnique({
+        where: { id: params.id },
+        include: { children: true },
+      });
+
+      if (!niche) {
+        return NextResponse.json({ error: 'Ниша не найдена' }, { status: 404 });
+      }
+
       // Проверяем, используется ли ниша в сайтах
       const sitesCount = await prisma.site.count({
         where: { nicheId: params.id },
@@ -79,6 +135,14 @@ export async function DELETE(
       if (sitesCount > 0) {
         return NextResponse.json(
           { error: `Невозможно удалить нишу: она используется в ${sitesCount} сайте(ах)` },
+          { status: 400 }
+        );
+      }
+
+      // Проверяем, есть ли дочерние ниши
+      if (niche.children.length > 0) {
+        return NextResponse.json(
+          { error: `Невозможно удалить нишу: у неё есть ${niche.children.length} дочерних ниш` },
           { status: 400 }
         );
       }

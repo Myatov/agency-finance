@@ -5,7 +5,16 @@ import { useState, useEffect } from 'react';
 interface Niche {
   id: string;
   name: string;
+  parentId: string | null;
   sortOrder: number;
+  parent?: {
+    id: string;
+    name: string;
+  } | null;
+  children?: Array<{
+    id: string;
+    name: string;
+  }>;
 }
 
 interface User {
@@ -18,6 +27,7 @@ export default function NichesList() {
   const [showModal, setShowModal] = useState(false);
   const [editingNiche, setEditingNiche] = useState<Niche | null>(null);
   const [formName, setFormName] = useState('');
+  const [formParentId, setFormParentId] = useState<string>('');
   const [error, setError] = useState('');
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -55,6 +65,7 @@ export default function NichesList() {
   const handleAdd = () => {
     setEditingNiche(null);
     setFormName('');
+    setFormParentId('');
     setError('');
     setShowModal(true);
   };
@@ -62,6 +73,7 @@ export default function NichesList() {
   const handleEdit = (niche: Niche) => {
     setEditingNiche(niche);
     setFormName(niche.name);
+    setFormParentId(niche.parentId || '');
     setError('');
     setShowModal(true);
   };
@@ -144,7 +156,10 @@ export default function NichesList() {
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: formName.trim() }),
+      body: JSON.stringify({ 
+        name: formName.trim(),
+        parentId: formParentId || null,
+      }),
     });
 
     const data = await res.json();
@@ -156,6 +171,7 @@ export default function NichesList() {
     setShowModal(false);
     setEditingNiche(null);
     setFormName('');
+    setFormParentId('');
     fetchNiches();
   };
 
@@ -262,6 +278,28 @@ export default function NichesList() {
                   autoFocus
                 />
               </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Родительская ниша (необязательно)
+                </label>
+                <select
+                  value={formParentId}
+                  onChange={(e) => setFormParentId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="">Корневая ниша (без родителя)</option>
+                  {niches
+                    .filter(n => !n.parentId && (!editingNiche || n.id !== editingNiche.id))
+                    .map((niche) => (
+                      <option key={niche.id} value={niche.id}>
+                        {niche.name}
+                      </option>
+                    ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Выберите родительскую нишу для создания вложенности
+                </p>
+              </div>
               {error && <div className="text-red-600 text-sm mb-4">{error}</div>}
               <div className="flex justify-end gap-2">
                 <button
@@ -270,6 +308,7 @@ export default function NichesList() {
                     setShowModal(false);
                     setEditingNiche(null);
                     setFormName('');
+                    setFormParentId('');
                     setError('');
                   }}
                   className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"

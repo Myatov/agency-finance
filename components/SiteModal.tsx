@@ -17,6 +17,11 @@ interface Site {
 interface Niche {
   id: string;
   name: string;
+  parentId: string | null;
+  parent?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 interface Client {
@@ -244,28 +249,42 @@ export default function SiteModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Ниша *
             </label>
-            {niches.length > 0 ? (
-              <select
-                required
-                value={formData.nicheId}
-                onChange={(e) => {
-                  const selectedNiche = niches.find(n => n.id === e.target.value);
-                  setFormData({ 
-                    ...formData, 
-                    nicheId: e.target.value,
-                    niche: selectedNiche?.name || ''
-                  });
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              >
-                <option value="">Выберите нишу</option>
-                {niches.map((niche) => (
-                  <option key={niche.id} value={niche.id}>
-                    {niche.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
+            {niches.length > 0 ? (() => {
+              // Фильтруем только дочерние ниши (не корневые)
+              const childNiches = niches.filter(n => n.parentId);
+              
+              // Если нет дочерних ниш, показываем все (для обратной совместимости)
+              const availableNiches = childNiches.length > 0 ? childNiches : niches;
+              
+              return (
+                <select
+                  required
+                  value={formData.nicheId}
+                  onChange={(e) => {
+                    const selectedNiche = niches.find(n => n.id === e.target.value);
+                    setFormData({ 
+                      ...formData, 
+                      nicheId: e.target.value,
+                      niche: selectedNiche?.name || ''
+                    });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="">Выберите нишу</option>
+                  {availableNiches.map((niche) => {
+                    // Показываем иерархию: "Родитель > Дочерняя"
+                    const displayName = niche.parent 
+                      ? `${niche.parent.name} > ${niche.name}`
+                      : niche.name;
+                    return (
+                      <option key={niche.id} value={niche.id}>
+                        {displayName}
+                      </option>
+                    );
+                  })}
+                </select>
+              );
+            })() : (
               <input
                 type="text"
                 required

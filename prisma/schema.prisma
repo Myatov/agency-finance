@@ -265,12 +265,16 @@ model FinancialModelExpenseType {
 model Niche {
   id        String   @id @default(uuid())
   name      String   @unique
+  parentId  String?
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   sites     Site[]
+  parent    Niche?   @relation("NicheHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Niche[]  @relation("NicheHierarchy")
 
   @@index([sortOrder])
+  @@index([parentId])
 }
 
 model CostItem {
