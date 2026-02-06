@@ -44,7 +44,7 @@ export default function Navigation() {
       if (user.roleCode === 'CEO') {
         setAccessibleSections([
           '/sites', '/services', '/clients', '/contracts', '/closeout', '/storage',
-          '/incomes', '/expenses', '/employees', '/products', '/reports',
+          '/incomes', '/expenses', '/employees', '/products', '/reports', '/roles',
         ]);
         return;
       }
@@ -119,18 +119,18 @@ export default function Navigation() {
     { href: '/cost-items', label: 'Статьи расходов', section: 'cost-items' },
   ];
 
-  // Роли и Юрлица — только Владелец (скрыто от CEO)
-  if (user.roleCode === 'OWNER') {
+  // Роли — Владелец и CEO, Юрлица — только Владелец
+  if (user.roleCode === 'OWNER' || user.roleCode === 'CEO') {
     settingsItems.push({ href: '/roles', label: 'Роли', section: 'roles' });
+  }
+  if (user.roleCode === 'OWNER') {
     settingsItems.push({ href: '/legal-entities', label: 'Юрлица' });
   }
 
   const visibleSettingsItems =
-    user.roleCode === 'OWNER'
+    user.roleCode === 'OWNER' || user.roleCode === 'CEO'
       ? settingsItems
-      : user.roleCode === 'CEO'
-        ? settingsItems.filter((item) => item.href !== '/roles' && item.href !== '/legal-entities')
-        : settingsItems.filter((item) => item.section && accessibleSections.includes(item.href));
+      : settingsItems.filter((item) => item.section && accessibleSections.includes(item.href));
 
   const workSubmenuAll = [
     { href: '/clients', label: 'Клиенты', section: 'clients' },

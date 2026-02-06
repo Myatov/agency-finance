@@ -35,9 +35,9 @@ export default function RolesList() {
     fetchRoles();
   }, []);
 
-  // Раздел Роли только для Владельца (скрыт от CEO)
+  // Раздел Роли для Владельца и CEO (только просмотр для CEO, редактирование только для OWNER)
   useEffect(() => {
-    if (user && user.roleCode !== 'OWNER') {
+    if (user && user.roleCode !== 'OWNER' && user.roleCode !== 'CEO') {
       window.location.href = '/';
     }
   }, [user]);

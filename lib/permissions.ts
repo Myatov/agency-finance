@@ -11,7 +11,7 @@ export async function hasViewAllPermission(
   if (!SECTIONS_VIEW_ALL.includes(section as any)) return true;
   if (user.roleCode === 'OWNER') return true;
   if (user.roleCode === 'CEO') {
-    if (section === 'roles' || section === 'legal-entities') return false;
+    if (section === 'legal-entities') return false;
     return true;
   }
   const hasManage = await prisma.rolePermission.findFirst({
@@ -30,12 +30,12 @@ export async function hasPermission(
   section: string,
   permission: 'view' | 'create' | 'edit' | 'delete' | 'manage' | 'view_all'
 ): Promise<boolean> {
-  // System roles: OWNER and CEO have full access (except roles/legal-entities for CEO)
+  // System roles: OWNER and CEO have full access (except legal-entities for CEO)
   if (user.roleCode === 'OWNER') {
     return true;
   }
   if (user.roleCode === 'CEO') {
-    if (section === 'roles' || section === 'legal-entities') return false;
+    if (section === 'legal-entities') return false;
     return true;
   }
 

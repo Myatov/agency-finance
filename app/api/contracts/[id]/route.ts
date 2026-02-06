@@ -99,7 +99,30 @@ export async function PATCH(
     if (body.comment !== undefined) update.comment = body.comment || null;
     if (body.tags !== undefined) update.tags = body.tags || null;
     if (body.status !== undefined && ['ACTIVE', 'CLOSED'].includes(body.status)) update.status = body.status;
-    if (body.siteId !== undefined) update.siteId = body.siteId || null;
+    
+    // Валидация сайта при изменении
+    if (body.siteId !== undefined) {
+      if (body.siteId) {
+        // Определяем целевого клиента (новый или текущий)
+        const targetClientId = body.clientId !== undefined ? body.clientId : doc.clientId;
+        // Проверяем, что сайт принадлежит целевому клиенту
+        const site = await prisma.site.findUnique({
+          where: { id: body.siteId },
+          select: { clientId: true },
+        });
+        if (!site) {
+          return NextResponse.json({ error: 'Сайт не найден' }, { status: 404 });
+        }
+        if (site.clientId !== targetClientId) {
+          return NextResponse.json({ 
+            error: 'Сайт должен принадлежать выбранному клиенту' 
+          }, { status: 400 });
+        }
+        update.siteId = body.siteId;
+      } else {
+        update.siteId = null;
+      }
+    }
     
     // Изменение parentId (для приложений)
     if (body.parentId !== undefined) {
@@ -160,16 +183,28 @@ export async function PATCH(
         client: { select: { id: true, name: true } },
         uploader: { select: { id: true, fullName: true } },
         site: { select: { id: true, title: true } },
+        sections: true,
+        children: {
+          include: {
+            uploader: { select: { id: true, fullName: true } },
+            site: { select: { id: true, title: true } },
+          },
+        },
       },
     });
 
+    const serialize = (d: any) => ({
+      ...d,
+      docDate: d.docDate?.toISOString?.() ?? null,
+      endDate: d.endDate?.toISOString?.() ?? null,
+      uploadedAt: d.uploadedAt?.toISOString?.() ?? null,
+    });
+
     return NextResponse.json({
-      contract: {
+      contract: serialize({
         ...updated,
-        docDate: updated.docDate?.toISOString?.() ?? null,
-        endDate: updated.endDate?.toISOString?.() ?? null,
-        uploadedAt: updated.uploadedAt?.toISOString?.() ?? null,
-      },
+        children: updated.children.map((c) => serialize({ ...c, uploader: c.uploader, site: c.site })),
+      }),
     });
   } catch (error) {
     console.error('Error updating contract:', error);

@@ -12,7 +12,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (user.roleCode !== 'OWNER') {
+    // OWNER и CEO могут просматривать роли
+    if (user.roleCode !== 'OWNER' && user.roleCode !== 'CEO') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

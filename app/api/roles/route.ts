@@ -10,9 +10,10 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Владелец или кто может создавать/редактировать сотрудников (нужен список ролей для формы)
+    // Владелец, CEO или кто может создавать/редактировать сотрудников (нужен список ролей для формы)
     const canViewRoles =
       user.roleCode === 'OWNER' ||
+      user.roleCode === 'CEO' ||
       (await hasPermission(user, 'employees', 'create')) ||
       (await hasPermission(user, 'employees', 'edit')) ||
       (await hasPermission(user, 'employees', 'manage'));
