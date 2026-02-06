@@ -13,6 +13,14 @@ interface Site {
   isActive: boolean;
 }
 
+interface Niche {
+  id: string;
+  name: string;
+  parentId: string | null;
+  sortOrder: number;
+  parent?: { id: string; name: string; sortOrder?: number } | null;
+}
+
 interface Client {
   id: string;
   name: string;
@@ -42,12 +50,14 @@ export default function SiteModal({
     websiteUrl: '',
     description: '',
     niche: '',
+    nicheId: '',
     clientId: '',
     accountManagerId: '',
     isActive: false,
   });
   const [clients, setClients] = useState<Client[]>([]);
   const [accountManagers, setAccountManagers] = useState<AccountManager[]>([]);
+  const [niches, setNiches] = useState<Niche[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -55,6 +65,7 @@ export default function SiteModal({
   useEffect(() => {
     fetchClients();
     fetchAccountManagers();
+    fetchNiches();
     fetchUser();
 
     if (site) {
@@ -64,12 +75,24 @@ export default function SiteModal({
         websiteUrl: site.websiteUrl || '',
         description: site.description || '',
         niche: site.niche,
+        nicheId: '',
         clientId: site.clientId,
         accountManagerId: site.accountManagerId || '',
         isActive: site.isActive,
       }));
     }
   }, [site]);
+
+  // При редактировании подставляем nicheId по имени ниши (только для дочерних)
+  useEffect(() => {
+    if (site && niches.length > 0 && formData.niche === site.niche) {
+      const childNiches = niches.filter((n) => n.parentId);
+      const found = childNiches.find((n) => n.name === site.niche);
+      if (found && !formData.nicheId) {
+        setFormData((prev) => ({ ...prev, nicheId: found.id }));
+      }
+    }
+  }, [site, niches, formData.niche, formData.nicheId]);
 
   const fetchClients = async () => {
     const res = await fetch('/api/clients');
@@ -81,6 +104,16 @@ export default function SiteModal({
     const res = await fetch('/api/users/account-managers');
     const data = await res.json();
     setAccountManagers(data.accountManagers || []);
+  };
+
+  const fetchNiches = async () => {
+    try {
+      const res = await fetch('/api/niches');
+      const data = await res.json();
+      if (res.ok) setNiches(data.niches || []);
+    } catch {
+      setNiches([]);
+    }
   };
 
   const fetchUser = async () => {
@@ -116,11 +149,21 @@ export default function SiteModal({
       const url = site ? `/api/sites/${site.id}` : '/api/sites';
       const method = site ? 'PUT' : 'POST';
 
+      let nicheName = (formData.niche || '').trim();
+      const selectedNiche = formData.nicheId ? niches.find((n) => n.id === formData.nicheId) : null;
+      if (selectedNiche) nicheName = selectedNiche.name;
+      if (!nicheName) {
+        setError('Поле «Ниша» обязательно для заполнения');
+        setLoading(false);
+        return;
+      }
+
       const payload: any = {
         title: formData.title,
         websiteUrl: formData.websiteUrl || null,
         description: formData.description || null,
-        niche: (formData.niche || '').trim(),
+        niche: nicheName,
+        nicheId: formData.nicheId || null,
         clientId: formData.clientId,
         isActive: formData.isActive,
       };
@@ -221,6 +264,57 @@ export default function SiteModal({
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ниша *
+            </label>
+            <select
+              required
+              value={formData.nicheId}
+              onChange={(e) => {
+                const n = niches.find((x) => x.id === e.target.value);
+                setFormData({
+                  ...formData,
+                  nicheId: e.target.value,
+                  niche: n ? n.name : '',
+                });
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            >
+              <option value="">Выберите нишу</option>
+              {(() => {
+                const childNiches = niches.filter((n) => n.parentId);
+                if (childNiches.length === 0) {
+                  return (
+                    <option value="" disabled>
+                      Нет дочерних ниш — добавьте в справочнике «Ниши»
+                    </option>
+                  );
+                }
+                const rootMap = new Map(
+                  niches.filter((n) => !n.parentId).map((n) => [n.id, { sortOrder: n.sortOrder ?? 0, name: n.name }])
+                );
+                const getParentOrder = (niche: Niche) =>
+                  niche.parentId ? (rootMap.get(niche.parentId)?.sortOrder ?? 0) : 0;
+                const sorted = [...childNiches].sort((a, b) => {
+                  const oA = getParentOrder(a);
+                  const oB = getParentOrder(b);
+                  if (oA !== oB) return oA - oB;
+                  return a.sortOrder - b.sortOrder;
+                });
+                return sorted.map((niche) => {
+                  const parentName = niche.parent?.name ?? niches.find((p) => p.id === niche.parentId)?.name ?? '';
+                  const label = parentName ? `${parentName} › ${niche.name}` : niche.name;
+                  return (
+                    <option key={niche.id} value={niche.id}>
+                      {label}
+                    </option>
+                  );
+                });
+              })()}
+            </select>
           </div>
 
           <div>

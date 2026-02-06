@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Ниша хранится как строка (поле niche). Необязательное поле — при отсутствии сохраняем пустую строку.
+    // Ниша обязательна, хранится как строка (поле niche). Может быть передана как niche или nicheId.
     let nicheName = typeof niche === 'string' ? niche.trim() : '';
     if (!nicheName && nicheId && typeof nicheId === 'string' && nicheId.trim()) {
       try {
@@ -173,10 +173,16 @@ export async function POST(request: NextRequest) {
         });
         if (rec?.name) nicheName = rec.name;
       } catch {
-        // Справочник недоступен — nicheName остаётся пустым
+        // Справочник недоступен
       }
     }
-    nicheName = nicheName || '';
+    if (!nicheName || !nicheName.trim()) {
+      return NextResponse.json(
+        { error: 'Поле «Ниша» обязательно для заполнения' },
+        { status: 400 }
+      );
+    }
+    nicheName = nicheName.trim();
 
     const canAssign = await canAssignAccountManager(user);
     const isAccountManagerAssigningSelf = user.roleCode === 'ACCOUNT_MANAGER' && accountManagerId === user.id;
