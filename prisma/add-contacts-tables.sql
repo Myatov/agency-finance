@@ -12,7 +12,7 @@ CREATE TABLE "Contact" (
     "position" TEXT,
     "note" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "Contact_pkey" PRIMARY KEY ("id")
 );
 
@@ -23,7 +23,7 @@ CREATE TABLE "ClientContact" (
     "role" "ContactRoleAtClient" DEFAULT 'OTHER',
     "isPrimary" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "ClientContact_pkey" PRIMARY KEY ("id")
 );
 
