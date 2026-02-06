@@ -24,20 +24,29 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'nicheIds must be an array' }, { status: 400 });
     }
 
-    await Promise.all(
-      nicheIds.map((nicheId: string, index: number) =>
-        prisma.niche.update({
-          where: { id: nicheId },
-          data: { sortOrder: index },
-        })
-      )
-    );
+    try {
+      await Promise.all(
+        nicheIds.map((nicheId: string, index: number) =>
+          prisma.niche.update({
+            where: { id: nicheId },
+            data: { sortOrder: index },
+          })
+        )
+      );
 
-    const niches = await prisma.niche.findMany({
-      orderBy: { sortOrder: 'asc' },
-    });
+      const niches = await prisma.niche.findMany({
+        orderBy: { sortOrder: 'asc' },
+      });
 
-    return NextResponse.json({ niches });
+      return NextResponse.json({ niches });
+    } catch (dbError: any) {
+      if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
+        return NextResponse.json({ 
+          error: 'Таблица Niche не создана в базе данных. Выполните: npx prisma db push' 
+        }, { status: 500 });
+      }
+      throw dbError;
+    }
   } catch (error) {
     console.error('Error reordering niches:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

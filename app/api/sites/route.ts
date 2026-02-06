@@ -67,63 +67,127 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const sites = await prisma.site.findMany({
-      where,
-      include: {
-        client: {
+    // Пытаемся получить сайты с nicheRef, если таблица не существует - без него
+    let sites;
+    try {
+      sites = await prisma.site.findMany({
+        where,
+        include: {
+          client: {
+            include: {
+              seller: {
+                select: {
+                  id: true,
+                  fullName: true,
+                },
+              },
+            },
+          },
+          accountManager: {
+            select: {
+              id: true,
+              fullName: true,
+            },
+          },
+          creator: {
+            select: {
+              id: true,
+              fullName: true,
+            },
+          },
+          nicheRef: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          services: {
+            where: {
+              status: 'ACTIVE',
+            },
+            select: {
+              id: true,
+              product: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+            take: 5,
+          },
+          expenses: {
+            orderBy: { paymentAt: 'desc' },
+            take: 1,
+            select: {
+              id: true,
+              amount: true,
+              paymentAt: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    } catch (dbError: any) {
+      // Если таблица Niche не существует, делаем запрос без nicheRef
+      if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
+        console.warn('Table Niche does not exist, fetching sites without nicheRef');
+        sites = await prisma.site.findMany({
+          where,
           include: {
-            seller: {
+            client: {
+              include: {
+                seller: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                  },
+                },
+              },
+            },
+            accountManager: {
               select: {
                 id: true,
                 fullName: true,
               },
             },
-          },
-        },
-        accountManager: {
-          select: {
-            id: true,
-            fullName: true,
-          },
-        },
-        creator: {
-          select: {
-            id: true,
-            fullName: true,
-          },
-        },
-        nicheRef: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        services: {
-          where: {
-            status: 'ACTIVE',
-          },
-          select: {
-            id: true,
-            product: {
+            creator: {
               select: {
-                name: true,
+                id: true,
+                fullName: true,
+              },
+            },
+            services: {
+              where: {
+                status: 'ACTIVE',
+              },
+              select: {
+                id: true,
+                product: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+              take: 5,
+            },
+            expenses: {
+              orderBy: { paymentAt: 'desc' },
+              take: 1,
+              select: {
+                id: true,
+                amount: true,
+                paymentAt: true,
               },
             },
           },
-          take: 5,
-        },
-        expenses: {
-          orderBy: { paymentAt: 'desc' },
-          take: 1,
-          select: {
-            id: true,
-            amount: true,
-            paymentAt: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+          orderBy: { createdAt: 'desc' },
+        });
+        // Добавляем null для nicheRef для совместимости
+        sites = sites.map(s => ({ ...s, nicheRef: null }));
+      } else {
+        throw dbError;
+      }
+    }
 
     // Convert BigInt to string for JSON serialization
     const serializedSites = sites.map((s) => ({

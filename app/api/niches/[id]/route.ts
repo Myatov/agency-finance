@@ -27,12 +27,20 @@ export async function PUT(
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
-    const niche = await prisma.niche.update({
-      where: { id: params.id },
-      data: { name: name.trim() },
-    });
-
-    return NextResponse.json({ niche });
+    try {
+      const niche = await prisma.niche.update({
+        where: { id: params.id },
+        data: { name: name.trim() },
+      });
+      return NextResponse.json({ niche });
+    } catch (dbError: any) {
+      if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
+        return NextResponse.json({ 
+          error: 'Таблица Niche не создана в базе данных. Выполните: npx prisma db push' 
+        }, { status: 500 });
+      }
+      throw dbError;
+    }
   } catch (error: unknown) {
     const e = error as { code?: string };
     if (e.code === 'P2002') {
@@ -62,23 +70,32 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Проверяем, используется ли ниша в сайтах
-    const sitesCount = await prisma.site.count({
-      where: { nicheId: params.id },
-    });
+    try {
+      // Проверяем, используется ли ниша в сайтах
+      const sitesCount = await prisma.site.count({
+        where: { nicheId: params.id },
+      });
 
-    if (sitesCount > 0) {
-      return NextResponse.json(
-        { error: `Невозможно удалить нишу: она используется в ${sitesCount} сайте(ах)` },
-        { status: 400 }
-      );
+      if (sitesCount > 0) {
+        return NextResponse.json(
+          { error: `Невозможно удалить нишу: она используется в ${sitesCount} сайте(ах)` },
+          { status: 400 }
+        );
+      }
+
+      await prisma.niche.delete({
+        where: { id: params.id },
+      });
+
+      return NextResponse.json({ success: true });
+    } catch (dbError: any) {
+      if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
+        return NextResponse.json({ 
+          error: 'Таблица Niche не создана в базе данных. Выполните: npx prisma db push' 
+        }, { status: 500 });
+      }
+      throw dbError;
     }
-
-    await prisma.niche.delete({
-      where: { id: params.id },
-    });
-
-    return NextResponse.json({ success: true });
   } catch (error: unknown) {
     const e = error as { code?: string };
     if (e.code === 'P2025') {
