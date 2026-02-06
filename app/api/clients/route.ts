@@ -34,7 +34,9 @@ export async function GET() {
       orderBy: { name: 'asc' },
     });
 
-    return NextResponse.json({ clients });
+    return NextResponse.json({ clients }, {
+      headers: { 'Cache-Control': 'no-store, max-age=0' },
+    });
   } catch (error) {
     console.error('Error fetching clients:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

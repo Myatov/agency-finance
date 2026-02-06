@@ -95,7 +95,7 @@ export default function ClientsList() {
 
   const fetchClients = async () => {
     setLoading(true);
-    const res = await fetch('/api/clients');
+    const res = await fetch('/api/clients', { cache: 'no-store' });
     const data = await res.json();
     setClients(data.clients || []);
     setLoading(false);
