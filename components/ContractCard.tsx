@@ -65,6 +65,10 @@ export default function ContractCard({ contractId }: { contractId: string }) {
   const [newSectionTitle, setNewSectionTitle] = useState('');
   const [newSectionComment, setNewSectionComment] = useState('');
   const [addingSection, setAddingSection] = useState(false);
+  const [replacingFile, setReplacingFile] = useState(false);
+  const [replacementFile, setReplacementFile] = useState<File | null>(null);
+  const [replacing, setReplacing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchContract();
@@ -159,6 +163,52 @@ export default function ContractCard({ contractId }: { contractId: string }) {
     } catch {}
   };
 
+  const handleReplaceFile = async () => {
+    if (!contract || !replacementFile) return;
+    setReplacing(true);
+    setError('');
+    try {
+      const form = new FormData();
+      form.set('file', replacementFile);
+      const res = await fetch(`/api/contracts/${contractId}`, { method: 'PUT', body: form });
+      const data = await res.json();
+      if (res.ok) {
+        setContract(data.contract);
+        setReplacingFile(false);
+        setReplacementFile(null);
+      } else {
+        setError(data.error || 'Ошибка замены файла');
+      }
+    } catch {
+      setError('Ошибка соединения');
+    } finally {
+      setReplacing(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!contract) return;
+    const confirmMsg = contract.children.length > 0
+      ? `Удалить договор и все его приложения (${contract.children.length} шт.)? Это действие нельзя отменить.`
+      : 'Удалить договор? Это действие нельзя отменить.';
+    if (!confirm(confirmMsg)) return;
+    setDeleting(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/contracts/${contractId}`, { method: 'DELETE' });
+      if (res.ok) {
+        window.location.href = '/contracts';
+      } else {
+        const data = await res.json();
+        setError(data.error || 'Ошибка удаления');
+        setDeleting(false);
+      }
+    } catch {
+      setError('Ошибка соединения');
+      setDeleting(false);
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-gray-500">Загрузка...</div>;
   if (error || !contract) return <div className="p-8 text-center text-red-600">{error || 'Не найдено'}</div>;
 
@@ -179,10 +229,16 @@ export default function ContractCard({ contractId }: { contractId: string }) {
               {contract.site && ` · ${contract.site.title}`}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <a href={`/api/contracts/${contractId}/download`} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">Скачать</a>
             {!editing ? (
-              <button type="button" onClick={() => setEditing(true)} className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm">Редактировать</button>
+              <>
+                <button type="button" onClick={() => setEditing(true)} className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm">Редактировать</button>
+                <button type="button" onClick={() => setReplacingFile(true)} className="px-4 py-2 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 text-sm">Заменить файл</button>
+                <button type="button" onClick={handleDelete} disabled={deleting} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm">
+                  {deleting ? 'Удаление...' : 'Удалить'}
+                </button>
+              </>
             ) : (
               <>
                 <button type="button" onClick={handleSaveMeta} disabled={saving} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm">Сохранить</button>
@@ -191,6 +247,45 @@ export default function ContractCard({ contractId }: { contractId: string }) {
             )}
           </div>
         </div>
+
+        {error && <div className="text-red-600 text-sm border-t pt-4">{error}</div>}
+
+        {replacingFile && (
+          <div className="border-t pt-4 space-y-4">
+            <h3 className="font-medium">Заменить файл</h3>
+            <p className="text-sm text-gray-600">Текущий файл: {contract.originalName}</p>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Новый файл *</label>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,image/*"
+                onChange={(e) => setReplacementFile(e.target.files?.[0] || null)}
+                className="w-full px-3 py-2 border rounded-md"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleReplaceFile}
+                disabled={replacing || !replacementFile}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 text-sm"
+              >
+                {replacing ? 'Замена...' : 'Заменить'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setReplacingFile(false);
+                  setReplacementFile(null);
+                }}
+                disabled={replacing}
+                className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        )}
 
         {editing ? (
           <div className="grid grid-cols-2 gap-4 border-t pt-4">
@@ -277,7 +372,30 @@ export default function ContractCard({ contractId }: { contractId: string }) {
               {contract.children.map((c) => (
                 <li key={c.id} className="flex items-center justify-between py-1 border-b border-gray-100">
                   <span className="text-sm">{c.originalName} {c.docNumber ? `№ ${c.docNumber}` : ''} · {typeLabels[c.type] ?? c.type}</span>
-                  <a href={`/api/contracts/${c.id}/download`} className="text-blue-600 text-sm hover:underline">Скачать</a>
+                  <div className="flex gap-2">
+                    <a href={`/api/contracts/${c.id}/download`} className="text-blue-600 text-sm hover:underline">Скачать</a>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (confirm(`Удалить приложение "${c.originalName}"?`)) {
+                          try {
+                            const res = await fetch(`/api/contracts/${c.id}`, { method: 'DELETE' });
+                            if (res.ok) {
+                              fetchContract();
+                            } else {
+                              const data = await res.json();
+                              setError(data.error || 'Ошибка удаления');
+                            }
+                          } catch {
+                            setError('Ошибка соединения');
+                          }
+                        }
+                      }}
+                      className="text-red-600 text-sm hover:underline"
+                    >
+                      Удалить
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>

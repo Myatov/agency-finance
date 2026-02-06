@@ -125,6 +125,83 @@ export async function PATCH(
   }
 }
 
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const user = await getSession();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const canEdit = await hasPermission(user, 'contracts', 'edit') || await hasPermission(user, 'contracts', 'create')
+      || await hasPermission(user, 'storage', 'view');
+    if (!canEdit) {
+      return NextResponse.json({ 
+        error: 'Недостаточно прав для замены файла. Обратитесь к администратору.' 
+      }, { status: 403 });
+    }
+
+    const doc = await prisma.contractDocument.findUnique({
+      where: { id: params.id },
+      include: { client: { select: { sellerEmployeeId: true } } },
+    });
+    if (!doc) {
+      return NextResponse.json({ error: 'Договор не найден' }, { status: 404 });
+    }
+    const viewAll = await hasViewAllPermission(user, 'contracts');
+    if (!viewAll && doc.client.sellerEmployeeId !== user.id) {
+      return NextResponse.json({ 
+        error: 'Недостаточно прав для замены файла этого договора. Вы можете заменять файлы только для своих клиентов.' 
+      }, { status: 403 });
+    }
+
+    const formData = await request.formData();
+    const file = formData.get('file') as File | null;
+    if (!file || !(file instanceof File) || file.size === 0) {
+      return NextResponse.json({ error: 'File is required' }, { status: 400 });
+    }
+
+    // Удаляем старый файл
+    await deleteContractFile(doc.filePath);
+
+    // Сохраняем новый файл
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const relativePath = await saveContractFile(buffer, doc.clientId, file.name);
+    const mimeType = file.type || null;
+
+    // Обновляем запись в БД
+    const updated = await prisma.contractDocument.update({
+      where: { id: params.id },
+      data: {
+        filePath: relativePath,
+        originalName: file.name,
+        mimeType,
+        sizeBytes: file.size,
+        uploadedById: user.id,
+        uploadedAt: new Date(),
+      },
+      include: {
+        client: { select: { id: true, name: true } },
+        uploader: { select: { id: true, fullName: true } },
+        site: { select: { id: true, title: true } },
+      },
+    });
+
+    return NextResponse.json({
+      contract: {
+        ...updated,
+        docDate: updated.docDate?.toISOString?.() ?? null,
+        endDate: updated.endDate?.toISOString?.() ?? null,
+        uploadedAt: updated.uploadedAt?.toISOString?.() ?? null,
+      },
+    });
+  } catch (error) {
+    console.error('Error replacing contract file:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -137,7 +214,9 @@ export async function DELETE(
     const canDelete = await hasPermission(user, 'contracts', 'delete') || await hasPermission(user, 'contracts', 'manage')
       || await hasPermission(user, 'storage', 'view');
     if (!canDelete) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ 
+        error: 'Недостаточно прав для удаления договора. Обратитесь к администратору.' 
+      }, { status: 403 });
     }
 
     const doc = await prisma.contractDocument.findUnique({
@@ -145,11 +224,13 @@ export async function DELETE(
       include: { client: { select: { sellerEmployeeId: true } }, children: true },
     });
     if (!doc) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Договор не найден' }, { status: 404 });
     }
     const viewAll = await hasViewAllPermission(user, 'contracts');
     if (!viewAll && doc.client.sellerEmployeeId !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ 
+        error: 'Недостаточно прав для удаления этого договора. Вы можете удалять только договоры своих клиентов.' 
+      }, { status: 403 });
     }
 
     for (const child of doc.children) {

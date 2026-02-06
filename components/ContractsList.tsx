@@ -24,6 +24,7 @@ export default function ContractsList() {
   const [clientId, setClientId] = useState('');
   const [siteId, setSiteId] = useState('');
   const [status, setStatus] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDocs();
@@ -56,6 +57,24 @@ export default function ContractsList() {
   const statusLabels: Record<string, string> = {
     ACTIVE: 'Активный',
     CLOSED: 'Закрыт',
+  };
+
+  const handleDelete = async (docId: string, docName: string) => {
+    if (!confirm(`Удалить договор "${docName}"? Это действие нельзя отменить.`)) return;
+    setDeletingId(docId);
+    try {
+      const res = await fetch(`/api/contracts/${docId}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchDocs();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Ошибка удаления');
+      }
+    } catch {
+      alert('Ошибка соединения');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -134,7 +153,15 @@ export default function ContractsList() {
                   <td className="px-6 py-4 text-sm">{statusLabels[doc.status] ?? doc.status}</td>
                   <td className="px-6 py-4 text-sm">
                     <a href={`/api/contracts/${doc.id}/download`} className="text-blue-600 hover:underline mr-4">Скачать</a>
-                    <Link href={`/contracts/${doc.id}`} className="text-blue-600 hover:underline">Карточка</Link>
+                    <Link href={`/contracts/${doc.id}`} className="text-blue-600 hover:underline mr-4">Карточка</Link>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(doc.id, doc.originalName)}
+                      disabled={deletingId === doc.id}
+                      className="text-red-600 hover:underline disabled:opacity-50"
+                    >
+                      {deletingId === doc.id ? 'Удаление...' : 'Удалить'}
+                    </button>
                   </td>
                 </tr>
               ))}
