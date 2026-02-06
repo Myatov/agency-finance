@@ -70,69 +70,136 @@ export async function GET(request: NextRequest) {
     // Пытаемся получить сайты с nicheRef, если таблица не существует - без него
     let sites;
     try {
-      sites = await prisma.site.findMany({
-        where,
-        include: {
-          client: {
+      // Сначала пытаемся получить с parent в nicheRef
+      try {
+        sites = await prisma.site.findMany({
+          where,
+          include: {
+            client: {
+              include: {
+                seller: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                  },
+                },
+              },
+            },
+            accountManager: {
+              select: {
+                id: true,
+                fullName: true,
+              },
+            },
+            creator: {
+              select: {
+                id: true,
+                fullName: true,
+              },
+            },
+            nicheRef: {
+              select: {
+                id: true,
+                name: true,
+                parent: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+            services: {
+              where: {
+                status: 'ACTIVE',
+              },
+              select: {
+                id: true,
+                product: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+              take: 5,
+            },
+            expenses: {
+              orderBy: { paymentAt: 'desc' },
+              take: 1,
+              select: {
+                id: true,
+                amount: true,
+                paymentAt: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+      } catch (parentError: any) {
+        // Если не удалось получить с parent, пробуем без parent
+        if (parentError.message?.includes('parent') || parentError.message?.includes('Unknown column') || parentError.code === 'P2001' || parentError.code === 'P2021') {
+          console.warn('Cannot fetch nicheRef.parent, trying without parent:', parentError.message);
+          sites = await prisma.site.findMany({
+            where,
             include: {
-              seller: {
+              client: {
+                include: {
+                  seller: {
+                    select: {
+                      id: true,
+                      fullName: true,
+                    },
+                  },
+                },
+              },
+              accountManager: {
                 select: {
                   id: true,
                   fullName: true,
                 },
               },
-            },
-          },
-          accountManager: {
-            select: {
-              id: true,
-              fullName: true,
-            },
-          },
-          creator: {
-            select: {
-              id: true,
-              fullName: true,
-            },
-          },
-          nicheRef: {
-            select: {
-              id: true,
-              name: true,
-              parent: {
+              creator: {
+                select: {
+                  id: true,
+                  fullName: true,
+                },
+              },
+              nicheRef: {
                 select: {
                   id: true,
                   name: true,
                 },
               },
-            },
-          },
-          services: {
-            where: {
-              status: 'ACTIVE',
-            },
-            select: {
-              id: true,
-              product: {
+              services: {
+                where: {
+                  status: 'ACTIVE',
+                },
                 select: {
-                  name: true,
+                  id: true,
+                  product: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+                take: 5,
+              },
+              expenses: {
+                orderBy: { paymentAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  amount: true,
+                  paymentAt: true,
                 },
               },
             },
-            take: 5,
-          },
-          expenses: {
-            orderBy: { paymentAt: 'desc' },
-            take: 1,
-            select: {
-              id: true,
-              amount: true,
-              paymentAt: true,
-            },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+            orderBy: { createdAt: 'desc' },
+          });
+        } else {
+          throw parentError;
+        }
+      }
     } catch (dbError: any) {
       // Если таблица Niche не существует, делаем запрос без nicheRef
       if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
@@ -191,6 +258,7 @@ export async function GET(request: NextRequest) {
         // Добавляем null для nicheRef для совместимости
         sites = sites.map(s => ({ ...s, nicheRef: null }));
       } else {
+        console.error('Error fetching sites:', dbError);
         throw dbError;
       }
     }
@@ -205,9 +273,18 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json({ sites: serializedSites });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching sites:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      meta: error?.meta,
+      stack: error?.stack,
+    });
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+    }, { status: 500 });
   }
 }
 
@@ -337,47 +414,72 @@ export async function POST(request: NextRequest) {
         },
       });
     } catch (dbError: any) {
+      console.error('Error creating site with nicheId:', dbError);
+      console.error('Error details:', {
+        message: dbError?.message,
+        code: dbError?.code,
+        meta: dbError?.meta,
+      });
+      
       // Если колонка nicheId не существует, создаем без неё
-      if (dbError.message?.includes('does not exist') || dbError.message?.includes('nicheId') || dbError.message?.includes('Unknown column') || dbError.code === 'P2021') {
-        console.warn('Column nicheId does not exist, creating site without nicheId');
-        site = await prisma.site.create({
-          data: {
-            title,
-            websiteUrl: websiteUrl || null,
-            description: description || null,
-            niche: finalNiche,
-            clientId,
-            accountManagerId: accountManagerId || null,
-            creatorId: user.id,
-            isActive: isActive ?? false,
-          },
-          include: {
-            client: {
-              include: {
-                seller: {
-                  select: {
-                    id: true,
-                    fullName: true,
+      if (dbError.message?.includes('does not exist') || 
+          dbError.message?.includes('nicheId') || 
+          dbError.message?.includes('Unknown column') || 
+          dbError.code === 'P2021' ||
+          dbError.code === 'P2003') {
+        console.warn('Column nicheId does not exist or foreign key constraint failed, creating site without nicheId');
+        try {
+          site = await prisma.site.create({
+            data: {
+              title,
+              websiteUrl: websiteUrl || null,
+              description: description || null,
+              niche: finalNiche,
+              clientId,
+              accountManagerId: accountManagerId || null,
+              creatorId: user.id,
+              isActive: isActive ?? false,
+            },
+            include: {
+              client: {
+                include: {
+                  seller: {
+                    select: {
+                      id: true,
+                      fullName: true,
+                    },
                   },
                 },
               },
-            },
-            accountManager: {
-              select: {
-                id: true,
-                fullName: true,
+              accountManager: {
+                select: {
+                  id: true,
+                  fullName: true,
+                },
               },
             },
-          },
-        });
+          });
+        } catch (fallbackError: any) {
+          console.error('Error creating site without nicheId:', fallbackError);
+          throw fallbackError;
+        }
       } else {
         throw dbError;
       }
     }
 
     return NextResponse.json({ site });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating site:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      meta: error?.meta,
+      stack: error?.stack,
+    });
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+    }, { status: 500 });
   }
 }

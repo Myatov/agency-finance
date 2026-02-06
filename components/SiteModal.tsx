@@ -285,32 +285,31 @@ export default function SiteModal({
               // Сортируем: сначала по sortOrder родителя, затем по sortOrder дочерней ниши
               // Создаем мапу корневых ниш для быстрого доступа (включая sortOrder)
               const rootNichesMap = new Map(
-                niches.filter(n => !n.parentId).map(n => [n.id, { id: n.id, name: n.name, sortOrder: n.sortOrder }])
+                niches.filter(n => !n.parentId).map(n => [n.id, n.sortOrder])
               );
               
               availableNiches = availableNiches.sort((a, b) => {
-                // Если у обеих есть родители
-                if (a.parentId && b.parentId) {
-                  // Получаем родителей из мапы или из данных
-                  const parentA = a.parent || rootNichesMap.get(a.parentId);
-                  const parentB = b.parent || rootNichesMap.get(b.parentId);
-                  
-                  if (parentA && parentB) {
-                    // Сначала сортируем по sortOrder родителя (используем sortOrder из мапы или из parent объекта)
-                    const parentAOrder = parentA.sortOrder !== undefined ? parentA.sortOrder : (rootNichesMap.get(a.parentId)?.sortOrder ?? 0);
-                    const parentBOrder = parentB.sortOrder !== undefined ? parentB.sortOrder : (rootNichesMap.get(b.parentId)?.sortOrder ?? 0);
-                    const parentOrderCompare = parentAOrder - parentBOrder;
-                    if (parentOrderCompare !== 0) return parentOrderCompare;
-                    // Если родители одинаковые, сортируем по sortOrder дочерней ниши
-                    return a.sortOrder - b.sortOrder;
-                  }
-                  // Если не нашли родителя, сортируем по sortOrder дочерней ниши
-                  return a.sortOrder - b.sortOrder;
+                // Получаем sortOrder родителя из мапы (приоритет) или из объекта parent
+                const getParentSortOrder = (niche: Niche): number => {
+                  if (!niche.parentId) return 0;
+                  // Сначала пробуем из мапы корневых ниш
+                  const mapOrder = rootNichesMap.get(niche.parentId);
+                  if (mapOrder !== undefined) return mapOrder;
+                  // Затем из объекта parent, если он есть
+                  if (niche.parent?.sortOrder !== undefined) return niche.parent.sortOrder;
+                  // Если ничего не найдено, возвращаем 0
+                  return 0;
+                };
+                
+                const parentAOrder = getParentSortOrder(a);
+                const parentBOrder = getParentSortOrder(b);
+                
+                // Сначала сортируем по sortOrder родителя
+                if (parentAOrder !== parentBOrder) {
+                  return parentAOrder - parentBOrder;
                 }
-                // Если только у одной есть родитель, она идет после
-                if (a.parentId && !b.parentId) return 1;
-                if (!a.parentId && b.parentId) return -1;
-                // Если у обеих нет родителей, сортируем по sortOrder
+                
+                // Если родители одинаковые (или оба null), сортируем по sortOrder дочерней ниши
                 return a.sortOrder - b.sortOrder;
               });
               
@@ -331,9 +330,18 @@ export default function SiteModal({
                   <option value="">Выберите нишу</option>
                   {availableNiches.map((niche) => {
                     // Показываем иерархию: "Родитель > Дочерняя"
-                    const displayName = niche.parent 
-                      ? `${niche.parent.name} > ${niche.name}`
-                      : niche.name;
+                    // Получаем имя родителя из объекта parent или из мапы корневых ниш
+                    let parentName = '';
+                    if (niche.parentId) {
+                      if (niche.parent?.name) {
+                        parentName = niche.parent.name;
+                      } else {
+                        // Если parent не загружен, ищем в списке ниш
+                        const parentNiche = niches.find(n => n.id === niche.parentId);
+                        parentName = parentNiche?.name || '';
+                      }
+                    }
+                    const displayName = parentName ? `${parentName} > ${niche.name}` : niche.name;
                     return (
                       <option key={niche.id} value={niche.id}>
                         {displayName}
