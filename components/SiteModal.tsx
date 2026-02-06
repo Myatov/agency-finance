@@ -285,7 +285,7 @@ export default function SiteModal({
               // Сортируем: сначала по sortOrder родителя, затем по sortOrder дочерней ниши
               // Создаем мапу корневых ниш для быстрого доступа (включая sortOrder)
               const rootNichesMap = new Map(
-                niches.filter(n => !n.parentId).map(n => [n.id, n.sortOrder])
+                niches.filter(n => !n.parentId).map(n => [n.id, { sortOrder: n.sortOrder, name: n.name }])
               );
               
               availableNiches = availableNiches.sort((a, b) => {
@@ -293,8 +293,8 @@ export default function SiteModal({
                 const getParentSortOrder = (niche: Niche): number => {
                   if (!niche.parentId) return 0;
                   // Сначала пробуем из мапы корневых ниш
-                  const mapOrder = rootNichesMap.get(niche.parentId);
-                  if (mapOrder !== undefined) return mapOrder;
+                  const mapParent = rootNichesMap.get(niche.parentId);
+                  if (mapParent?.sortOrder !== undefined) return mapParent.sortOrder;
                   // Затем из объекта parent, если он есть
                   if (niche.parent?.sortOrder !== undefined) return niche.parent.sortOrder;
                   // Если ничего не найдено, возвращаем 0
