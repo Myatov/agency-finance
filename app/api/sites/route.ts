@@ -70,140 +70,110 @@ export async function GET(request: NextRequest) {
     // Пытаемся получить сайты с nicheRef, если таблица не существует - без него
     let sites;
     try {
-      // Сначала пытаемся получить с parent в nicheRef
-      try {
-        sites = await prisma.site.findMany({
-          where,
-          include: {
-            client: {
-              include: {
-                seller: {
-                  select: {
-                    id: true,
-                    fullName: true,
-                  },
+      // Получаем сайты с nicheRef (без вложенного parent для надежности)
+      sites = await prisma.site.findMany({
+        where,
+        include: {
+          client: {
+            include: {
+              seller: {
+                select: {
+                  id: true,
+                  fullName: true,
                 },
-              },
-            },
-            accountManager: {
-              select: {
-                id: true,
-                fullName: true,
-              },
-            },
-            creator: {
-              select: {
-                id: true,
-                fullName: true,
-              },
-            },
-            nicheRef: {
-              select: {
-                id: true,
-                name: true,
-                parent: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
-              },
-            },
-            services: {
-              where: {
-                status: 'ACTIVE',
-              },
-              select: {
-                id: true,
-                product: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-              take: 5,
-            },
-            expenses: {
-              orderBy: { paymentAt: 'desc' },
-              take: 1,
-              select: {
-                id: true,
-                amount: true,
-                paymentAt: true,
               },
             },
           },
-          orderBy: { createdAt: 'desc' },
-        });
-      } catch (parentError: any) {
-        // Если не удалось получить с parent, пробуем без parent
-        if (parentError.message?.includes('parent') || parentError.message?.includes('Unknown column') || parentError.code === 'P2001' || parentError.code === 'P2021') {
-          console.warn('Cannot fetch nicheRef.parent, trying without parent:', parentError.message);
-          sites = await prisma.site.findMany({
-            where,
-            include: {
-              client: {
-                include: {
-                  seller: {
-                    select: {
-                      id: true,
-                      fullName: true,
-                    },
-                  },
-                },
-              },
-              accountManager: {
+          accountManager: {
+            select: {
+              id: true,
+              fullName: true,
+            },
+          },
+          creator: {
+            select: {
+              id: true,
+              fullName: true,
+            },
+          },
+          nicheRef: {
+            select: {
+              id: true,
+              name: true,
+              parentId: true,
+            },
+          },
+          services: {
+            where: {
+              status: 'ACTIVE',
+            },
+            select: {
+              id: true,
+              product: {
                 select: {
-                  id: true,
-                  fullName: true,
-                },
-              },
-              creator: {
-                select: {
-                  id: true,
-                  fullName: true,
-                },
-              },
-              nicheRef: {
-                select: {
-                  id: true,
                   name: true,
                 },
               },
-              services: {
-                where: {
-                  status: 'ACTIVE',
-                },
-                select: {
-                  id: true,
-                  product: {
-                    select: {
-                      name: true,
-                    },
-                  },
-                },
-                take: 5,
-              },
-              expenses: {
-                orderBy: { paymentAt: 'desc' },
-                take: 1,
-                select: {
-                  id: true,
-                  amount: true,
-                  paymentAt: true,
-                },
-              },
             },
-            orderBy: { createdAt: 'desc' },
-          });
-        } else {
-          throw parentError;
+            take: 5,
+          },
+          expenses: {
+            orderBy: { paymentAt: 'desc' },
+            take: 1,
+            select: {
+              id: true,
+              amount: true,
+              paymentAt: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      // Загружаем parent для каждой ниши отдельно, если нужно
+      if (sites.some(s => s.nicheRef?.parentId)) {
+        const nicheIdsWithParents = sites
+          .map(s => s.nicheRef?.parentId)
+          .filter((id): id is string => !!id);
+        const uniqueParentIds = [...new Set(nicheIdsWithParents)];
+        
+        if (uniqueParentIds.length > 0) {
+          try {
+            const parents = await prisma.niche.findMany({
+              where: { id: { in: uniqueParentIds } },
+              select: { id: true, name: true, sortOrder: true },
+            });
+            const parentsMap = new Map(parents.map(p => [p.id, p]));
+            
+            // Добавляем parent к каждой nicheRef
+            sites = sites.map(site => {
+              if (site.nicheRef?.parentId) {
+                const parent = parentsMap.get(site.nicheRef.parentId);
+                return {
+                  ...site,
+                  nicheRef: {
+                    ...site.nicheRef,
+                    parent: parent || null,
+                  },
+                };
+              }
+              return site;
+            });
+          } catch (parentError: any) {
+            console.warn('Cannot fetch parents for niches:', parentError.message);
+            // Продолжаем без parent
+          }
         }
       }
     } catch (dbError: any) {
-      // Если таблица Niche не существует, делаем запрос без nicheRef
-      if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
-        console.warn('Table Niche does not exist, fetching sites without nicheRef');
+      // Если таблица Niche не существует или колонка nicheId не существует, делаем запрос без nicheRef
+      if (dbError.message?.includes('does not exist') ||
+          dbError.message?.includes('Niche') ||
+          dbError.message?.includes('nicheId') ||
+          dbError.message?.includes('Unknown column') ||
+          dbError.code === 'P2021' ||
+          dbError.code === 'P2001') {
+        console.warn('Table Niche or nicheId column does not exist, fetching sites without nicheRef:', dbError.message);
         sites = await prisma.site.findMany({
           where,
           include: {
