@@ -216,7 +216,7 @@ export default function NichesList() {
     fetchNiches();
   };
 
-  const renderNicheRow = (niche: Niche, isChild: boolean = false, index: number = 0) => {
+  const renderNicheRow = (niche: Niche, isChild: boolean = false, index: number = 0): JSX.Element => {
     const children = getChildren(niche.id);
     const isDragging = draggedItem === niche.id;
     const canDrag = canManage; // Можно перетаскивать и корневые, и дочерние
