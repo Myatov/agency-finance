@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface Client {
   id: string;
@@ -63,6 +63,8 @@ export default function ClientModal({
   const [legalEntities, setLegalEntities] = useState<LegalEntity[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
 
   useEffect(() => {
     fetchUsers();
@@ -127,26 +129,30 @@ export default function ClientModal({
     setError('');
     setLoading(true);
 
+    const latest = formDataRef.current;
+    const selectedLE = legalEntities.find((le) => le.id === latest.legalEntityId);
+    const hideBasis = selectedLE && ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'].includes(selectedLE.name);
+
     try {
       const url = client ? `/api/clients/${client.id}` : '/api/clients';
       const method = client ? 'PUT' : 'POST';
 
       const payload = {
-        name: formData.name.trim(),
-        legalEntityId: formData.legalEntityId.trim() || null,
-        sellerEmployeeId: formData.sellerEmployeeId.trim(),
-        legalEntityName: toNull(formData.legalEntityName),
-        contractBasis: hideContractBasis ? null : toNull(formData.contractBasis),
-        legalAddress: toNull(formData.legalAddress),
-        inn: toNull(formData.inn),
-        kpp: toNull(formData.kpp),
-        ogrn: toNull(formData.ogrn),
-        rs: toNull(formData.rs),
-        bankName: toNull(formData.bankName),
-        bik: toNull(formData.bik),
-        ks: toNull(formData.ks),
-        paymentRequisites: toNull(formData.paymentRequisites),
-        contacts: toNull(formData.contacts),
+        name: latest.name.trim(),
+        legalEntityId: latest.legalEntityId.trim() || null,
+        sellerEmployeeId: latest.sellerEmployeeId.trim(),
+        legalEntityName: toNull(latest.legalEntityName),
+        contractBasis: hideBasis ? null : toNull(latest.contractBasis),
+        legalAddress: toNull(latest.legalAddress),
+        inn: toNull(latest.inn),
+        kpp: toNull(latest.kpp),
+        ogrn: toNull(latest.ogrn),
+        rs: toNull(latest.rs),
+        bankName: toNull(latest.bankName),
+        bik: toNull(latest.bik),
+        ks: toNull(latest.ks),
+        paymentRequisites: toNull(latest.paymentRequisites),
+        contacts: toNull(latest.contacts),
       };
 
       const res = await fetch(url, {
