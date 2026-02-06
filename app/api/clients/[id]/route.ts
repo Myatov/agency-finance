@@ -81,6 +81,10 @@ export async function PUT(
     const ks = opt(body.ks);
     const paymentRequisites = opt(body.paymentRequisites);
     const contacts = opt(body.contacts);
+    const isReturningClient = body.isReturningClient === true;
+    const isKeyClient = body.isKeyClient === true;
+    const keyClientStatusComment = opt(body.keyClientStatusComment);
+    const returningClientStatusComment = opt(body.returningClientStatusComment);
     const clientContacts = Array.isArray(body.clientContacts) ? body.clientContacts : undefined;
 
     if (!name || !sellerEmployeeId) {
@@ -119,6 +123,10 @@ export async function PUT(
       ks,
       paymentRequisites,
       contacts,
+      isReturningClient,
+      isKeyClient,
+      keyClientStatusComment,
+      returningClientStatusComment,
     };
 
     await prisma.$transaction(async (tx) => {

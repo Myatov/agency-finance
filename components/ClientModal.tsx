@@ -35,6 +35,10 @@ interface Client {
   ks?: string | null;
   paymentRequisites?: string | null;
   contacts?: string | null;
+  isReturningClient?: boolean;
+  isKeyClient?: boolean;
+  keyClientStatusComment?: string | null;
+  returningClientStatusComment?: string | null;
   clientContacts?: Array<{
     contactId: string;
     role: string | null;
@@ -80,6 +84,10 @@ export default function ClientModal({
     ks: '',
     paymentRequisites: '',
     contacts: '',
+    isReturningClient: false,
+    isKeyClient: false,
+    keyClientStatusComment: '',
+    returningClientStatusComment: '',
   });
   const [users, setUsers] = useState<User[]>([]);
   const [legalEntities, setLegalEntities] = useState<LegalEntity[]>([]);
@@ -118,6 +126,10 @@ export default function ClientModal({
         ks: c.ks ?? '',
         paymentRequisites: c.paymentRequisites ?? '',
         contacts: c.contacts ?? '',
+        isReturningClient: Boolean(c.isReturningClient),
+        isKeyClient: Boolean(c.isKeyClient),
+        keyClientStatusComment: c.keyClientStatusComment ?? '',
+        returningClientStatusComment: c.returningClientStatusComment ?? '',
       });
       if (c.clientContacts && Array.isArray(c.clientContacts)) {
         setClientContactsLinks(
@@ -209,7 +221,7 @@ export default function ClientModal({
 
   const toNull = (s: string | null | undefined) => (s != null && String(s).trim() !== '' ? String(s).trim() : null);
 
-  const updateField = (field: keyof typeof formData, value: string) => {
+  const updateField = (field: keyof typeof formData, value: string | boolean) => {
     formDataRef.current = { ...formDataRef.current, [field]: value };
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -243,6 +255,10 @@ export default function ClientModal({
         ks: toNull(latest.ks),
         paymentRequisites: toNull(latest.paymentRequisites),
         contacts: toNull(latest.contacts),
+        isReturningClient: Boolean(latest.isReturningClient),
+        isKeyClient: Boolean(latest.isKeyClient),
+        keyClientStatusComment: toNull(latest.keyClientStatusComment),
+        returningClientStatusComment: toNull(latest.returningClientStatusComment),
         clientContacts: clientContactsLinks.map((l) => ({ contactId: l.contactId, role: l.role, isPrimary: l.isPrimary })),
       };
       const res = await fetch(url, {
@@ -277,7 +293,7 @@ export default function ClientModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Название клиента *
+              Название клиента
             </label>
             <input
               name="name"
@@ -291,7 +307,7 @@ export default function ClientModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Юрлицо *
+              Юрлицо
             </label>
             <select
               name="legalEntityId"
@@ -316,7 +332,7 @@ export default function ClientModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Продавец *
+              Продавец
             </label>
             <select
               name="sellerEmployeeId"
@@ -334,6 +350,54 @@ export default function ClientModal({
             </select>
           </div>
 
+          <div className="border-t pt-4 mt-4">
+            <h3 className="text-lg font-semibold mb-3">Статусы</h3>
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.isReturningClient}
+                  onChange={(e) => updateField('isReturningClient', e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                <span>Вернувшийся клиент</span>
+              </label>
+              {formData.isReturningClient && (
+                <div className="ml-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Комментарий к статусу (почему вернулся)</label>
+                  <textarea
+                    value={formData.returningClientStatusComment}
+                    onChange={(e) => updateField('returningClientStatusComment', e.target.value)}
+                    rows={2}
+                    placeholder="Необязательно"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+              )}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.isKeyClient}
+                  onChange={(e) => updateField('isKeyClient', e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                <span>Ключевой клиент</span>
+              </label>
+              {formData.isKeyClient && (
+                <div className="ml-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Комментарий к статусу (почему ключевой)</label>
+                  <textarea
+                    value={formData.keyClientStatusComment}
+                    onChange={(e) => updateField('keyClientStatusComment', e.target.value)}
+                    rows={2}
+                    placeholder="Необязательно"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
           {showRequisitesBlock && (
             <>
               <div className="border-t pt-4 mt-4">
@@ -342,7 +406,7 @@ export default function ClientModal({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Юрлицо (наименование) *
+                  Юрлицо (наименование)
                 </label>
                 <input
                   name="legalEntityName"
@@ -356,7 +420,7 @@ export default function ClientModal({
               {!hideContractBasis && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Основание договора *
+                    Основание договора
                   </label>
                   <input
                     name="contractBasis"
@@ -370,7 +434,7 @@ export default function ClientModal({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Юридический адрес *
+                  Юридический адрес
                 </label>
                 <input
                   name="legalAddress"
@@ -384,7 +448,7 @@ export default function ClientModal({
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ИНН *
+                    ИНН
                   </label>
                   <input
                     name="inn"
@@ -396,7 +460,7 @@ export default function ClientModal({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    КПП *
+                    КПП
                   </label>
                   <input
                     name="kpp"
@@ -408,7 +472,7 @@ export default function ClientModal({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ОГРН *
+                    ОГРН
                   </label>
                   <input
                     name="ogrn"
@@ -422,7 +486,7 @@ export default function ClientModal({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Расчетный счет (р/с) *
+                  Расчетный счет (р/с)
                 </label>
                 <input
                   name="rs"
@@ -435,7 +499,7 @@ export default function ClientModal({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Банк *
+                  Банк
                 </label>
                 <input
                   name="bankName"
@@ -449,7 +513,7 @@ export default function ClientModal({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    БИК банка *
+                    БИК банка
                   </label>
                   <input
                     name="bik"
@@ -461,7 +525,7 @@ export default function ClientModal({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Корреспондентский счет (к/с) *
+                    Корреспондентский счет (к/с)
                   </label>
                   <input
                     name="ks"

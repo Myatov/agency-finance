@@ -129,6 +129,10 @@ model Client {
   ks                String?
   paymentRequisites String?
   contacts          String?
+  isReturningClient Boolean         @default(false)
+  isKeyClient       Boolean         @default(false)
+  keyClientStatusComment    String?
+  returningClientStatusComment String?
   isSystem          Boolean         @default(false)
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
