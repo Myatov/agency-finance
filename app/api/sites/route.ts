@@ -163,8 +163,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Ниша хранится только как строка (поле niche). Если передан nicheId — берём название из справочника.
-    let nicheName = typeof niche === 'string' && niche.trim() ? niche.trim() : '';
+    // Ниша хранится как строка (поле niche). Необязательное поле — при отсутствии сохраняем пустую строку.
+    let nicheName = typeof niche === 'string' ? niche.trim() : '';
     if (!nicheName && nicheId && typeof nicheId === 'string' && nicheId.trim()) {
       try {
         const rec = await prisma.niche.findUnique({
@@ -173,16 +173,10 @@ export async function POST(request: NextRequest) {
         });
         if (rec?.name) nicheName = rec.name;
       } catch {
-        // Справочник недоступен — nicheName остаётся пустым, проверим ниже
+        // Справочник недоступен — nicheName остаётся пустым
       }
     }
-    if (!nicheName || !nicheName.trim()) {
-      return NextResponse.json(
-        { error: 'Поле "Ниша" обязательно для заполнения' },
-        { status: 400 }
-      );
-    }
-    nicheName = nicheName.trim();
+    nicheName = nicheName || '';
 
     const canAssign = await canAssignAccountManager(user);
     const isAccountManagerAssigningSelf = user.roleCode === 'ACCOUNT_MANAGER' && accountManagerId === user.id;

@@ -106,7 +106,7 @@ export async function PUT(
       isActive,
     } = body;
 
-    // Ниша только строка: при переданном nicheId берём название из справочника
+    // Ниша — строка; при пустом или не переданном значении сохраняем текущее
     let nicheName: string | undefined =
       typeof niche === 'string' && niche.trim() ? niche.trim() : undefined;
     if (!nicheName && nicheId && typeof nicheId === 'string' && nicheId.trim()) {
@@ -120,7 +120,7 @@ export async function PUT(
         // ignore
       }
     }
-    if (nicheName === undefined) {
+    if (nicheName === undefined || nicheName === '') {
       nicheName = site.niche;
     }
 
