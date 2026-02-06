@@ -38,7 +38,9 @@ jobs:
             npm run build
             echo "✅ Build completed"
             echo "🔄 Restarting application..."
-            pm2 restart agency-finance --update-env
+            pm2 restart agency-finance --update-env || pm2 start npm --name agency-finance -- start
             echo "✅ Application restarted"
-            sleep 2
+            sleep 5
             pm2 status
+            echo "📋 Checking application logs..."
+            pm2 logs agency-finance --lines 10 --nostream || echo "⚠️ Could not get logs"
