@@ -35,6 +35,10 @@ jobs:
             npx prisma db execute --file prisma/add-client-requisites-columns.sql || true
             echo "🔄 Applying DB migration (Niche table) if needed..."
             npx prisma db execute --file prisma/create-niche-table.sql || true
+            echo "🔄 Stopping old processes..."
+            pm2 stop agency-finance 2>/dev/null || true
+            pkill -f "next-server" 2>/dev/null || true
+            sleep 2
             echo "🔄 Cleaning old build..."
             rm -rf .next
             echo "🔄 Building application..."
