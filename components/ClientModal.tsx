@@ -117,8 +117,8 @@ export default function ClientModal({
   };
 
   const selectedLegalEntity = legalEntities.find((le) => le.id === formData.legalEntityId);
-  // При редактировании показываем блок сразу (чтобы поля были в DOM при первом setFormData); при добавлении — когда выбрано юрлицо
-  const showRequisitesBlock = !!formData.legalEntityId || !!client;
+  // Блок реквизитов всегда в DOM, чтобы при сабмите getFormVal всегда находил инпуты (на проде условный рендер давал null в payload)
+  const showRequisitesBlock = true;
   // Для этих юрлиц поле «Основание платежа» не показываем
   const hideContractBasis = selectedLegalEntity && ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'].includes(selectedLegalEntity.name);
 
