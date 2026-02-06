@@ -19,11 +19,20 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const niches = await prisma.niche.findMany({
-      orderBy: { sortOrder: 'asc' },
-    });
-
-    return NextResponse.json({ niches });
+    // Проверяем существование таблицы Niche
+    try {
+      const niches = await prisma.niche.findMany({
+        orderBy: { sortOrder: 'asc' },
+      });
+      return NextResponse.json({ niches });
+    } catch (dbError: any) {
+      // Если таблица не существует, возвращаем пустой массив
+      if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
+        console.warn('Table Niche does not exist yet, returning empty array');
+        return NextResponse.json({ niches: [] });
+      }
+      throw dbError;
+    }
   } catch (error) {
     console.error('Error fetching niches:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -50,19 +59,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
-    const maxOrder = await prisma.niche.findFirst({
-      orderBy: { sortOrder: 'desc' },
-      select: { sortOrder: true },
-    });
+    // Проверяем существование таблицы
+    try {
+      const maxOrder = await prisma.niche.findFirst({
+        orderBy: { sortOrder: 'desc' },
+        select: { sortOrder: true },
+      });
 
-    const niche = await prisma.niche.create({
-      data: {
-        name: name.trim(),
-        sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
-      },
-    });
+      const niche = await prisma.niche.create({
+        data: {
+          name: name.trim(),
+          sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+        },
+      });
 
-    return NextResponse.json({ niche });
+      return NextResponse.json({ niche });
+    } catch (dbError: any) {
+      if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
+        return NextResponse.json({ 
+          error: 'Таблица Niche не создана в базе данных. Выполните: npx prisma db push' 
+        }, { status: 500 });
+      }
+      throw dbError;
+    }
   } catch (error: unknown) {
     const e = error as { code?: string; message?: string };
     console.error('Error creating niche:', error);

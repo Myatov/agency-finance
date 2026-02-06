@@ -101,6 +101,8 @@ export default function SiteModal({
       }
     } catch (error) {
       console.error('Error fetching niches:', error);
+      // Если ошибка - просто не загружаем ниши, форма будет работать с текстовым полем
+      setNiches([]);
     }
   };
 
@@ -242,26 +244,37 @@ export default function SiteModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Ниша *
             </label>
-            <select
-              required
-              value={formData.nicheId}
-              onChange={(e) => {
-                const selectedNiche = niches.find(n => n.id === e.target.value);
-                setFormData({ 
-                  ...formData, 
-                  nicheId: e.target.value,
-                  niche: selectedNiche?.name || ''
-                });
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            >
-              <option value="">Выберите нишу</option>
-              {niches.map((niche) => (
-                <option key={niche.id} value={niche.id}>
-                  {niche.name}
-                </option>
-              ))}
-            </select>
+            {niches.length > 0 ? (
+              <select
+                required
+                value={formData.nicheId}
+                onChange={(e) => {
+                  const selectedNiche = niches.find(n => n.id === e.target.value);
+                  setFormData({ 
+                    ...formData, 
+                    nicheId: e.target.value,
+                    niche: selectedNiche?.name || ''
+                  });
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="">Выберите нишу</option>
+                {niches.map((niche) => (
+                  <option key={niche.id} value={niche.id}>
+                    {niche.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                required
+                value={formData.niche}
+                onChange={(e) => setFormData({ ...formData, niche: e.target.value, nicheId: '' })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                placeholder="Введите нишу"
+              />
+            )}
           </div>
 
           <div>
