@@ -120,7 +120,9 @@ export default function ClientModal({
   // Для этих юрлиц поле «Основание платежа» не показываем
   const hideContractBasis = selectedLegalEntity && ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'].includes(selectedLegalEntity.name);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const toNull = (s: string) => (s?.trim() || null);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -129,23 +131,22 @@ export default function ClientModal({
       const url = client ? `/api/clients/${client.id}` : '/api/clients';
       const method = client ? 'PUT' : 'POST';
 
-      const str = (v: string | undefined) => (v ?? '').trim() || null;
       const payload = {
-        name: str(formData.name),
-        legalEntityId: formData.legalEntityId || null,
-        sellerEmployeeId: formData.sellerEmployeeId,
-        legalEntityName: str(formData.legalEntityName),
-        contractBasis: hideContractBasis ? null : str(formData.contractBasis),
-        legalAddress: str(formData.legalAddress),
-        inn: str(formData.inn),
-        kpp: str(formData.kpp),
-        ogrn: str(formData.ogrn),
-        rs: str(formData.rs),
-        bankName: str(formData.bankName),
-        bik: str(formData.bik),
-        ks: str(formData.ks),
-        paymentRequisites: str(formData.paymentRequisites),
-        contacts: str(formData.contacts),
+        name: formData.name.trim(),
+        legalEntityId: formData.legalEntityId.trim() || null,
+        sellerEmployeeId: formData.sellerEmployeeId.trim(),
+        legalEntityName: toNull(formData.legalEntityName),
+        contractBasis: hideContractBasis ? null : toNull(formData.contractBasis),
+        legalAddress: toNull(formData.legalAddress),
+        inn: toNull(formData.inn),
+        kpp: toNull(formData.kpp),
+        ogrn: toNull(formData.ogrn),
+        rs: toNull(formData.rs),
+        bankName: toNull(formData.bankName),
+        bik: toNull(formData.bik),
+        ks: toNull(formData.ks),
+        paymentRequisites: toNull(formData.paymentRequisites),
+        contacts: toNull(formData.contacts),
       };
 
       const res = await fetch(url, {
@@ -162,6 +163,7 @@ export default function ClientModal({
         return;
       }
 
+      setLoading(false);
       onSuccess();
     } catch (err) {
       setError('Ошибка соединения');
@@ -182,6 +184,7 @@ export default function ClientModal({
               Название клиента *
             </label>
             <input
+              name="name"
               type="text"
               required
               value={formData.name}
@@ -195,6 +198,7 @@ export default function ClientModal({
               Юрлицо *
             </label>
             <select
+              name="legalEntityId"
               required
               value={formData.legalEntityId}
               onChange={(e) => {
@@ -218,6 +222,7 @@ export default function ClientModal({
               Продавец *
             </label>
             <select
+              name="sellerEmployeeId"
               required
               value={formData.sellerEmployeeId}
               onChange={(e) => setFormData((prev) => ({ ...prev, sellerEmployeeId: e.target.value }))}
@@ -232,7 +237,7 @@ export default function ClientModal({
             </select>
           </div>
 
-          {requiresRequisites && (
+          {showRequisitesBlock && (
             <>
               <div className="border-t pt-4 mt-4">
                 <h3 className="text-lg font-semibold mb-4">Реквизиты юридического лица</h3>
@@ -240,9 +245,10 @@ export default function ClientModal({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Юрлицо *
+                  Юрлицо (наименование) *
                 </label>
                 <input
+                  name="legalEntityName"
                   type="text"
                   required={requiresRequisites}
                   value={formData.legalEntityName}
@@ -257,6 +263,7 @@ export default function ClientModal({
                     Основание договора *
                   </label>
                   <input
+                    name="contractBasis"
                     type="text"
                     required={requiresRequisites}
                     value={formData.contractBasis}
@@ -271,6 +278,7 @@ export default function ClientModal({
                   Юридический адрес *
                 </label>
                 <input
+                  name="legalAddress"
                   type="text"
                   required={requiresRequisites}
                   value={formData.legalAddress}
@@ -285,6 +293,7 @@ export default function ClientModal({
                     ИНН *
                   </label>
                   <input
+                    name="inn"
                     type="text"
                     required={requiresRequisites}
                     value={formData.inn}
@@ -297,6 +306,7 @@ export default function ClientModal({
                     КПП *
                   </label>
                   <input
+                    name="kpp"
                     type="text"
                     required={requiresRequisites}
                     value={formData.kpp}
@@ -309,6 +319,7 @@ export default function ClientModal({
                     ОГРН *
                   </label>
                   <input
+                    name="ogrn"
                     type="text"
                     required={requiresRequisites}
                     value={formData.ogrn}
@@ -323,6 +334,7 @@ export default function ClientModal({
                   Расчетный счет (р/с) *
                 </label>
                 <input
+                  name="rs"
                   type="text"
                   required={requiresRequisites}
                   value={formData.rs}
@@ -336,6 +348,7 @@ export default function ClientModal({
                   Банк *
                 </label>
                 <input
+                  name="bankName"
                   type="text"
                   required={requiresRequisites}
                   value={formData.bankName}
@@ -350,6 +363,7 @@ export default function ClientModal({
                     БИК банка *
                   </label>
                   <input
+                    name="bik"
                     type="text"
                     required={requiresRequisites}
                     value={formData.bik}
@@ -362,6 +376,7 @@ export default function ClientModal({
                     Корреспондентский счет (к/с) *
                   </label>
                   <input
+                    name="ks"
                     type="text"
                     required={requiresRequisites}
                     value={formData.ks}
@@ -378,6 +393,7 @@ export default function ClientModal({
               Платежные реквизиты
             </label>
             <textarea
+              name="paymentRequisites"
               value={formData.paymentRequisites}
               onChange={(e) => setFormData((prev) => ({ ...prev, paymentRequisites: e.target.value }))}
               rows={2}
@@ -390,6 +406,7 @@ export default function ClientModal({
               Контакты
             </label>
             <textarea
+              name="contacts"
               value={formData.contacts}
               onChange={(e) => setFormData((prev) => ({ ...prev, contacts: e.target.value }))}
               rows={2}
