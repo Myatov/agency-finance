@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Fix 502 on VPS
+      - name: Deep Diagnose and Fix 502
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -21,4 +21,8 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd /var/www/agency-finance
+            echo "🔍 Запуск глубокой диагностики..."
+            bash scripts/deep-diagnose-502.sh
+            echo ""
+            echo "🔧 Если диагностика не помогла, запускаю полное восстановление..."
             bash scripts/fix-502-complete.sh
