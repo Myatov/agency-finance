@@ -77,6 +77,8 @@ model User {
   createdSites        Site[]      @relation("SiteCreator")
   department          Department? @relation("DepartmentEmployees", fields: [departmentId], references: [id])
   role                Role        @relation(fields: [roleId], references: [id])
+  uploadedContracts   ContractDocument[]   @relation("ContractUploader")
+  uploadedCloseoutDocs CloseoutDocument[]   @relation("CloseoutDocUploader")
 
   @@index([departmentId])
   @@index([roleId])
@@ -133,6 +135,9 @@ model Client {
   legalEntity       LegalEntity? @relation(fields: [legalEntityId], references: [id])
   seller            User         @relation("ClientSeller", fields: [sellerEmployeeId], references: [id])
   sites             Site[]
+  contractDocuments ContractDocument[]
+  closeoutPackages  CloseoutPackage[]
+  closeoutDocuments CloseoutDocument[]
 
   @@index([sellerEmployeeId])
   @@index([legalEntityId])
@@ -167,6 +172,9 @@ model Site {
   accountManager   User?     @relation("SiteAccountManager", fields: [accountManagerId], references: [id])
   client           Client    @relation(fields: [clientId], references: [id])
   creator          User      @relation("SiteCreator", fields: [creatorId], references: [id])
+  contractDocuments ContractDocument[]
+  contractSections  ContractSection[]
+  closeoutPackages  CloseoutPackage[]
 
   @@index([clientId])
   @@index([accountManagerId])
@@ -195,6 +203,7 @@ model Service {
   product           Product       @relation(fields: [productId], references: [id])
   responsible       User?         @relation("ServiceResponsible", fields: [responsibleUserId], references: [id])
   site              Site          @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  closeoutPackages  CloseoutPackage[]
 
   @@index([siteId])
   @@index([productId])
@@ -299,6 +308,136 @@ model Expense {
   @@index([paymentAt])
   @@index([createdAt])
   @@index([createdByUserId, paymentAt])
+}
+
+// ——— Хранилище: Договора ———
+enum ContractDocType {
+  CONTRACT
+  ADDENDUM
+  NDA
+  OTHER
+}
+
+enum ContractStatus {
+  ACTIVE
+  CLOSED
+}
+
+model ContractDocument {
+  id              String          @id @default(uuid())
+  clientId        String
+  siteId          String?
+  type            ContractDocType @default(CONTRACT)
+  parentId        String?
+  filePath        String
+  originalName    String
+  mimeType        String?
+  sizeBytes       Int?
+  docNumber       String?
+  docDate         DateTime?
+  endDate         DateTime?
+  comment         String?
+  tags            String?
+  status          ContractStatus  @default(ACTIVE)
+  uploadedById    String
+  uploadedAt      DateTime        @default(now())
+  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  site            Site?           @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  uploader        User            @relation("ContractUploader", fields: [uploadedById], references: [id])
+  sections        ContractSection[]
+  children        ContractDocument[] @relation("ContractChildren")
+  parent          ContractDocument?  @relation("ContractChildren", fields: [parentId], references: [id])
+
+  @@index([clientId])
+  @@index([siteId])
+  @@index([uploadedById])
+  @@index([status])
+  @@index([uploadedAt])
+}
+
+model ContractSection {
+  id          String           @id @default(uuid())
+  contractId  String
+  title       String
+  comment     String?
+  siteId      String?
+  serviceId   String?
+  contract    ContractDocument @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  site        Site?            @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  @@index([contractId])
+}
+
+enum CloseoutPeriodType {
+  MONTH
+  STAGE
+  ONE_TIME
+}
+
+enum CloseoutPackageStatus {
+  PREPARING
+  SENT
+  SIGNED
+}
+
+enum CloseoutDocType {
+  ACT
+  INVOICE
+  SF
+  UPD
+  RECONCILIATION
+  REPORT
+  OTHER
+}
+
+enum CloseoutDocStatus {
+  DRAFT
+  SIGNED
+}
+
+model CloseoutPackage {
+  id          String                @id @default(uuid())
+  clientId    String
+  siteId      String?
+  serviceId   String?
+  period      String
+  periodType  CloseoutPeriodType    @default(MONTH)
+  amount      BigInt?
+  status      CloseoutPackageStatus @default(PREPARING)
+  client      Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  site        Site?                 @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  service     Service?              @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  documents   CloseoutDocument[]
+
+  @@index([clientId])
+  @@index([period])
+  @@index([status])
+}
+
+model CloseoutDocument {
+  id            String            @id @default(uuid())
+  packageId     String?
+  clientId      String
+  period        String?
+  docType       CloseoutDocType    @default(ACT)
+  filePath      String
+  originalName  String
+  mimeType      String?
+  sizeBytes     Int?
+  docDate       DateTime?
+  amount        BigInt?
+  status        CloseoutDocStatus   @default(DRAFT)
+  comment       String?
+  uploadedById  String
+  uploadedAt    DateTime          @default(now())
+  package       CloseoutPackage?   @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  client        Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  uploader      User              @relation("CloseoutDocUploader", fields: [uploadedById], references: [id])
+
+  @@index([clientId])
+  @@index([packageId])
+  @@index([period])
+  @@index([uploadedById])
 }
 
 enum LegalEntityType {

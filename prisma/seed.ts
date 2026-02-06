@@ -72,7 +72,7 @@ async function main() {
   };
 
   // Create roles: полный список разделов (включая Услуги и Юрлица)
-  const allSections = ['sites', 'services', 'clients', 'incomes', 'expenses', 'cost-items', 'employees', 'products', 'reports', 'legal-entities', 'roles'];
+  const allSections = ['sites', 'services', 'clients', 'contracts', 'closeout', 'storage', 'incomes', 'expenses', 'cost-items', 'employees', 'products', 'reports', 'legal-entities', 'roles'];
   const allManagePermissions = allSections.flatMap((section) => [{ section, permission: 'manage' }]);
 
   // OWNER (Владелец) — полный доступ ко всему, включая Роли и Юрлица

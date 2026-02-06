@@ -17,6 +17,7 @@ export default function Navigation() {
   const [loading, setLoading] = useState(true);
   const [accessibleSections, setAccessibleSections] = useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [workMenuOpen, setWorkMenuOpen] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -35,15 +36,15 @@ export default function Navigation() {
           // OWNER видит всё, CEO — всё кроме Ролей и Юрлиц
       if (user.roleCode === 'OWNER') {
         setAccessibleSections([
-          '/sites', '/services', '/clients', '/incomes', '/expenses',
-          '/employees', '/products', '/reports', '/roles', '/legal-entities',
+          '/sites', '/services', '/clients', '/contracts', '/closeout', '/storage',
+          '/incomes', '/expenses', '/employees', '/products', '/reports', '/roles', '/legal-entities',
         ]);
         return;
       }
       if (user.roleCode === 'CEO') {
         setAccessibleSections([
-          '/sites', '/services', '/clients', '/incomes', '/expenses',
-          '/employees', '/products', '/reports',
+          '/sites', '/services', '/clients', '/contracts', '/closeout', '/storage',
+          '/incomes', '/expenses', '/employees', '/products', '/reports',
         ]);
         return;
       }
@@ -53,6 +54,9 @@ export default function Navigation() {
         { href: '/sites', section: 'sites' },
         { href: '/services', section: 'services' },
         { href: '/clients', section: 'clients' },
+        { href: '/contracts', section: 'contracts' },
+        { href: '/closeout', section: 'closeout' },
+        { href: '/storage', section: 'storage' },
         { href: '/incomes', section: 'incomes' },
         { href: '/expenses', section: 'expenses' },
         { href: '/cost-items', section: 'cost-items' },
@@ -84,20 +88,19 @@ export default function Navigation() {
     }
   }, [user]);
 
-  // Close settings menu when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      if (settingsOpen && !target.closest('.settings-menu')) {
-        setSettingsOpen(false);
-      }
+      if (settingsOpen && !target.closest('.settings-menu')) setSettingsOpen(false);
+      if (workMenuOpen && !target.closest('.work-menu')) setWorkMenuOpen(false);
     };
 
-    if (settingsOpen) {
+    if (settingsOpen || workMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [settingsOpen]);
+  }, [settingsOpen, workMenuOpen]);
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -108,8 +111,8 @@ export default function Navigation() {
     return null;
   }
 
-  // Settings submenu items (Доходы, затем Статьи расходов)
   const settingsItems: Array<{ href: string; label: string; section?: string }> = [
+    { href: '/storage', label: 'Хранилище', section: 'storage' },
     { href: '/employees', label: 'Команда', section: 'employees' },
     { href: '/products', label: 'Продукты', section: 'products' },
     { href: '/incomes', label: 'Доходы', section: 'incomes' },
@@ -129,10 +132,20 @@ export default function Navigation() {
         ? settingsItems.filter((item) => item.href !== '/roles' && item.href !== '/legal-entities')
         : settingsItems.filter((item) => item.section && accessibleSections.includes(item.href));
 
+  const workSubmenuAll = [
+    { href: '/clients', label: 'Клиенты', section: 'clients' },
+    { href: '/contracts', label: 'Договора', section: 'contracts' },
+    { href: '/closeout', label: 'Закрывающие документы', section: 'closeout' },
+    { href: '/sites', label: 'Сайты', section: 'sites' },
+    { href: '/services', label: 'Услуги', section: 'services' },
+  ];
+  const workSubmenu =
+    user.roleCode === 'OWNER' || user.roleCode === 'CEO'
+      ? workSubmenuAll
+      : workSubmenuAll.filter((item) => accessibleSections.includes(item.href));
+
   const navItems = [
-    { href: '/services', label: 'Услуги' },
-    { href: '/sites', label: 'Сайты' },
-    { href: '/clients', label: 'Клиенты' },
+    { href: '#work', label: 'Клиенты и документы', isDropdown: true, submenu: workSubmenu },
     { href: '/incomes', label: 'Доходы' },
     { href: '/expenses', label: 'Расходы' },
     { href: '/reports', label: 'Отчеты' },
@@ -146,7 +159,7 @@ export default function Navigation() {
   const visibleNavItems =
     user.roleCode === 'OWNER' || user.roleCode === 'CEO'
       ? navItems
-      : navItems.filter((item) => item.href === '#' || accessibleSections.includes(item.href));
+      : navItems.filter((item) => (item as any).isDropdown || item.href === '#' || accessibleSections.includes(item.href));
 
   return (
     <nav className="bg-white shadow-md border-b">
@@ -158,6 +171,43 @@ export default function Navigation() {
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               {visibleNavItems.map((item) => {
+                if ((item as any).isDropdown && (item as any).submenu) {
+                  const sub = (item as any).submenu as Array<{ href: string; label: string }>;
+                  const isActive = sub.some((s) => pathname === s.href);
+                  return (
+                    <div key="work" className="relative work-menu">
+                      <button
+                        onClick={() => { setWorkMenuOpen(!workMenuOpen); setSettingsOpen(false); }}
+                        onMouseEnter={() => setWorkMenuOpen(true)}
+                        className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                          isActive ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                        }`}
+                      >
+                        {(item as any).label}
+                        <svg className="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {workMenuOpen && (
+                        <div
+                          className="absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 py-1"
+                          onMouseLeave={() => setWorkMenuOpen(false)}
+                        >
+                          {sub.map((subItem) => (
+                            <Link
+                              key={subItem.href}
+                              href={subItem.href}
+                              onClick={() => setWorkMenuOpen(false)}
+                              className={`block px-4 py-2 text-sm ${pathname === subItem.href ? 'bg-blue-50 text-blue-900' : 'text-gray-700 hover:bg-gray-100'}`}
+                            >
+                              {subItem.label}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
                 if (item.label === 'Настройки') {
                   // Settings menu item
                   return (

@@ -89,8 +89,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Validate required fields for IP/OOO types
-    if (legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO')) {
+    const skipContractBasisFor = ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'];
+    const skipContractBasis = legalEntity && skipContractBasisFor.includes(legalEntity.name);
+
+    if (legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') && !skipContractBasis) {
       if (
         !legalEntityName ||
         !contractBasis ||
@@ -115,18 +117,18 @@ export async function POST(request: NextRequest) {
         name,
         legalEntityId: legalEntityId || null,
         sellerEmployeeId,
-        legalEntityName: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? legalEntityName : null,
-        contractBasis: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? contractBasis : null,
-        legalAddress: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? legalAddress : null,
-        inn: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? inn : null,
-        kpp: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? kpp : null,
-        ogrn: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? ogrn : null,
-        rs: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? rs : null,
-        bankName: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? bankName : null,
-        bik: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? bik : null,
-        ks: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? ks : null,
-        paymentRequisites,
-        contacts,
+        legalEntityName: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (legalEntityName ?? null) : null,
+        contractBasis: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') && !skipContractBasis ? (contractBasis ?? null) : null,
+        legalAddress: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (legalAddress ?? null) : null,
+        inn: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (inn ?? null) : null,
+        kpp: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (kpp ?? null) : null,
+        ogrn: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (ogrn ?? null) : null,
+        rs: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (rs ?? null) : null,
+        bankName: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (bankName ?? null) : null,
+        bik: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (bik ?? null) : null,
+        ks: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (ks ?? null) : null,
+        paymentRequisites: paymentRequisites ?? null,
+        contacts: contacts ?? null,
       },
       include: {
         legalEntity: true,

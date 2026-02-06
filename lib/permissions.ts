@@ -1,7 +1,7 @@
 import { prisma } from './db';
 import { SessionUser } from './auth';
 
-const SECTIONS_VIEW_ALL = ['sites', 'services', 'clients', 'incomes', 'expenses', 'employees'] as const;
+const SECTIONS_VIEW_ALL = ['sites', 'services', 'clients', 'incomes', 'expenses', 'employees', 'contracts', 'closeout', 'storage'] as const;
 
 // Проверка: может ли пользователь видеть все элементы раздела (иначе — только свои/назначенные)
 export async function hasViewAllPermission(

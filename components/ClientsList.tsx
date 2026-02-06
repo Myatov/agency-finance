@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import ClientModal from './ClientModal';
+import ClientDocumentsModal from './ClientDocumentsModal';
 
 interface Client {
   id: string;
@@ -34,6 +35,7 @@ export default function ClientsList() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [documentsClient, setDocumentsClient] = useState<Client | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [canAdd, setCanAdd] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
@@ -189,6 +191,12 @@ export default function ClientsList() {
                       {niches.length > 0 ? niches.join(', ') : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => setDocumentsClient(client)}
+                        className="text-blue-600 hover:text-blue-900 mr-4"
+                      >
+                        Документы
+                      </button>
                       {canEdit && (
                         <button
                           onClick={() => handleEdit(client)}
@@ -216,6 +224,14 @@ export default function ClientsList() {
           <div className="text-center py-8 text-gray-500">Клиенты не найдены</div>
         )}
       </div>
+
+      {documentsClient && (
+        <ClientDocumentsModal
+          clientId={documentsClient.id}
+          clientName={documentsClient.name}
+          onClose={() => setDocumentsClient(null)}
+        />
+      )}
 
       {showModal && (
         <ClientModal

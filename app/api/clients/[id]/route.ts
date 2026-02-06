@@ -88,8 +88,10 @@ export async function PUT(
       }
     }
 
-    // Validate required fields for IP/OOO types
-    if (legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO')) {
+    const skipContractBasisFor = ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'];
+    const skipContractBasis = legalEntity && skipContractBasisFor.includes(legalEntity.name);
+
+    if (legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') && !skipContractBasis) {
       if (
         !legalEntityName ||
         !contractBasis ||
@@ -113,20 +115,19 @@ export async function PUT(
       name,
       legalEntityId: legalEntityId || null,
       sellerEmployeeId,
+      legalEntityName: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (legalEntityName ?? null) : null,
+      contractBasis: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') && !skipContractBasis ? (contractBasis ?? null) : null,
+      legalAddress: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (legalAddress ?? null) : null,
+      inn: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (inn ?? null) : null,
+      kpp: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (kpp ?? null) : null,
+      ogrn: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (ogrn ?? null) : null,
+      rs: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (rs ?? null) : null,
+      bankName: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (bankName ?? null) : null,
+      bik: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (bik ?? null) : null,
+      ks: legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? (ks ?? null) : null,
+      paymentRequisites: paymentRequisites ?? null,
+      contacts: contacts ?? null,
     };
-
-    updateData.legalEntityName = legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? legalEntityName : null;
-    updateData.contractBasis = legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? contractBasis : null;
-    updateData.legalAddress = legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? legalAddress : null;
-    updateData.inn = legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? inn : null;
-    updateData.kpp = legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? kpp : null;
-    updateData.ogrn = legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? ogrn : null;
-    updateData.rs = legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? rs : null;
-    updateData.bankName = legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? bankName : null;
-    updateData.bik = legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? bik : null;
-    updateData.ks = legalEntity && (legalEntity.type === 'IP' || legalEntity.type === 'OOO') ? ks : null;
-    updateData.paymentRequisites = paymentRequisites || null;
-    updateData.contacts = contacts || null;
 
     const client = await prisma.client.update({
       where: { id: params.id },

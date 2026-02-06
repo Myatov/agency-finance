@@ -115,6 +115,8 @@ export default function ClientModal({
 
   const selectedLegalEntity = legalEntities.find((le) => le.id === formData.legalEntityId);
   const requiresRequisites = selectedLegalEntity && (selectedLegalEntity.type === 'IP' || selectedLegalEntity.type === 'OOO');
+  // Для этих юрлиц поле «Основание платежа» не показываем
+  const hideContractBasis = selectedLegalEntity && ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'].includes(selectedLegalEntity.name);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,22 +131,19 @@ export default function ClientModal({
         name: formData.name,
         legalEntityId: formData.legalEntityId || null,
         sellerEmployeeId: formData.sellerEmployeeId,
+        legalEntityName: formData.legalEntityName || null,
+        contractBasis: hideContractBasis ? null : (formData.contractBasis || null),
+        legalAddress: formData.legalAddress || null,
+        inn: formData.inn || null,
+        kpp: formData.kpp || null,
+        ogrn: formData.ogrn || null,
+        rs: formData.rs || null,
+        bankName: formData.bankName || null,
+        bik: formData.bik || null,
+        ks: formData.ks || null,
         paymentRequisites: formData.paymentRequisites || null,
         contacts: formData.contacts || null,
       };
-
-      if (requiresRequisites) {
-        payload.legalEntityName = formData.legalEntityName;
-        payload.contractBasis = formData.contractBasis;
-        payload.legalAddress = formData.legalAddress;
-        payload.inn = formData.inn;
-        payload.kpp = formData.kpp;
-        payload.ogrn = formData.ogrn;
-        payload.rs = formData.rs;
-        payload.bankName = formData.bankName;
-        payload.bik = formData.bik;
-        payload.ks = formData.ks;
-      }
 
       const res = await fetch(url, {
         method,
@@ -245,18 +244,20 @@ export default function ClientModal({
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Основание договора *
-                </label>
-                <input
-                  type="text"
-                  required={requiresRequisites}
-                  value={formData.contractBasis}
-                  onChange={(e) => setFormData({ ...formData, contractBasis: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
+              {!hideContractBasis && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Основание договора *
+                  </label>
+                  <input
+                    type="text"
+                    required={requiresRequisites}
+                    value={formData.contractBasis}
+                    onChange={(e) => setFormData({ ...formData, contractBasis: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

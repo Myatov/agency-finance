@@ -35,6 +35,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# uploads (files stored on disk)
+/uploads
+
 # backups and dumps
 backup_*.tar.gz
 backup_*.dump
