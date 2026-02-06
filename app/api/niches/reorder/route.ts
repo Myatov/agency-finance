@@ -36,28 +36,39 @@ export async function PUT(request: NextRequest) {
       );
 
       // Возвращаем все ниши с иерархией
-      const niches = await prisma.niche.findMany({
-        include: {
-          parent: {
-            select: {
-              id: true,
-              name: true,
+      try {
+        const niches = await prisma.niche.findMany({
+          include: {
+            parent: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            children: {
+              select: {
+                id: true,
+                name: true,
+              },
             },
           },
-          children: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-        orderBy: [
-          { parentId: 'asc' },
-          { sortOrder: 'asc' },
-        ],
-      });
-
-      return NextResponse.json({ niches });
+          orderBy: [
+            { parentId: 'asc' },
+            { sortOrder: 'asc' },
+          ],
+        });
+        return NextResponse.json({ niches });
+      } catch (hierarchyError: any) {
+        // Если поле parentId еще не добавлено, возвращаем без иерархии
+        if (hierarchyError.message?.includes('parentId') || hierarchyError.message?.includes('Unknown column')) {
+          console.warn('parentId field not found, returning niches without hierarchy');
+          const niches = await prisma.niche.findMany({
+            orderBy: { sortOrder: 'asc' },
+          });
+          return NextResponse.json({ niches: niches.map(n => ({ ...n, parentId: null, parent: null, children: [] })) });
+        }
+        throw hierarchyError;
+      }
     } catch (dbError: any) {
       if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
         return NextResponse.json({ 

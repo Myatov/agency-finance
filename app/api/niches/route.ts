@@ -21,27 +21,40 @@ export async function GET() {
 
     // Проверяем существование таблицы Niche
     try {
-      const niches = await prisma.niche.findMany({
-        include: {
-          parent: {
-            select: {
-              id: true,
-              name: true,
+      // Пытаемся получить с иерархией
+      try {
+        const niches = await prisma.niche.findMany({
+          include: {
+            parent: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            children: {
+              select: {
+                id: true,
+                name: true,
+              },
             },
           },
-          children: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-        orderBy: [
-          { parentId: 'asc' },
-          { sortOrder: 'asc' },
-        ],
-      });
-      return NextResponse.json({ niches });
+          orderBy: [
+            { parentId: 'asc' },
+            { sortOrder: 'asc' },
+          ],
+        });
+        return NextResponse.json({ niches });
+      } catch (hierarchyError: any) {
+        // Если поле parentId еще не добавлено, получаем без иерархии
+        if (hierarchyError.message?.includes('parentId') || hierarchyError.message?.includes('Unknown column') || hierarchyError.code === 'P2001') {
+          console.warn('parentId field not found, returning niches without hierarchy');
+          const niches = await prisma.niche.findMany({
+            orderBy: { sortOrder: 'asc' },
+          });
+          return NextResponse.json({ niches: niches.map(n => ({ ...n, parentId: null, parent: null, children: [] })) });
+        }
+        throw hierarchyError;
+      }
     } catch (dbError: any) {
       // Если таблица не существует, возвращаем пустой массив
       if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
@@ -78,46 +91,77 @@ export async function POST(request: NextRequest) {
 
     // Если указан parentId, проверяем что родитель существует и не является дочерним элементом
     if (parentId) {
-      const parent = await prisma.niche.findUnique({
-        where: { id: parentId },
-        include: { parent: true },
-      });
-      if (!parent) {
-        return NextResponse.json({ error: 'Родительская ниша не найдена' }, { status: 400 });
-      }
-      if (parent.parentId) {
-        return NextResponse.json({ error: 'Нельзя создавать вложенность глубже 2 уровней' }, { status: 400 });
+      try {
+        const parent = await prisma.niche.findUnique({
+          where: { id: parentId },
+          include: { parent: true },
+        });
+        if (!parent) {
+          return NextResponse.json({ error: 'Родительская ниша не найдена' }, { status: 400 });
+        }
+        if (parent.parentId) {
+          return NextResponse.json({ error: 'Нельзя создавать вложенность глубже 2 уровней' }, { status: 400 });
+        }
+      } catch (parentError: any) {
+        // Если поле parentId еще не существует, игнорируем проверку
+        if (parentError.message?.includes('parentId') || parentError.message?.includes('Unknown column')) {
+          console.warn('parentId field not found, skipping parent validation');
+        } else {
+          throw parentError;
+        }
       }
     }
 
     // Проверяем существование таблицы
     try {
-      // Для корневых элементов берем максимальный sortOrder среди корневых
-      // Для дочерних - среди дочерних того же родителя
-      const where = parentId ? { parentId } : { parentId: null };
-      const maxOrder = await prisma.niche.findFirst({
-        where,
-        orderBy: { sortOrder: 'desc' },
-        select: { sortOrder: true },
-      });
+      // Пытаемся создать с parentId
+      try {
+        // Для корневых элементов берем максимальный sortOrder среди корневых
+        // Для дочерних - среди дочерних того же родителя
+        const where = parentId ? { parentId } : { parentId: null };
+        const maxOrder = await prisma.niche.findFirst({
+          where,
+          orderBy: { sortOrder: 'desc' },
+          select: { sortOrder: true },
+        });
 
-      const niche = await prisma.niche.create({
-        data: {
-          name: name.trim(),
-          parentId: parentId || null,
-          sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
-        },
-        include: {
-          parent: {
-            select: {
-              id: true,
-              name: true,
+        const niche = await prisma.niche.create({
+          data: {
+            name: name.trim(),
+            parentId: parentId || null,
+            sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+          },
+          include: {
+            parent: {
+              select: {
+                id: true,
+                name: true,
+              },
             },
           },
-        },
-      });
+        });
 
-      return NextResponse.json({ niche });
+        return NextResponse.json({ niche });
+      } catch (createError: any) {
+        // Если поле parentId еще не существует, создаем без него
+        if (createError.message?.includes('parentId') || createError.message?.includes('Unknown column')) {
+          console.warn('parentId field not found, creating niche without parentId');
+          const maxOrder = await prisma.niche.findFirst({
+            orderBy: { sortOrder: 'desc' },
+            select: { sortOrder: true },
+          });
+
+          const niche = await prisma.niche.create({
+            data: {
+              name: name.trim(),
+              sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+            },
+          });
+
+          return NextResponse.json({ niche: { ...niche, parentId: null, parent: null } });
+        }
+        throw createError;
+      }
     } catch (dbError: any) {
       if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
         return NextResponse.json({ 
