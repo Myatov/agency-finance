@@ -316,6 +316,28 @@ export default function ExpenseModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
+              Услуга
+            </label>
+            <select
+              value={formData.serviceId}
+              onChange={(e) => setFormData({ ...formData, serviceId: e.target.value })}
+              disabled={!formData.siteId}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md disabled:bg-gray-50 disabled:text-gray-400"
+            >
+              <option value="">Не выбрана</option>
+              {services.map((service) => (
+                <option key={service.id} value={service.id}>
+                  {service.product.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Список услуг подгружается по выбранному сайту. Необязательное поле.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Юрлицо
             </label>
             <select
@@ -330,28 +352,6 @@ export default function ExpenseModal({
                 </option>
               ))}
             </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Услуга (опционально)
-            </label>
-            <select
-              value={formData.serviceId}
-              onChange={(e) => setFormData({ ...formData, serviceId: e.target.value })}
-              disabled={!formData.siteId}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md disabled:bg-gray-50"
-            >
-              <option value="">Не выбрана</option>
-              {services.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.product.name} - {service.site.title}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500">
-              Расход может быть общим (без привязки к услуге) или привязанным к конкретной услуге
-            </p>
           </div>
 
           <div>
