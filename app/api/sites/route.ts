@@ -166,71 +166,60 @@ export async function GET(request: NextRequest) {
         }
       }
     } catch (dbError: any) {
-      // Если таблица Niche не существует или колонка nicheId не существует, делаем запрос без nicheRef
-      if (dbError.message?.includes('does not exist') ||
-          dbError.message?.includes('Niche') ||
-          dbError.message?.includes('nicheId') ||
-          dbError.message?.includes('Unknown column') ||
-          dbError.code === 'P2021' ||
-          dbError.code === 'P2001') {
-        console.warn('Table Niche or nicheId column does not exist, fetching sites without nicheRef:', dbError.message);
-        sites = await prisma.site.findMany({
-          where,
-          include: {
-            client: {
-              include: {
-                seller: {
-                  select: {
-                    id: true,
-                    fullName: true,
-                  },
+      // При любой ошибке (нет колонки, нет таблицы, неверная схема и т.д.) — загружаем сайты без nicheRef
+      console.warn('Fetching sites with nicheRef failed, falling back to without nicheRef:', dbError?.message || dbError);
+      sites = await prisma.site.findMany({
+        where,
+        include: {
+          client: {
+            include: {
+              seller: {
+                select: {
+                  id: true,
+                  fullName: true,
                 },
-              },
-            },
-            accountManager: {
-              select: {
-                id: true,
-                fullName: true,
-              },
-            },
-            creator: {
-              select: {
-                id: true,
-                fullName: true,
-              },
-            },
-            services: {
-              where: {
-                status: 'ACTIVE',
-              },
-              select: {
-                id: true,
-                product: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-              take: 5,
-            },
-            expenses: {
-              orderBy: { paymentAt: 'desc' },
-              take: 1,
-              select: {
-                id: true,
-                amount: true,
-                paymentAt: true,
               },
             },
           },
-          orderBy: { createdAt: 'desc' },
-        });
-        // Добавляем null для nicheRef для совместимости
-        sites = sites.map(s => ({ ...s, nicheRef: null }));
-      } else {
-        console.error('Error fetching sites:', dbError);
-        throw dbError;
-      }
+          accountManager: {
+            select: {
+              id: true,
+              fullName: true,
+            },
+          },
+          creator: {
+            select: {
+              id: true,
+              fullName: true,
+            },
+          },
+          services: {
+            where: {
+              status: 'ACTIVE',
+            },
+            select: {
+              id: true,
+              product: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+            take: 5,
+          },
+          expenses: {
+            orderBy: { paymentAt: 'desc' },
+            take: 1,
+            select: {
+              id: true,
+              amount: true,
+              paymentAt: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      sites = sites.map(s => ({ ...s, nicheRef: null }));
     }
 
     // Convert BigInt to string for JSON serialization
