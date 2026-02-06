@@ -59,23 +59,21 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const {
-      name,
-      legalEntityId,
-      sellerEmployeeId,
-      legalEntityName,
-      contractBasis,
-      legalAddress,
-      inn,
-      kpp,
-      ogrn,
-      rs,
-      bankName,
-      bik,
-      ks,
-      paymentRequisites,
-      contacts,
-    } = body;
+    const name = body.name;
+    const legalEntityId = body.legalEntityId ?? null;
+    const sellerEmployeeId = body.sellerEmployeeId;
+    const legalEntityName = body.legalEntityName ?? null;
+    const contractBasis = body.contractBasis ?? null;
+    const legalAddress = body.legalAddress ?? null;
+    const inn = body.inn ?? null;
+    const kpp = body.kpp ?? null;
+    const ogrn = body.ogrn ?? null;
+    const rs = body.rs ?? null;
+    const bankName = body.bankName ?? null;
+    const bik = body.bik ?? null;
+    const ks = body.ks ?? null;
+    const paymentRequisites = body.paymentRequisites ?? null;
+    const contacts = body.contacts ?? null;
 
     // Get legal entity if provided
     let legalEntity = null;
@@ -111,22 +109,22 @@ export async function PUT(
       }
     }
 
-    const updateData: any = {
-      name,
+    const updateData = {
+      name: String(name),
       legalEntityId: legalEntityId || null,
-      sellerEmployeeId,
-      legalEntityName: legalEntityName ?? null,
-      contractBasis: skipContractBasis ? null : (contractBasis ?? null),
-      legalAddress: legalAddress ?? null,
-      inn: inn ?? null,
-      kpp: kpp ?? null,
-      ogrn: ogrn ?? null,
-      rs: rs ?? null,
-      bankName: bankName ?? null,
-      bik: bik ?? null,
-      ks: ks ?? null,
-      paymentRequisites: paymentRequisites ?? null,
-      contacts: contacts ?? null,
+      sellerEmployeeId: String(sellerEmployeeId),
+      legalEntityName,
+      contractBasis: skipContractBasis ? null : contractBasis,
+      legalAddress,
+      inn,
+      kpp,
+      ogrn,
+      rs,
+      bankName,
+      bik,
+      ks,
+      paymentRequisites,
+      contacts,
     };
 
     const client = await prisma.client.update({

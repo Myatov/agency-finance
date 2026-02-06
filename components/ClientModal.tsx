@@ -129,22 +129,23 @@ export default function ClientModal({
       const url = client ? `/api/clients/${client.id}` : '/api/clients';
       const method = client ? 'PUT' : 'POST';
 
+      const str = (v: string | undefined) => (v ?? '').trim() || null;
       const payload = {
-        name: formData.name.trim(),
+        name: str(formData.name),
         legalEntityId: formData.legalEntityId || null,
         sellerEmployeeId: formData.sellerEmployeeId,
-        legalEntityName: formData.legalEntityName.trim() || null,
-        contractBasis: hideContractBasis ? null : (formData.contractBasis.trim() || null),
-        legalAddress: formData.legalAddress.trim() || null,
-        inn: formData.inn.trim() || null,
-        kpp: formData.kpp.trim() || null,
-        ogrn: formData.ogrn.trim() || null,
-        rs: formData.rs.trim() || null,
-        bankName: formData.bankName.trim() || null,
-        bik: formData.bik.trim() || null,
-        ks: formData.ks.trim() || null,
-        paymentRequisites: formData.paymentRequisites.trim() || null,
-        contacts: formData.contacts.trim() || null,
+        legalEntityName: str(formData.legalEntityName),
+        contractBasis: hideContractBasis ? null : str(formData.contractBasis),
+        legalAddress: str(formData.legalAddress),
+        inn: str(formData.inn),
+        kpp: str(formData.kpp),
+        ogrn: str(formData.ogrn),
+        rs: str(formData.rs),
+        bankName: str(formData.bankName),
+        bik: str(formData.bik),
+        ks: str(formData.ks),
+        paymentRequisites: str(formData.paymentRequisites),
+        contacts: str(formData.contacts),
       };
 
       const res = await fetch(url, {
