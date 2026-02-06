@@ -4,7 +4,12 @@ const path = require('path');
 const nextConfig = {
   experimental: {
     serverActions: {
-      bodySizeLimit: '2mb',
+      bodySizeLimit: '100mb',
+    },
+  },
+  api: {
+    bodyParser: {
+      sizeLimit: '100mb',
     },
   },
   webpack: (config, { isServer, dev }) => {

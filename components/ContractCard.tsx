@@ -55,12 +55,19 @@ const statusLabels: Record<string, string> = {
   CLOSED: 'Закрыт',
 };
 
+interface Client {
+  id: string;
+  name: string;
+  sites: Array<{ id: string; title: string }>;
+}
+
 export default function ContractCard({ contractId }: { contractId: string }) {
   const [contract, setContract] = useState<Contract | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ docNumber: '', docDate: '', endDate: '', comment: '', tags: '', status: 'ACTIVE' });
+  const [editForm, setEditForm] = useState({ docNumber: '', docDate: '', endDate: '', comment: '', tags: '', status: 'ACTIVE', clientId: '', siteId: '', parentId: '' });
+  const [rootContracts, setRootContracts] = useState<Contract[]>([]);
   const [saving, setSaving] = useState(false);
   const [newSectionTitle, setNewSectionTitle] = useState('');
   const [newSectionComment, setNewSectionComment] = useState('');
@@ -69,10 +76,37 @@ export default function ContractCard({ contractId }: { contractId: string }) {
   const [replacementFile, setReplacementFile] = useState<File | null>(null);
   const [replacing, setReplacing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
 
   useEffect(() => {
     fetchContract();
+    fetchClients();
   }, [contractId]);
+
+  useEffect(() => {
+    if (editForm.clientId) {
+      fetchRootContracts();
+    } else {
+      setRootContracts([]);
+    }
+  }, [editForm.clientId]);
+
+  const fetchRootContracts = async () => {
+    if (!editForm.clientId) return;
+    try {
+      const res = await fetch(`/api/contracts?clientId=${editForm.clientId}`);
+      const data = await res.json();
+      if (res.ok) {
+        // Фильтруем, чтобы исключить текущий договор и его детей
+        const filtered = (data.contracts || []).filter((c: Contract) => 
+          c.id !== contractId && c.parentId === null
+        );
+        setRootContracts(filtered);
+      }
+    } catch (err) {
+      console.error('Error fetching root contracts:', err);
+    }
+  };
 
   useEffect(() => {
     if (contract) {
@@ -83,9 +117,24 @@ export default function ContractCard({ contractId }: { contractId: string }) {
         comment: contract.comment ?? '',
         tags: contract.tags ?? '',
         status: contract.status,
+        clientId: contract.clientId,
+        siteId: contract.siteId ?? '',
+        parentId: contract.parentId ?? '',
       });
     }
   }, [contract]);
+
+  const fetchClients = async () => {
+    try {
+      const res = await fetch('/api/clients');
+      const data = await res.json();
+      if (res.ok) {
+        setClients(data.clients || []);
+      }
+    } catch (err) {
+      console.error('Error fetching clients:', err);
+    }
+  };
 
   const fetchContract = async () => {
     setLoading(true);
@@ -121,6 +170,9 @@ export default function ContractCard({ contractId }: { contractId: string }) {
           comment: editForm.comment || null,
           tags: editForm.tags || null,
           status: editForm.status,
+          clientId: editForm.clientId || null,
+          siteId: editForm.siteId || null,
+          parentId: editForm.parentId || null,
         }),
       });
       if (res.ok) {
@@ -302,6 +354,52 @@ export default function ContractCard({ contractId }: { contractId: string }) {
 
         {editing ? (
           <div className="grid grid-cols-2 gap-4 border-t pt-4">
+            <div className="col-span-2">
+              <label className="block text-sm text-gray-600 mb-1">Клиент *</label>
+              <select 
+                value={editForm.clientId} 
+                onChange={(e) => {
+                  setEditForm({ ...editForm, clientId: e.target.value, siteId: '' });
+                }} 
+                className="w-full px-3 py-2 border rounded-md"
+                required
+              >
+                <option value="">Выберите клиента</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm text-gray-600 mb-1">Сайт</label>
+              <select 
+                value={editForm.siteId} 
+                onChange={(e) => setEditForm({ ...editForm, siteId: e.target.value })} 
+                className="w-full px-3 py-2 border rounded-md"
+              >
+                <option value="">—</option>
+                {editForm.clientId && clients.find((c) => c.id === editForm.clientId)?.sites.map((s) => (
+                  <option key={s.id} value={s.id}>{s.title}</option>
+                ))}
+              </select>
+            </div>
+            {contract && contract.parentId !== null && editForm.clientId && rootContracts.length > 0 && (
+              <div className="col-span-2">
+                <label className="block text-sm text-gray-600 mb-1">Приложение к договору</label>
+                <select 
+                  value={editForm.parentId} 
+                  onChange={(e) => setEditForm({ ...editForm, parentId: e.target.value })} 
+                  className="w-full px-3 py-2 border rounded-md"
+                >
+                  <option value="">Нет (самостоятельный договор)</option>
+                  {rootContracts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.originalName} {c.docNumber ? `№ ${c.docNumber}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-sm text-gray-600 mb-1">Номер документа</label>
               <input value={editForm.docNumber} onChange={(e) => setEditForm({ ...editForm, docNumber: e.target.value })} className="w-full px-3 py-2 border rounded-md" />

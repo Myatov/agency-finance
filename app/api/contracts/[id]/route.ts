@@ -100,6 +100,58 @@ export async function PATCH(
     if (body.tags !== undefined) update.tags = body.tags || null;
     if (body.status !== undefined && ['ACTIVE', 'CLOSED'].includes(body.status)) update.status = body.status;
     if (body.siteId !== undefined) update.siteId = body.siteId || null;
+    
+    // Изменение parentId (для приложений)
+    if (body.parentId !== undefined) {
+      if (body.parentId) {
+        // Проверяем, что родительский договор существует и принадлежит тому же клиенту
+        const parentDoc = await prisma.contractDocument.findUnique({
+          where: { id: body.parentId },
+          select: { clientId: true, id: true },
+        });
+        if (!parentDoc) {
+          return NextResponse.json({ error: 'Родительский договор не найден' }, { status: 404 });
+        }
+        // При изменении клиента parentId должен быть из нового клиента
+        const targetClientId = body.clientId !== undefined ? body.clientId : doc.clientId;
+        if (parentDoc.clientId !== targetClientId) {
+          return NextResponse.json({ 
+            error: 'Родительский договор должен принадлежать тому же клиенту' 
+          }, { status: 400 });
+        }
+        update.parentId = body.parentId;
+      } else {
+        update.parentId = null;
+      }
+    }
+    
+    // Проверка прав при изменении клиента
+    if (body.clientId !== undefined && body.clientId !== doc.clientId) {
+      // Проверяем права на нового клиента
+      const newClient = await prisma.client.findUnique({
+        where: { id: body.clientId },
+        select: { sellerEmployeeId: true },
+      });
+      if (!newClient) {
+        return NextResponse.json({ error: 'Клиент не найден' }, { status: 404 });
+      }
+      if (!viewAll && newClient.sellerEmployeeId !== user.id) {
+        return NextResponse.json({ 
+          error: 'Недостаточно прав для изменения клиента. Вы можете изменять только договоры своих клиентов.' 
+        }, { status: 403 });
+      }
+      update.clientId = body.clientId;
+      // Если сайт был привязан к старому клиенту, сбрасываем его
+      if (doc.siteId) {
+        const oldSite = await prisma.site.findUnique({
+          where: { id: doc.siteId },
+          select: { clientId: true },
+        });
+        if (!oldSite || oldSite.clientId !== body.clientId) {
+          update.siteId = null;
+        }
+      }
+    }
 
     const updated = await prisma.contractDocument.update({
       where: { id: params.id },
