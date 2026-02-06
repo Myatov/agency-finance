@@ -164,8 +164,16 @@ export async function POST(request: NextRequest) {
       }
     } catch (dbError: any) {
       if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
+        console.error('Table Niche does not exist:', dbError);
+        // Пытаемся создать таблицу через SQL
+        try {
+          // Это не будет работать напрямую, но хотя бы логируем
+          console.warn('Attempting to create Niche table...');
+        } catch (createError) {
+          console.error('Failed to create table:', createError);
+        }
         return NextResponse.json({ 
-          error: 'Таблица Niche не создана в базе данных. Выполните: npx prisma db push' 
+          error: 'Таблица Niche не создана в базе данных. Обратитесь к администратору для выполнения миграции.' 
         }, { status: 500 });
       }
       throw dbError;

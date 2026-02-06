@@ -33,6 +33,8 @@ jobs:
             npx prisma db execute --file prisma/add-contracts-closeout-tables.sql || true
             echo "🔄 Applying DB migration (Client requisites columns) if needed..."
             npx prisma db execute --file prisma/add-client-requisites-columns.sql || true
+            echo "🔄 Applying DB migration (Niche table) if needed..."
+            npx prisma db execute --file prisma/create-niche-table.sql || true
             echo "🔄 Cleaning old build..."
             rm -rf .next
             echo "🔄 Building application..."
