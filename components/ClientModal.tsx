@@ -142,6 +142,8 @@ export default function ClientModal({
     setLoading(true);
 
     const form = e.currentTarget;
+    const latest = formDataRef.current;
+    const formOrState = (name: keyof typeof latest) => toNull(getFormVal(form, name)) ?? toNull(latest[name]);
     const legalEntityIdVal = getFormVal(form, 'legalEntityId');
     const selectedLE = legalEntities.find((le) => le.id === legalEntityIdVal);
     const hideBasis = selectedLE && ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'].includes(selectedLE.name);
@@ -151,21 +153,21 @@ export default function ClientModal({
       const method = client ? 'PUT' : 'POST';
 
       const payload = {
-        name: getFormVal(form, 'name'),
+        name: getFormVal(form, 'name') || latest.name,
         legalEntityId: legalEntityIdVal || null,
-        sellerEmployeeId: getFormVal(form, 'sellerEmployeeId'),
-        legalEntityName: toNull(getFormVal(form, 'legalEntityName')),
-        contractBasis: hideBasis ? null : toNull(getFormVal(form, 'contractBasis')),
-        legalAddress: toNull(getFormVal(form, 'legalAddress')),
-        inn: toNull(getFormVal(form, 'inn')),
-        kpp: toNull(getFormVal(form, 'kpp')),
-        ogrn: toNull(getFormVal(form, 'ogrn')),
-        rs: toNull(getFormVal(form, 'rs')),
-        bankName: toNull(getFormVal(form, 'bankName')),
-        bik: toNull(getFormVal(form, 'bik')),
-        ks: toNull(getFormVal(form, 'ks')),
-        paymentRequisites: toNull(getFormVal(form, 'paymentRequisites')),
-        contacts: toNull(getFormVal(form, 'contacts')),
+        sellerEmployeeId: getFormVal(form, 'sellerEmployeeId') || latest.sellerEmployeeId,
+        legalEntityName: formOrState('legalEntityName'),
+        contractBasis: hideBasis ? null : formOrState('contractBasis'),
+        legalAddress: formOrState('legalAddress'),
+        inn: formOrState('inn'),
+        kpp: formOrState('kpp'),
+        ogrn: formOrState('ogrn'),
+        rs: formOrState('rs'),
+        bankName: formOrState('bankName'),
+        bik: formOrState('bik'),
+        ks: formOrState('ks'),
+        paymentRequisites: formOrState('paymentRequisites'),
+        contacts: formOrState('contacts'),
       };
       const res = await fetch(url, {
         method,
