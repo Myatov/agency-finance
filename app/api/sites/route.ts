@@ -351,99 +351,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Пытаемся создать сайт с nicheId, если колонка не существует - без него
+    const baseData = {
+      title: title.trim(),
+      websiteUrl: websiteUrl ? websiteUrl.trim() : null,
+      description: description ? description.trim() : null,
+      niche: finalNiche.trim(),
+      clientId,
+      accountManagerId: accountManagerId || null,
+      creatorId: user.id,
+      isActive: isActive ?? false,
+    };
+
+    const includeRelations = {
+      client: {
+        include: {
+          seller: { select: { id: true, fullName: true } },
+        },
+      },
+      accountManager: { select: { id: true, fullName: true } },
+    };
+
     let site;
     try {
-      const createData: any = {
-        title: title.trim(),
-        websiteUrl: websiteUrl ? websiteUrl.trim() : null,
-        description: description ? description.trim() : null,
-        niche: finalNiche.trim(),
-        clientId,
-        accountManagerId: accountManagerId || null,
-        creatorId: user.id,
-        isActive: isActive ?? false,
-      };
-      
-      // Добавляем nicheId только если он указан
+      // Сначала пробуем с nicheId
       if (finalNicheId) {
-        createData.nicheId = finalNicheId;
-      }
-      
-      site = await prisma.site.create({
-        data: createData,
-        include: {
-          client: {
-            include: {
-              seller: {
-                select: {
-                  id: true,
-                  fullName: true,
-                },
-              },
-            },
-          },
-          accountManager: {
-            select: {
-              id: true,
-              fullName: true,
-            },
-          },
-        },
-      });
-    } catch (dbError: any) {
-      console.error('Error creating site with nicheId:', dbError);
-      console.error('Error details:', {
-        message: dbError?.message,
-        code: dbError?.code,
-        meta: dbError?.meta,
-      });
-      
-      // Если колонка nicheId не существует, создаем без неё
-      if (dbError.message?.includes('does not exist') || 
-          dbError.message?.includes('nicheId') || 
-          dbError.message?.includes('Unknown column') || 
-          dbError.code === 'P2021' ||
-          dbError.code === 'P2003') {
-        console.warn('Column nicheId does not exist or foreign key constraint failed, creating site without nicheId');
         try {
           site = await prisma.site.create({
-            data: {
-              title,
-              websiteUrl: websiteUrl || null,
-              description: description || null,
-              niche: finalNiche,
-              clientId,
-              accountManagerId: accountManagerId || null,
-              creatorId: user.id,
-              isActive: isActive ?? false,
-            },
-            include: {
-              client: {
-                include: {
-                  seller: {
-                    select: {
-                      id: true,
-                      fullName: true,
-                    },
-                  },
-                },
-              },
-              accountManager: {
-                select: {
-                  id: true,
-                  fullName: true,
-                },
-              },
-            },
+            data: { ...baseData, nicheId: finalNicheId },
+            include: includeRelations,
           });
-        } catch (fallbackError: any) {
-          console.error('Error creating site without nicheId:', fallbackError);
-          throw fallbackError;
+        } catch (withNicheIdError: any) {
+          console.warn('Create site with nicheId failed, retrying without:', withNicheIdError?.message);
+          site = await prisma.site.create({
+            data: baseData,
+            include: includeRelations,
+          });
         }
       } else {
-        throw dbError;
+        site = await prisma.site.create({
+          data: baseData,
+          include: includeRelations,
+        });
       }
+    } catch (createError: any) {
+      console.error('Error creating site:', createError);
+      throw createError;
     }
 
     return NextResponse.json({ site });

@@ -276,43 +276,28 @@ export default function SiteModal({
               Ниша *
             </label>
             {niches.length > 0 ? (() => {
-              // Фильтруем только дочерние ниши (не корневые)
               const childNiches = niches.filter(n => n.parentId);
-              
-              // Если нет дочерних ниш, показываем все (для обратной совместимости)
               let availableNiches = childNiches.length > 0 ? childNiches : niches;
-              
-              // Сортируем: сначала по sortOrder родителя, затем по sortOrder дочерней ниши
-              // Создаем мапу корневых ниш для быстрого доступа (включая sortOrder)
+
               const rootNichesMap = new Map(
                 niches.filter(n => !n.parentId).map(n => [n.id, { sortOrder: n.sortOrder, name: n.name }])
               );
-              
-              availableNiches = availableNiches.sort((a, b) => {
-                // Получаем sortOrder родителя из мапы (приоритет) или из объекта parent
-                const getParentSortOrder = (niche: Niche): number => {
-                  if (!niche.parentId) return 0;
-                  // Сначала пробуем из мапы корневых ниш
-                  const mapParent = rootNichesMap.get(niche.parentId);
-                  if (mapParent?.sortOrder !== undefined) return mapParent.sortOrder;
-                  // Затем из объекта parent, если он есть
-                  if (niche.parent?.sortOrder !== undefined) return niche.parent.sortOrder;
-                  // Если ничего не найдено, возвращаем 0
-                  return 0;
-                };
-                
+              const getParentSortOrder = (niche: Niche): number => {
+                if (!niche.parentId) return 0;
+                const mapParent = rootNichesMap.get(niche.parentId);
+                if (mapParent?.sortOrder !== undefined) return mapParent.sortOrder;
+                if (niche.parent?.sortOrder !== undefined) return niche.parent.sortOrder;
+                return 0;
+              };
+
+              // Сортируем как в справочнике (по родителю, потом по дочерней), затем разворачиваем — в форме показываем в обратном порядке
+              availableNiches = [...availableNiches].sort((a, b) => {
                 const parentAOrder = getParentSortOrder(a);
                 const parentBOrder = getParentSortOrder(b);
-                
-                // Сначала сортируем по sortOrder родителя (в обратном порядке)
-                if (parentAOrder !== parentBOrder) {
-                  return parentBOrder - parentAOrder;
-                }
-                
-                // Если родители одинаковые (или оба null), сортируем по sortOrder дочерней ниши (в обратном порядке)
-                return b.sortOrder - a.sortOrder;
-              });
-              
+                if (parentAOrder !== parentBOrder) return parentAOrder - parentBOrder;
+                return a.sortOrder - b.sortOrder;
+              }).reverse();
+
               return (
                 <select
                   required
