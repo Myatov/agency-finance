@@ -3,6 +3,8 @@ import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { hasPermission } from '@/lib/permissions';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const user = await getSession();
@@ -62,11 +64,23 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ niche });
   } catch (error: unknown) {
-    const e = error as { code?: string };
+    const e = error as { code?: string; message?: string };
+    console.error('Error creating niche:', error);
+    
     if (e.code === 'P2002') {
       return NextResponse.json({ error: 'Ниша с таким названием уже существует' }, { status: 400 });
     }
-    console.error('Error creating niche:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    
+    // Проверка на отсутствие таблицы
+    if (e.message?.includes('does not exist') || e.message?.includes('Niche') || e.code === 'P2021') {
+      return NextResponse.json({ 
+        error: 'Таблица Niche не найдена в базе данных. Необходимо выполнить: npx prisma db push' 
+      }, { status: 500 });
+    }
+    
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? String(error) : undefined
+    }, { status: 500 });
   }
 }
