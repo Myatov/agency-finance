@@ -71,6 +71,48 @@ export default function ContractUploadPage() {
 
   const sites = clientId ? (clients.find((c) => c.id === clientId)?.sites || []) : [];
 
+  // Нормализация даты в формат YYYY-MM-DD для input type="date"
+  const normalizeDate = (dateStr: string): string => {
+    if (!dateStr || !dateStr.trim()) return '';
+    const trimmed = dateStr.trim();
+    
+    // Если уже в формате YYYY-MM-DD, возвращаем как есть
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+    
+    // Пробуем распарсить различные форматы
+    // DD.MM.YYYY или DD/MM/YYYY
+    const ddmmyyyy = trimmed.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
+    if (ddmmyyyy) {
+      const [, day, month, year] = ddmmyyyy;
+      const d = day.padStart(2, '0');
+      const m = month.padStart(2, '0');
+      return `${year}-${m}-${d}`;
+    }
+    
+    // YYYY.MM.DD или YYYY/MM/DD
+    const yyyymmdd = trimmed.match(/^(\d{4})[./](\d{1,2})[./](\d{1,2})$/);
+    if (yyyymmdd) {
+      const [, year, month, day] = yyyymmdd;
+      const m = month.padStart(2, '0');
+      const d = day.padStart(2, '0');
+      return `${year}-${m}-${d}`;
+    }
+    
+    // Пробуем распарсить как Date и преобразовать
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      const year = parsed.getFullYear();
+      const month = String(parsed.getMonth() + 1).padStart(2, '0');
+      const day = String(parsed.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    
+    // Если не удалось распарсить, возвращаем как есть (браузер сам проверит)
+    return trimmed;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -82,6 +124,21 @@ export default function ContractUploadPage() {
       setError('Выберите файл');
       return;
     }
+    
+    // Нормализуем даты перед отправкой
+    const normalizedDocDate = docDate ? normalizeDate(docDate) : '';
+    const normalizedEndDate = endDate ? normalizeDate(endDate) : '';
+    
+    // Валидация дат после нормализации
+    if (normalizedDocDate && !/^\d{4}-\d{2}-\d{2}$/.test(normalizedDocDate)) {
+      setError('Неверный формат даты документа. Используйте формат ДД.ММ.ГГГГ или выберите дату из календаря');
+      return;
+    }
+    if (normalizedEndDate && !/^\d{4}-\d{2}-\d{2}$/.test(normalizedEndDate)) {
+      setError('Неверный формат даты окончания. Используйте формат ДД.ММ.ГГГГ или выберите дату из календаря');
+      return;
+    }
+    
     setLoading(true);
     try {
       const form = new FormData();
@@ -91,8 +148,8 @@ export default function ContractUploadPage() {
       form.set('type', type);
       if (parentId) form.set('parentId', parentId);
       if (docNumber) form.set('docNumber', docNumber);
-      if (docDate) form.set('docDate', docDate);
-      if (endDate) form.set('endDate', endDate);
+      if (normalizedDocDate) form.set('docDate', normalizedDocDate);
+      if (normalizedEndDate) form.set('endDate', normalizedEndDate);
       if (comment) form.set('comment', comment);
       if (tags) form.set('tags', tags);
       form.set('status', status);
@@ -100,7 +157,14 @@ export default function ContractUploadPage() {
       const res = await fetch('/api/contracts', { method: 'POST', body: form });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || 'Ошибка загрузки');
+        // Улучшенная обработка ошибок
+        if (res.status === 403) {
+          setError(data.error || 'Недостаточно прав для загрузки документа. Обратитесь к администратору.');
+        } else if (res.status === 401) {
+          setError('Сессия истекла. Пожалуйста, войдите заново.');
+        } else {
+          setError(data.error || `Ошибка загрузки (код ${res.status})`);
+        }
         setLoading(false);
         return;
       }
@@ -206,11 +270,35 @@ export default function ContractUploadPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Дата документа</label>
-              <input type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} className="w-full px-3 py-2 border rounded-md" />
+              <input 
+                type="date" 
+                value={docDate} 
+                onChange={(e) => setDocDate(e.target.value)} 
+                onBlur={(e) => {
+                  // Нормализуем дату при потере фокуса
+                  const normalized = normalizeDate(e.target.value);
+                  if (normalized && normalized !== e.target.value) {
+                    setDocDate(normalized);
+                  }
+                }}
+                className="w-full px-3 py-2 border rounded-md" 
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Дата окончания договора</label>
-              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full px-3 py-2 border rounded-md" />
+              <input 
+                type="date" 
+                value={endDate} 
+                onChange={(e) => setEndDate(e.target.value)} 
+                onBlur={(e) => {
+                  // Нормализуем дату при потере фокуса
+                  const normalized = normalizeDate(e.target.value);
+                  if (normalized && normalized !== e.target.value) {
+                    setEndDate(normalized);
+                  }
+                }}
+                className="w-full px-3 py-2 border rounded-md" 
+              />
             </div>
           </div>
 

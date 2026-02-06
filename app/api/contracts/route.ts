@@ -64,7 +64,9 @@ export async function POST(request: NextRequest) {
     const canCreate = await hasPermission(user, 'contracts', 'create') || await hasPermission(user, 'contracts', 'edit')
       || await hasPermission(user, 'storage', 'view');
     if (!canCreate) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ 
+        error: 'Недостаточно прав для загрузки документов. Обратитесь к администратору для получения прав на создание договоров или просмотр хранилища.' 
+      }, { status: 403 });
     }
 
     const formData = await request.formData();
@@ -90,10 +92,12 @@ export async function POST(request: NextRequest) {
     const viewAll = await hasViewAllPermission(user, 'contracts');
     const client = await prisma.client.findUnique({ where: { id: clientId } });
     if (!client) {
-      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Клиент не найден' }, { status: 404 });
     }
     if (!viewAll && client.sellerEmployeeId !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ 
+        error: 'Недостаточно прав для загрузки документа для этого клиента. Вы можете загружать документы только для клиентов, назначенных вам.' 
+      }, { status: 403 });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
