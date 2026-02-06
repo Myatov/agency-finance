@@ -247,23 +247,11 @@ export default function ClientsList() {
 
       {showModal && (
         <ClientModal
+          key={editingClient?.id ?? 'new'}
           client={editingClient ? {
-            id: editingClient.id,
-            name: editingClient.name,
-            legalEntityId: editingClient.legalEntity?.id ?? null,
-            sellerEmployeeId: editingClient.seller.id,
-            legalEntityName: editingClient.legalEntityName ?? null,
-            contractBasis: editingClient.contractBasis ?? null,
-            legalAddress: editingClient.legalAddress ?? null,
-            inn: editingClient.inn ?? null,
-            kpp: editingClient.kpp ?? null,
-            ogrn: editingClient.ogrn ?? null,
-            rs: editingClient.rs ?? null,
-            bankName: editingClient.bankName ?? null,
-            bik: editingClient.bik ?? null,
-            ks: editingClient.ks ?? null,
-            paymentRequisites: editingClient.paymentRequisites ?? null,
-            contacts: editingClient.contacts ?? null,
+            ...editingClient,
+            legalEntityId: editingClient.legalEntity?.id ?? (editingClient as { legalEntityId?: string }).legalEntityId ?? null,
+            sellerEmployeeId: editingClient.seller?.id ?? (editingClient as { sellerEmployeeId?: string }).sellerEmployeeId ?? '',
           } : null}
           onClose={() => {
             setShowModal(false);

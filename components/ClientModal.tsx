@@ -73,22 +73,23 @@ export default function ClientModal({
 
   useEffect(() => {
     if (client) {
+      const c = client as Client & { legalEntity?: { id: string } | null; seller?: { id: string } };
       setFormData({
-        name: client.name,
-        legalEntityId: client.legalEntityId || '',
-        sellerEmployeeId: client.sellerEmployeeId,
-        legalEntityName: client.legalEntityName ?? '',
-        contractBasis: client.contractBasis ?? '',
-        legalAddress: client.legalAddress ?? '',
-        inn: client.inn ?? '',
-        kpp: client.kpp ?? '',
-        ogrn: client.ogrn ?? '',
-        rs: client.rs ?? '',
-        bankName: client.bankName ?? '',
-        bik: client.bik ?? '',
-        ks: client.ks ?? '',
-        paymentRequisites: client.paymentRequisites ?? '',
-        contacts: client.contacts ?? '',
+        name: c.name ?? '',
+        legalEntityId: c.legalEntityId ?? c.legalEntity?.id ?? '',
+        sellerEmployeeId: c.sellerEmployeeId ?? c.seller?.id ?? '',
+        legalEntityName: c.legalEntityName ?? '',
+        contractBasis: c.contractBasis ?? '',
+        legalAddress: c.legalAddress ?? '',
+        inn: c.inn ?? '',
+        kpp: c.kpp ?? '',
+        ogrn: c.ogrn ?? '',
+        rs: c.rs ?? '',
+        bankName: c.bankName ?? '',
+        bik: c.bik ?? '',
+        ks: c.ks ?? '',
+        paymentRequisites: c.paymentRequisites ?? '',
+        contacts: c.contacts ?? '',
       });
     }
   }, [client]);
