@@ -61,11 +61,19 @@ jobs:
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 2>&1 || echo "000")
             echo "HTTP Status: $HTTP_CODE"
             if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "302" ] && [ "$HTTP_CODE" != "401" ] && [ "$HTTP_CODE" != "404" ]; then
-              echo "⚠️ Application not responding, running recovery script..."
-              bash scripts/fix-502-complete.sh || echo "⚠️ Recovery script failed"
-              echo ""
+              echo "⚠️ Application not responding (HTTP $HTTP_CODE), attempting quick fix..."
+              echo "🔄 Stopping all processes..."
+              pm2 stop agency-finance 2>/dev/null || true
+              pm2 delete agency-finance 2>/dev/null || true
+              pkill -f "next-server" 2>/dev/null || true
+              sleep 3
+              echo "🔄 Starting application..."
+              pm2 start npm --name agency-finance -- start || pm2 restart agency-finance --update-env
+              sleep 10
               echo "📋 Final health check:"
-              sleep 5
               HTTP_CODE2=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 2>&1 || echo "000")
               echo "HTTP Status after recovery: $HTTP_CODE2"
+              if [ "$HTTP_CODE2" != "200" ] && [ "$HTTP_CODE2" != "302" ] && [ "$HTTP_CODE2" != "401" ] && [ "$HTTP_CODE2" != "404" ]; then
+                echo "⚠️ Application still not responding. Check logs: pm2 logs agency-finance --lines 100"
+              fi
             fi
