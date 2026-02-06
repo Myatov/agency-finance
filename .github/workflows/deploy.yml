@@ -41,7 +41,22 @@ jobs:
             echo "🔄 Applying DB migration (Niche table) if needed..."
             npx prisma db execute --file prisma/create-niche-table.sql || true
             echo "🔄 Running safe deploy script..."
-            bash scripts/safe-deploy.sh
+            if bash scripts/safe-deploy.sh; then
+              echo "✅ Safe deploy completed successfully"
+            else
+              echo "❌ Safe deploy failed, but continuing with standard deploy..."
+              echo "🔄 Falling back to standard deploy process..."
+              pm2 stop agency-finance 2>/dev/null || true
+              sleep 2
+              rm -rf .next
+              npm run build || {
+                echo "❌ Build failed in fallback mode"
+                exit 1
+              }
+              pm2 restart agency-finance --update-env || pm2 start npm --name agency-finance -- start
+              sleep 10
+              pm2 status
+            fi
             echo "✅ Application restarted"
             sleep 15
             echo "📋 PM2 Status:"
