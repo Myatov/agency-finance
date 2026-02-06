@@ -114,6 +114,8 @@ export default function ClientModal({
   };
 
   const selectedLegalEntity = legalEntities.find((le) => le.id === formData.legalEntityId);
+  // Показывать блок реквизитов при выборе любого юрлица, чтобы поля всегда сохранялись
+  const showRequisitesBlock = !!formData.legalEntityId;
   const requiresRequisites = selectedLegalEntity && (selectedLegalEntity.type === 'IP' || selectedLegalEntity.type === 'OOO');
   // Для этих юрлиц поле «Основание платежа» не показываем
   const hideContractBasis = selectedLegalEntity && ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'].includes(selectedLegalEntity.name);
@@ -127,22 +129,22 @@ export default function ClientModal({
       const url = client ? `/api/clients/${client.id}` : '/api/clients';
       const method = client ? 'PUT' : 'POST';
 
-      const payload: any = {
-        name: formData.name,
+      const payload = {
+        name: formData.name.trim(),
         legalEntityId: formData.legalEntityId || null,
         sellerEmployeeId: formData.sellerEmployeeId,
-        legalEntityName: formData.legalEntityName || null,
-        contractBasis: hideContractBasis ? null : (formData.contractBasis || null),
-        legalAddress: formData.legalAddress || null,
-        inn: formData.inn || null,
-        kpp: formData.kpp || null,
-        ogrn: formData.ogrn || null,
-        rs: formData.rs || null,
-        bankName: formData.bankName || null,
-        bik: formData.bik || null,
-        ks: formData.ks || null,
-        paymentRequisites: formData.paymentRequisites || null,
-        contacts: formData.contacts || null,
+        legalEntityName: formData.legalEntityName.trim() || null,
+        contractBasis: hideContractBasis ? null : (formData.contractBasis.trim() || null),
+        legalAddress: formData.legalAddress.trim() || null,
+        inn: formData.inn.trim() || null,
+        kpp: formData.kpp.trim() || null,
+        ogrn: formData.ogrn.trim() || null,
+        rs: formData.rs.trim() || null,
+        bankName: formData.bankName.trim() || null,
+        bik: formData.bik.trim() || null,
+        ks: formData.ks.trim() || null,
+        paymentRequisites: formData.paymentRequisites.trim() || null,
+        contacts: formData.contacts.trim() || null,
       };
 
       const res = await fetch(url, {
@@ -182,7 +184,7 @@ export default function ClientModal({
               type="text"
               required
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             />
           </div>
@@ -194,7 +196,11 @@ export default function ClientModal({
             <select
               required
               value={formData.legalEntityId}
-              onChange={(e) => setFormData({ ...formData, legalEntityId: e.target.value })}
+              onChange={(e) => {
+                const id = e.target.value;
+                const le = legalEntities.find((l) => l.id === id);
+                setFormData((prev) => ({ ...prev, legalEntityId: id, legalEntityName: le ? le.name : prev.legalEntityName }));
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             >
               <option value="">Выберите юрлицо</option>
@@ -213,7 +219,7 @@ export default function ClientModal({
             <select
               required
               value={formData.sellerEmployeeId}
-              onChange={(e) => setFormData({ ...formData, sellerEmployeeId: e.target.value })}
+              onChange={(e) => setFormData((prev) => ({ ...prev, sellerEmployeeId: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             >
               <option value="">Выберите продавца</option>
@@ -239,7 +245,7 @@ export default function ClientModal({
                   type="text"
                   required={requiresRequisites}
                   value={formData.legalEntityName}
-                  onChange={(e) => setFormData({ ...formData, legalEntityName: e.target.value })}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, legalEntityName: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
@@ -253,7 +259,7 @@ export default function ClientModal({
                     type="text"
                     required={requiresRequisites}
                     value={formData.contractBasis}
-                    onChange={(e) => setFormData({ ...formData, contractBasis: e.target.value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, contractBasis: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
@@ -267,7 +273,7 @@ export default function ClientModal({
                   type="text"
                   required={requiresRequisites}
                   value={formData.legalAddress}
-                  onChange={(e) => setFormData({ ...formData, legalAddress: e.target.value })}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, legalAddress: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
@@ -281,7 +287,7 @@ export default function ClientModal({
                     type="text"
                     required={requiresRequisites}
                     value={formData.inn}
-                    onChange={(e) => setFormData({ ...formData, inn: e.target.value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, inn: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
@@ -293,7 +299,7 @@ export default function ClientModal({
                     type="text"
                     required={requiresRequisites}
                     value={formData.kpp}
-                    onChange={(e) => setFormData({ ...formData, kpp: e.target.value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, kpp: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
@@ -305,7 +311,7 @@ export default function ClientModal({
                     type="text"
                     required={requiresRequisites}
                     value={formData.ogrn}
-                    onChange={(e) => setFormData({ ...formData, ogrn: e.target.value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, ogrn: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
@@ -319,7 +325,7 @@ export default function ClientModal({
                   type="text"
                   required={requiresRequisites}
                   value={formData.rs}
-                  onChange={(e) => setFormData({ ...formData, rs: e.target.value })}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, rs: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
@@ -332,7 +338,7 @@ export default function ClientModal({
                   type="text"
                   required={requiresRequisites}
                   value={formData.bankName}
-                  onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, bankName: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
@@ -346,7 +352,7 @@ export default function ClientModal({
                     type="text"
                     required={requiresRequisites}
                     value={formData.bik}
-                    onChange={(e) => setFormData({ ...formData, bik: e.target.value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, bik: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
@@ -358,7 +364,7 @@ export default function ClientModal({
                     type="text"
                     required={requiresRequisites}
                     value={formData.ks}
-                    onChange={(e) => setFormData({ ...formData, ks: e.target.value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, ks: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
@@ -372,7 +378,7 @@ export default function ClientModal({
             </label>
             <textarea
               value={formData.paymentRequisites}
-              onChange={(e) => setFormData({ ...formData, paymentRequisites: e.target.value })}
+              onChange={(e) => setFormData((prev) => ({ ...prev, paymentRequisites: e.target.value }))}
               rows={2}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             />
@@ -384,7 +390,7 @@ export default function ClientModal({
             </label>
             <textarea
               value={formData.contacts}
-              onChange={(e) => setFormData({ ...formData, contacts: e.target.value })}
+              onChange={(e) => setFormData((prev) => ({ ...prev, contacts: e.target.value }))}
               rows={2}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             />
