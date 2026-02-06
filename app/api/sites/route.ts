@@ -331,6 +331,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Проверяем, что finalNiche не пустой
+    if (!finalNiche || !finalNiche.trim()) {
+      return NextResponse.json(
+        { error: 'Поле "Ниша" обязательно для заполнения' },
+        { status: 400 }
+      );
+    }
+
     // Check if user can assign account manager
     // ACCOUNT_MANAGER can assign themselves when creating a site
     const canAssign = await canAssignAccountManager(user);
@@ -347,10 +355,10 @@ export async function POST(request: NextRequest) {
     let site;
     try {
       const createData: any = {
-        title,
-        websiteUrl: websiteUrl || null,
-        description: description || null,
-        niche: finalNiche,
+        title: title.trim(),
+        websiteUrl: websiteUrl ? websiteUrl.trim() : null,
+        description: description ? description.trim() : null,
+        niche: finalNiche.trim(),
         clientId,
         accountManagerId: accountManagerId || null,
         creatorId: user.id,

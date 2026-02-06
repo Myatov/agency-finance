@@ -304,13 +304,13 @@ export default function SiteModal({
                 const parentAOrder = getParentSortOrder(a);
                 const parentBOrder = getParentSortOrder(b);
                 
-                // Сначала сортируем по sortOrder родителя
+                // Сначала сортируем по sortOrder родителя (в обратном порядке)
                 if (parentAOrder !== parentBOrder) {
-                  return parentAOrder - parentBOrder;
+                  return parentBOrder - parentAOrder;
                 }
                 
-                // Если родители одинаковые (или оба null), сортируем по sortOrder дочерней ниши
-                return a.sortOrder - b.sortOrder;
+                // Если родители одинаковые (или оба null), сортируем по sortOrder дочерней ниши (в обратном порядке)
+                return b.sortOrder - a.sortOrder;
               });
               
               return (
