@@ -121,15 +121,28 @@ export default function ClientModal({
   // Для этих юрлиц поле «Основание платежа» не показываем
   const hideContractBasis = selectedLegalEntity && ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'].includes(selectedLegalEntity.name);
 
-  const toNull = (s: string) => (s?.trim() || null);
+  const toNull = (s: string | null | undefined) => (s != null && String(s).trim() !== '' ? String(s).trim() : null);
+
+  const getFormVal = (form: HTMLFormElement, name: string): string => {
+    const el = form.elements.namedItem(name);
+    if (!el) return '';
+    const v = (el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value;
+    return v != null ? String(v).trim() : '';
+  };
+
+  const updateField = (field: keyof typeof formData, value: string) => {
+    formDataRef.current = { ...formDataRef.current, [field]: value };
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    const latest = formDataRef.current;
-    const selectedLE = legalEntities.find((le) => le.id === latest.legalEntityId);
+    const form = e.currentTarget;
+    const legalEntityIdVal = getFormVal(form, 'legalEntityId');
+    const selectedLE = legalEntities.find((le) => le.id === legalEntityIdVal);
     const hideBasis = selectedLE && ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'].includes(selectedLE.name);
 
     try {
@@ -137,23 +150,22 @@ export default function ClientModal({
       const method = client ? 'PUT' : 'POST';
 
       const payload = {
-        name: latest.name.trim(),
-        legalEntityId: latest.legalEntityId.trim() || null,
-        sellerEmployeeId: latest.sellerEmployeeId.trim(),
-        legalEntityName: toNull(latest.legalEntityName),
-        contractBasis: hideBasis ? null : toNull(latest.contractBasis),
-        legalAddress: toNull(latest.legalAddress),
-        inn: toNull(latest.inn),
-        kpp: toNull(latest.kpp),
-        ogrn: toNull(latest.ogrn),
-        rs: toNull(latest.rs),
-        bankName: toNull(latest.bankName),
-        bik: toNull(latest.bik),
-        ks: toNull(latest.ks),
-        paymentRequisites: toNull(latest.paymentRequisites),
-        contacts: toNull(latest.contacts),
+        name: getFormVal(form, 'name'),
+        legalEntityId: legalEntityIdVal || null,
+        sellerEmployeeId: getFormVal(form, 'sellerEmployeeId'),
+        legalEntityName: toNull(getFormVal(form, 'legalEntityName')),
+        contractBasis: hideBasis ? null : toNull(getFormVal(form, 'contractBasis')),
+        legalAddress: toNull(getFormVal(form, 'legalAddress')),
+        inn: toNull(getFormVal(form, 'inn')),
+        kpp: toNull(getFormVal(form, 'kpp')),
+        ogrn: toNull(getFormVal(form, 'ogrn')),
+        rs: toNull(getFormVal(form, 'rs')),
+        bankName: toNull(getFormVal(form, 'bankName')),
+        bik: toNull(getFormVal(form, 'bik')),
+        ks: toNull(getFormVal(form, 'ks')),
+        paymentRequisites: toNull(getFormVal(form, 'paymentRequisites')),
+        contacts: toNull(getFormVal(form, 'contacts')),
       };
-
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -193,7 +205,7 @@ export default function ClientModal({
               type="text"
               required
               value={formData.name}
-              onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+              onChange={(e) => updateField('name', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             />
           </div>
@@ -209,7 +221,9 @@ export default function ClientModal({
               onChange={(e) => {
                 const id = e.target.value;
                 const le = legalEntities.find((l) => l.id === id);
-                setFormData((prev) => ({ ...prev, legalEntityId: id, legalEntityName: le ? le.name : prev.legalEntityName }));
+                const next = { ...formDataRef.current, legalEntityId: id, legalEntityName: le ? le.name : formDataRef.current.legalEntityName };
+                formDataRef.current = next;
+                setFormData(next);
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             >
@@ -230,7 +244,7 @@ export default function ClientModal({
               name="sellerEmployeeId"
               required
               value={formData.sellerEmployeeId}
-              onChange={(e) => setFormData((prev) => ({ ...prev, sellerEmployeeId: e.target.value }))}
+              onChange={(e) => updateField('sellerEmployeeId', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             >
               <option value="">Выберите продавца</option>
@@ -256,7 +270,7 @@ export default function ClientModal({
                   name="legalEntityName"
                   type="text"
                   value={formData.legalEntityName}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, legalEntityName: e.target.value }))}
+                  onChange={(e) => updateField('legalEntityName', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
@@ -270,7 +284,7 @@ export default function ClientModal({
                     name="contractBasis"
                     type="text"
                     value={formData.contractBasis}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, contractBasis: e.target.value }))}
+                    onChange={(e) => updateField('contractBasis', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
@@ -284,7 +298,7 @@ export default function ClientModal({
                   name="legalAddress"
                   type="text"
                   value={formData.legalAddress}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, legalAddress: e.target.value }))}
+                  onChange={(e) => updateField('legalAddress', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
@@ -298,7 +312,7 @@ export default function ClientModal({
                     name="inn"
                     type="text"
                     value={formData.inn}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, inn: e.target.value }))}
+                    onChange={(e) => updateField('inn', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
@@ -310,7 +324,7 @@ export default function ClientModal({
                     name="kpp"
                     type="text"
                     value={formData.kpp}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, kpp: e.target.value }))}
+                    onChange={(e) => updateField('kpp', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
@@ -322,7 +336,7 @@ export default function ClientModal({
                     name="ogrn"
                     type="text"
                     value={formData.ogrn}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, ogrn: e.target.value }))}
+                    onChange={(e) => updateField('ogrn', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
@@ -336,7 +350,7 @@ export default function ClientModal({
                   name="rs"
                   type="text"
                   value={formData.rs}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, rs: e.target.value }))}
+                  onChange={(e) => updateField('rs', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
@@ -349,7 +363,7 @@ export default function ClientModal({
                   name="bankName"
                   type="text"
                   value={formData.bankName}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, bankName: e.target.value }))}
+                  onChange={(e) => updateField('bankName', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
@@ -363,7 +377,7 @@ export default function ClientModal({
                     name="bik"
                     type="text"
                     value={formData.bik}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, bik: e.target.value }))}
+                    onChange={(e) => updateField('bik', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
@@ -375,7 +389,7 @@ export default function ClientModal({
                     name="ks"
                     type="text"
                     value={formData.ks}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, ks: e.target.value }))}
+                    onChange={(e) => updateField('ks', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
@@ -390,7 +404,7 @@ export default function ClientModal({
             <textarea
               name="paymentRequisites"
               value={formData.paymentRequisites}
-              onChange={(e) => setFormData((prev) => ({ ...prev, paymentRequisites: e.target.value }))}
+              onChange={(e) => updateField('paymentRequisites', e.target.value)}
               rows={2}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             />
@@ -403,7 +417,7 @@ export default function ClientModal({
             <textarea
               name="contacts"
               value={formData.contacts}
-              onChange={(e) => setFormData((prev) => ({ ...prev, contacts: e.target.value }))}
+              onChange={(e) => updateField('contacts', e.target.value)}
               rows={2}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             />
