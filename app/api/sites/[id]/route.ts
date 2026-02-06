@@ -45,6 +45,12 @@ export async function GET(
             select: {
               id: true,
               name: true,
+              parent: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
             },
           },
           services: {
@@ -213,6 +219,12 @@ export async function PUT(
             select: {
               id: true,
               name: true,
+              parent: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
             },
           },
         },

@@ -99,6 +99,12 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               name: true,
+              parent: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
             },
           },
           services: {
@@ -290,37 +296,84 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const site = await prisma.site.create({
-      data: {
+    // Пытаемся создать сайт с nicheId, если колонка не существует - без него
+    let site;
+    try {
+      const createData: any = {
         title,
         websiteUrl: websiteUrl || null,
         description: description || null,
         niche: finalNiche,
-        nicheId: finalNicheId,
         clientId,
         accountManagerId: accountManagerId || null,
         creatorId: user.id,
         isActive: isActive ?? false,
-      },
-      include: {
-        client: {
+      };
+      
+      // Добавляем nicheId только если он указан
+      if (finalNicheId) {
+        createData.nicheId = finalNicheId;
+      }
+      
+      site = await prisma.site.create({
+        data: createData,
+        include: {
+          client: {
+            include: {
+              seller: {
+                select: {
+                  id: true,
+                  fullName: true,
+                },
+              },
+            },
+          },
+          accountManager: {
+            select: {
+              id: true,
+              fullName: true,
+            },
+          },
+        },
+      });
+    } catch (dbError: any) {
+      // Если колонка nicheId не существует, создаем без неё
+      if (dbError.message?.includes('does not exist') || dbError.message?.includes('nicheId') || dbError.message?.includes('Unknown column') || dbError.code === 'P2021') {
+        console.warn('Column nicheId does not exist, creating site without nicheId');
+        site = await prisma.site.create({
+          data: {
+            title,
+            websiteUrl: websiteUrl || null,
+            description: description || null,
+            niche: finalNiche,
+            clientId,
+            accountManagerId: accountManagerId || null,
+            creatorId: user.id,
+            isActive: isActive ?? false,
+          },
           include: {
-            seller: {
+            client: {
+              include: {
+                seller: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                  },
+                },
+              },
+            },
+            accountManager: {
               select: {
                 id: true,
                 fullName: true,
               },
             },
           },
-        },
-        accountManager: {
-          select: {
-            id: true,
-            fullName: true,
-          },
-        },
-      },
-    });
+        });
+      } else {
+        throw dbError;
+      }
+    }
 
     return NextResponse.json({ site });
   } catch (error) {
