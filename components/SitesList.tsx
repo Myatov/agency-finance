@@ -11,6 +11,7 @@ interface Site {
   description: string | null;
   isActive: boolean;
   niche: string;
+  nicheId: string | null;
   clientId: string;
   client: {
     id: string;
