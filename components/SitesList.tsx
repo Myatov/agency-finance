@@ -265,7 +265,7 @@ export default function SitesList() {
                     {site.client.seller.fullName}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {site.niche}
+                    {(site as any).nicheRef?.name || site.niche}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {site.services && site.services.length > 0 ? (

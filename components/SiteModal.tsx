@@ -8,9 +8,15 @@ interface Site {
   websiteUrl: string | null;
   description: string | null;
   niche: string;
+  nicheId: string | null;
   clientId: string;
   accountManagerId: string | null;
   isActive: boolean;
+}
+
+interface Niche {
+  id: string;
+  name: string;
 }
 
 interface Client {
@@ -42,12 +48,14 @@ export default function SiteModal({
     websiteUrl: '',
     description: '',
     niche: '',
+    nicheId: '',
     clientId: '',
     accountManagerId: '',
     isActive: false,
   });
   const [clients, setClients] = useState<Client[]>([]);
   const [accountManagers, setAccountManagers] = useState<AccountManager[]>([]);
+  const [niches, setNiches] = useState<Niche[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -55,6 +63,7 @@ export default function SiteModal({
   useEffect(() => {
     fetchClients();
     fetchAccountManagers();
+    fetchNiches();
     fetchUser();
 
     if (site) {
@@ -63,6 +72,7 @@ export default function SiteModal({
         websiteUrl: site.websiteUrl || '',
         description: site.description || '',
         niche: site.niche,
+        nicheId: site.nicheId || '',
         clientId: site.clientId,
         accountManagerId: site.accountManagerId || '',
         isActive: site.isActive,
@@ -80,6 +90,18 @@ export default function SiteModal({
     const res = await fetch('/api/users/account-managers');
     const data = await res.json();
     setAccountManagers(data.accountManagers || []);
+  };
+
+  const fetchNiches = async () => {
+    try {
+      const res = await fetch('/api/niches');
+      const data = await res.json();
+      if (res.ok) {
+        setNiches(data.niches || []);
+      }
+    } catch (error) {
+      console.error('Error fetching niches:', error);
+    }
   };
 
   const fetchUser = async () => {
@@ -119,7 +141,8 @@ export default function SiteModal({
         title: formData.title,
         websiteUrl: formData.websiteUrl || null,
         description: formData.description || null,
-        niche: formData.niche,
+        niche: formData.nicheId ? niches.find(n => n.id === formData.nicheId)?.name || formData.niche : formData.niche,
+        nicheId: formData.nicheId || null,
         clientId: formData.clientId,
         isActive: formData.isActive,
       };
@@ -219,13 +242,26 @@ export default function SiteModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Ниша *
             </label>
-            <input
-              type="text"
+            <select
               required
-              value={formData.niche}
-              onChange={(e) => setFormData({ ...formData, niche: e.target.value })}
+              value={formData.nicheId}
+              onChange={(e) => {
+                const selectedNiche = niches.find(n => n.id === e.target.value);
+                setFormData({ 
+                  ...formData, 
+                  nicheId: e.target.value,
+                  niche: selectedNiche?.name || ''
+                });
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
+            >
+              <option value="">Выберите нишу</option>
+              {niches.map((niche) => (
+                <option key={niche.id} value={niche.id}>
+                  {niche.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

@@ -38,6 +38,12 @@ export async function GET(
             fullName: true,
           },
         },
+        nicheRef: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         services: {
           include: {
             product: {
@@ -94,17 +100,23 @@ export async function PUT(
       websiteUrl,
       description,
       niche,
+      nicheId,
       clientId,
       accountManagerId,
       isActive,
     } = body;
+
+    // Если nicheId не указан, но указана niche (для обратной совместимости)
+    const finalNiche = nicheId ? null : (niche !== undefined ? niche : site.niche);
+    const finalNicheId = nicheId !== undefined ? nicheId : site.nicheId;
 
     // Build update data
     const updateData: any = {
       title,
       websiteUrl: websiteUrl || null,
       description: description || null,
-      niche,
+      niche: finalNiche,
+      nicheId: finalNicheId,
       clientId,
       isActive: isActive !== undefined ? isActive : site.isActive,
     };
@@ -137,6 +149,12 @@ export async function PUT(
           select: {
             id: true,
             fullName: true,
+          },
+        },
+        nicheRef: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },

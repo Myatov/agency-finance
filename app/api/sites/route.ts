@@ -92,6 +92,12 @@ export async function GET(request: NextRequest) {
             fullName: true,
           },
         },
+        nicheRef: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         services: {
           where: {
             status: 'ACTIVE',
@@ -148,17 +154,22 @@ export async function POST(request: NextRequest) {
       websiteUrl,
       description,
       niche,
+      nicheId,
       clientId,
       accountManagerId,
       isActive,
     } = body;
 
-    if (!title || !niche || !clientId) {
+    if (!title || !clientId) {
       return NextResponse.json(
-        { error: 'Title, niche, and clientId are required' },
+        { error: 'Title and clientId are required' },
         { status: 400 }
       );
     }
+
+    // Если nicheId не указан, но указана niche (для обратной совместимости)
+    const finalNiche = nicheId ? null : (niche || '');
+    const finalNicheId = nicheId || null;
 
     // Check if user can assign account manager
     // ACCOUNT_MANAGER can assign themselves when creating a site
@@ -177,7 +188,8 @@ export async function POST(request: NextRequest) {
         title,
         websiteUrl: websiteUrl || null,
         description: description || null,
-        niche,
+        niche: finalNiche,
+        nicheId: finalNicheId,
         clientId,
         accountManagerId: accountManagerId || null,
         creatorId: user.id,
