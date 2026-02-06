@@ -161,7 +161,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user can assign account manager
-    if (accountManagerId && !canAssignAccountManager(user)) {
+    // ACCOUNT_MANAGER can assign themselves when creating a site
+    const canAssign = await canAssignAccountManager(user);
+    const isAccountManagerAssigningSelf = user.roleCode === 'ACCOUNT_MANAGER' && accountManagerId === user.id;
+    
+    if (accountManagerId && !canAssign && !isAccountManagerAssigningSelf) {
       return NextResponse.json(
         { error: 'You cannot assign account manager' },
         { status: 403 }

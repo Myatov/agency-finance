@@ -24,6 +24,7 @@ interface AccountManager {
 }
 
 interface User {
+  id: string;
   roleCode: string;
 }
 
@@ -89,6 +90,22 @@ export default function SiteModal({
     }
   };
 
+  // Автоматически назначаем ACCOUNT_MANAGER при создании нового сайта
+  useEffect(() => {
+    if (!site && user && user.roleCode === 'ACCOUNT_MANAGER' && accountManagers.length > 0 && user.id) {
+      const currentUserAsAM = accountManagers.find((am) => am.id === user.id);
+      if (currentUserAsAM) {
+        setFormData((prev) => {
+          // Устанавливаем только если еще не установлено
+          if (!prev.accountManagerId) {
+            return { ...prev, accountManagerId: user.id };
+          }
+          return prev;
+        });
+      }
+    }
+  }, [user, accountManagers, site]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -107,12 +124,15 @@ export default function SiteModal({
         isActive: formData.isActive,
       };
 
-      // Only include accountManagerId if user can assign
+      // Include accountManagerId if:
+      // 1. User can assign (OWNER, CEO, FINANCE)
+      // 2. User is ACCOUNT_MANAGER creating a new site (can assign themselves)
       if (
         user &&
         (user.roleCode === 'OWNER' ||
           user.roleCode === 'CEO' ||
-          user.roleCode === 'FINANCE')
+          user.roleCode === 'FINANCE' ||
+          (user.roleCode === 'ACCOUNT_MANAGER' && !site))
       ) {
         payload.accountManagerId = formData.accountManagerId || null;
       }
@@ -142,7 +162,8 @@ export default function SiteModal({
     user &&
     (user.roleCode === 'OWNER' ||
       user.roleCode === 'CEO' ||
-      user.roleCode === 'FINANCE');
+      user.roleCode === 'FINANCE' ||
+      (user.roleCode === 'ACCOUNT_MANAGER' && !site)); // ACCOUNT_MANAGER can assign themselves when creating
 
   // Auto-fill title from client name
   const handleClientChange = (clientId: string) => {
@@ -244,11 +265,23 @@ export default function SiteModal({
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
               >
                 <option value="">Не назначен</option>
-                {accountManagers.map((am) => (
-                  <option key={am.id} value={am.id}>
-                    {am.fullName}
-                  </option>
-                ))}
+                {user && user.roleCode === 'ACCOUNT_MANAGER' && !site ? (
+                  // ACCOUNT_MANAGER при создании может выбрать только себя
+                  accountManagers
+                    .filter((am) => am.id === user.id)
+                    .map((am) => (
+                      <option key={am.id} value={am.id}>
+                        {am.fullName}
+                      </option>
+                    ))
+                ) : (
+                  // OWNER/CEO/FINANCE видят всех аккаунт-менеджеров
+                  accountManagers.map((am) => (
+                    <option key={am.id} value={am.id}>
+                      {am.fullName}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
           )}
