@@ -30,10 +30,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Apply filters
-    if (isActive !== null && isActive !== undefined) {
-      where.isActive = isActive === 'true';
-    }
+    // Apply filters (only when explicitly "true" or "false"; empty = show all)
+    if (isActive === 'true') where.isActive = true;
+    else if (isActive === 'false') where.isActive = false;
 
     if (accountManagerId) {
       where.accountManagerId = accountManagerId;

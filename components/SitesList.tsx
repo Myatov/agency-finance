@@ -60,7 +60,7 @@ export default function SitesList() {
   const [user, setUser] = useState<User | null>(null);
   const [sitesError, setSitesError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
-    isActive: 'true',
+    isActive: '', // по умолчанию "Все" — показываем все сайты
     accountManagerId: '',
     sellerId: '',
     dateFrom: '',
@@ -204,7 +204,7 @@ export default function SitesList() {
           <div className="md:col-span-2 flex items-end">
             <button
               onClick={() => setFilters({
-                isActive: 'true',
+                isActive: '',
                 accountManagerId: '',
                 sellerId: '',
                 dateFrom: '',
