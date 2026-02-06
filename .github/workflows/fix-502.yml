@@ -21,8 +21,5 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd /var/www/agency-finance
-            echo "🔍 Запуск глубокой диагностики..."
-            bash scripts/deep-diagnose-502.sh
-            echo ""
-            echo "🔧 Если диагностика не помогла, запускаю полное восстановление..."
-            bash scripts/fix-502-complete.sh
+            echo "🔥 Запуск агрессивного восстановления..."
+            bash scripts/aggressive-fix-502.sh
