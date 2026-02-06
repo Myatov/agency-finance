@@ -37,14 +37,14 @@ export default function Navigation() {
       if (user.roleCode === 'OWNER') {
         setAccessibleSections([
           '/sites', '/services', '/clients', '/contracts', '/closeout', '/storage',
-          '/incomes', '/expenses', '/employees', '/products', '/reports', '/roles', '/legal-entities', '/niches', '/contacts',
+          '/incomes', '/expenses', '/employees', '/products', '/reports', '/roles', '/legal-entities', '/niches', '/contacts', '/agents',
         ]);
         return;
       }
       if (user.roleCode === 'CEO') {
         setAccessibleSections([
           '/sites', '/services', '/clients', '/contracts', '/closeout', '/storage',
-          '/incomes', '/expenses', '/employees', '/products', '/reports', '/roles', '/niches', '/contacts',
+          '/incomes', '/expenses', '/employees', '/products', '/reports', '/roles', '/niches', '/contacts', '/agents',
         ]);
         return;
       }
@@ -65,6 +65,7 @@ export default function Navigation() {
         { href: '/reports', section: 'reports' },
         { href: '/niches', section: 'niches' },
         { href: '/contacts', section: 'contacts' },
+        { href: '/agents', section: 'agents' },
       ];
 
       Promise.all(
@@ -119,9 +120,10 @@ export default function Navigation() {
     { href: '/products', label: 'Продукты', section: 'products' },
     { href: '/incomes', label: 'Доходы', section: 'incomes' },
     { href: '/cost-items', label: 'Статьи расходов', section: 'cost-items' },
-        { href: '/niches', label: 'Ниши', section: 'niches' },
-        { href: '/contacts', label: 'Контакты', section: 'contacts' },
-      ];
+    { href: '/niches', label: 'Ниши', section: 'niches' },
+    { href: '/contacts', label: 'Контакты', section: 'contacts' },
+    { href: '/agents', label: 'Агенты / Партнёры', section: 'agents' },
+  ];
 
   // Роли — Владелец и CEO, Юрлица — только Владелец
   if (user.roleCode === 'OWNER' || user.roleCode === 'CEO') {

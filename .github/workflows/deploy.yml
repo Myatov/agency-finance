@@ -46,6 +46,8 @@ jobs:
             npx prisma db execute --file prisma/ensure-site-has-niche-column.sql || true
             echo "🔄 Applying DB migration (Contacts & ClientContact tables) if needed..."
             npx prisma db execute --file prisma/add-contacts-tables.sql || true
+            echo "🔄 Applying DB migration (Agents table & Client.agentId) if needed..."
+            npx prisma db execute --file prisma/add-agents-table.sql || true
             echo "🔄 Running safe deploy script..."
             if bash scripts/safe-deploy.sh; then
               echo "✅ Safe deploy completed successfully"

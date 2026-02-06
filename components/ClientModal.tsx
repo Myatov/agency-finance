@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import ContactModal, { type Contact } from './ContactModal';
+import AgentModal, { type Agent } from './AgentModal';
 
 const CONTACT_ROLES = [
   { value: 'OWNER', label: 'Владелец' },
@@ -23,6 +24,8 @@ interface Client {
   name: string;
   legalEntityId?: string | null;
   sellerEmployeeId: string;
+  agentId?: string | null;
+  agent?: { id: string; name: string; phone?: string | null; telegram?: string | null } | null;
   legalEntityName?: string | null;
   contractBasis?: string | null;
   legalAddress?: string | null;
@@ -72,6 +75,7 @@ export default function ClientModal({
     name: '',
     legalEntityId: '',
     sellerEmployeeId: '',
+    agentId: '',
     legalEntityName: '',
     contractBasis: '',
     legalAddress: '',
@@ -96,11 +100,17 @@ export default function ClientModal({
   const [contactSearchResults, setContactSearchResults] = useState<Contact[]>([]);
   const [contactSearching, setContactSearching] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
+  const [agentSearch, setAgentSearch] = useState('');
+  const [agentSearchResults, setAgentSearchResults] = useState<Agent[]>([]);
+  const [agentSearching, setAgentSearching] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<{ id: string; name: string; phone?: string | null; telegram?: string | null } | null>(null);
+  const [showAgentModal, setShowAgentModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const formDataRef = useRef(formData);
   formDataRef.current = formData;
   const contactSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const agentSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -110,10 +120,12 @@ export default function ClientModal({
   useEffect(() => {
     if (client) {
       const c = client as Client & { legalEntity?: { id: string; name?: string } | null; seller?: { id: string } };
+      const aid = c.agentId ?? c.agent?.id ?? '';
       setFormData({
         name: c.name ?? '',
         legalEntityId: c.legalEntityId ?? c.legalEntity?.id ?? '',
         sellerEmployeeId: c.sellerEmployeeId ?? c.seller?.id ?? '',
+        agentId: aid,
         legalEntityName: c.legalEntityName ?? c.legalEntity?.name ?? '',
         contractBasis: c.contractBasis ?? '',
         legalAddress: c.legalAddress ?? '',
@@ -143,8 +155,10 @@ export default function ClientModal({
       } else {
         setClientContactsLinks([]);
       }
+      setSelectedAgent(c.agent ? { id: c.agent.id, name: c.agent.name, phone: c.agent.phone, telegram: c.agent.telegram } : null);
     } else {
       setClientContactsLinks([]);
+      setSelectedAgent(null);
     }
   }, [client]);
 
@@ -179,6 +193,31 @@ export default function ClientModal({
       if (contactSearchRef.current) clearTimeout(contactSearchRef.current);
     };
   }, [contactSearch]);
+
+  useEffect(() => {
+    const q = agentSearch.trim();
+    if (!q || q.length < 2) {
+      setAgentSearchResults([]);
+      return;
+    }
+    if (agentSearchRef.current) clearTimeout(agentSearchRef.current);
+    agentSearchRef.current = setTimeout(async () => {
+      setAgentSearching(true);
+      try {
+        const res = await fetch(`/api/agents?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        setAgentSearchResults(data.agents || []);
+      } catch {
+        setAgentSearchResults([]);
+      } finally {
+        setAgentSearching(false);
+      }
+      agentSearchRef.current = null;
+    }, 300);
+    return () => {
+      if (agentSearchRef.current) clearTimeout(agentSearchRef.current);
+    };
+  }, [agentSearch]);
 
   const addContactToClient = (c: Contact) => {
     if (clientContactsLinks.some((l) => l.contactId === c.id)) return;
@@ -259,6 +298,7 @@ export default function ClientModal({
         isKeyClient: Boolean(latest.isKeyClient),
         keyClientStatusComment: toNull(latest.keyClientStatusComment),
         returningClientStatusComment: toNull(latest.returningClientStatusComment),
+        agentId: (latest.agentId ?? '').trim() || null,
         clientContacts: clientContactsLinks.map((l) => ({ contactId: l.contactId, role: l.role, isPrimary: l.isPrimary })),
       };
       const res = await fetch(url, {
@@ -348,6 +388,86 @@ export default function ClientModal({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Агент
+            </label>
+            <p className="text-sm text-gray-500 mb-2">
+              Поиск по справочнику агентов или создание нового. К клиенту можно привязать только одного агента.
+            </p>
+            <div className="mb-2">
+              <input
+                type="text"
+                placeholder="Поиск по имени, телефону, Telegram..."
+                value={agentSearch}
+                onChange={(e) => setAgentSearch(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+              {agentSearch.trim().length >= 2 && (
+                <div className="mt-1 border border-gray-200 rounded-md bg-white shadow-lg max-h-48 overflow-y-auto z-10">
+                  {agentSearching ? (
+                    <div className="px-3 py-2 text-sm text-gray-500">Поиск...</div>
+                  ) : (
+                    <>
+                      {agentSearchResults.slice(0, 10).map((a) => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({ ...prev, agentId: a.id }));
+                            setSelectedAgent({ id: a.id, name: a.name, phone: a.phone ?? null, telegram: a.telegram ?? null });
+                            setAgentSearch('');
+                            setAgentSearchResults([]);
+                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+                        >
+                          {a.name}
+                          {(a.phone || a.telegram) && (
+                            <span className="text-gray-500 ml-2">
+                              {[a.phone, a.telegram].filter(Boolean).join(', ')}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                      {agentSearch.trim().length >= 2 && !agentSearching && agentSearchResults.length === 0 && (
+                        <div className="px-3 py-2 text-sm text-gray-500">Ничего не найдено</div>
+                      )}
+                      <div className="border-t">
+                        <button
+                          type="button"
+                          onClick={() => setShowAgentModal(true)}
+                          className="w-full text-left px-3 py-2 hover:bg-blue-50 text-blue-700 text-sm font-medium"
+                        >
+                          ➕ Создать нового агента
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+            {selectedAgent && (
+              <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-md">
+                <span className="font-medium">{selectedAgent.name}</span>
+                {(selectedAgent.phone || selectedAgent.telegram) && (
+                  <span className="text-sm text-gray-500">
+                    {[selectedAgent.phone, selectedAgent.telegram].filter(Boolean).join(', ')}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData((prev) => ({ ...prev, agentId: '' }));
+                    setSelectedAgent(null);
+                  }}
+                  className="text-red-600 hover:text-red-800 text-sm ml-auto"
+                >
+                  Убрать
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="border-t pt-4 mt-4">
@@ -699,6 +819,28 @@ export default function ClientModal({
             if (duplicates.length > 0) {
               addContactToClient(duplicates[0]);
               setShowContactModal(false);
+            }
+          }}
+        />
+      )}
+
+      {showAgentModal && (
+        <AgentModal
+          agent={null}
+          onClose={() => setShowAgentModal(false)}
+          onSuccess={(created) => {
+            setShowAgentModal(false);
+            if (created) {
+              setFormData((prev) => ({ ...prev, agentId: created.id }));
+              setSelectedAgent({ id: created.id, name: created.name, phone: created.phone ?? null, telegram: created.telegram ?? null });
+            }
+          }}
+          onDuplicateFound={(duplicates) => {
+            if (duplicates.length > 0) {
+              const a = duplicates[0];
+              setFormData((prev) => ({ ...prev, agentId: a.id }));
+              setSelectedAgent({ id: a.id, name: a.name, phone: a.phone ?? null, telegram: a.telegram ?? null });
+              setShowAgentModal(false);
             }
           }}
         />

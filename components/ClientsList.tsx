@@ -15,6 +15,12 @@ interface Client {
     id: string;
     fullName: string;
   };
+  agent?: {
+    id: string;
+    name: string;
+    phone?: string | null;
+    telegram?: string | null;
+  } | null;
   sites: Array<{
     id: string;
     title: string;
@@ -166,6 +172,9 @@ export default function ClientsList() {
                   Юрлицо
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Агент
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Проекты
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -189,6 +198,9 @@ export default function ClientsList() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {client.legalEntity?.name || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {client.agent?.name || '-'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {client.sites.length > 0 ? (

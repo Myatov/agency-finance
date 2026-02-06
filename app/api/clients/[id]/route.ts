@@ -23,6 +23,14 @@ export async function GET(
             fullName: true,
           },
         },
+        agent: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            telegram: true,
+          },
+        },
         sites: {
           select: {
             id: true,
@@ -69,6 +77,7 @@ export async function PUT(
     const name = body.name != null ? String(body.name).trim() : '';
     const legalEntityId = body.legalEntityId != null && String(body.legalEntityId).trim() !== '' ? String(body.legalEntityId).trim() : null;
     const sellerEmployeeId = body.sellerEmployeeId != null ? String(body.sellerEmployeeId).trim() : '';
+    const agentId = body.agentId != null && String(body.agentId).trim() !== '' ? String(body.agentId).trim() : null;
     const legalEntityName = opt(body.legalEntityName);
     const contractBasis = opt(body.contractBasis);
     const legalAddress = opt(body.legalAddress);
@@ -111,6 +120,7 @@ export async function PUT(
       name,
       legalEntityId,
       sellerEmployeeId,
+      agentId,
       legalEntityName,
       contractBasis: skipContractBasis ? null : contractBasis,
       legalAddress,
@@ -162,6 +172,14 @@ export async function PUT(
           select: {
             id: true,
             fullName: true,
+          },
+        },
+        agent: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            telegram: true,
           },
         },
         clientContacts: {
