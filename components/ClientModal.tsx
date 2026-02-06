@@ -117,19 +117,10 @@ export default function ClientModal({
   };
 
   const selectedLegalEntity = legalEntities.find((le) => le.id === formData.legalEntityId);
-  // Блок реквизитов всегда в DOM, чтобы при сабмите getFormVal всегда находил инпуты (на проде условный рендер давал null в payload)
   const showRequisitesBlock = true;
-  // Для этих юрлиц поле «Основание платежа» не показываем
   const hideContractBasis = selectedLegalEntity && ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'].includes(selectedLegalEntity.name);
 
   const toNull = (s: string | null | undefined) => (s != null && String(s).trim() !== '' ? String(s).trim() : null);
-
-  const getFormVal = (form: HTMLFormElement, name: string): string => {
-    const el = form.elements.namedItem(name);
-    if (!el) return '';
-    const v = (el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value;
-    return v != null ? String(v).trim() : '';
-  };
 
   const updateField = (field: keyof typeof formData, value: string) => {
     formDataRef.current = { ...formDataRef.current, [field]: value };
@@ -141,11 +132,8 @@ export default function ClientModal({
     setError('');
     setLoading(true);
 
-    const form = e.currentTarget;
     const latest = formDataRef.current;
-    const formOrState = (name: keyof typeof latest) => toNull(getFormVal(form, name)) ?? toNull(latest[name]);
-    const legalEntityIdVal = getFormVal(form, 'legalEntityId');
-    const selectedLE = legalEntities.find((le) => le.id === legalEntityIdVal);
+    const selectedLE = legalEntities.find((le) => le.id === latest.legalEntityId);
     const hideBasis = selectedLE && ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'].includes(selectedLE.name);
 
     try {
@@ -153,21 +141,21 @@ export default function ClientModal({
       const method = client ? 'PUT' : 'POST';
 
       const payload = {
-        name: getFormVal(form, 'name') || latest.name,
-        legalEntityId: legalEntityIdVal || null,
-        sellerEmployeeId: getFormVal(form, 'sellerEmployeeId') || latest.sellerEmployeeId,
-        legalEntityName: formOrState('legalEntityName'),
-        contractBasis: hideBasis ? null : formOrState('contractBasis'),
-        legalAddress: formOrState('legalAddress'),
-        inn: formOrState('inn'),
-        kpp: formOrState('kpp'),
-        ogrn: formOrState('ogrn'),
-        rs: formOrState('rs'),
-        bankName: formOrState('bankName'),
-        bik: formOrState('bik'),
-        ks: formOrState('ks'),
-        paymentRequisites: formOrState('paymentRequisites'),
-        contacts: formOrState('contacts'),
+        name: (latest.name ?? '').trim(),
+        legalEntityId: (latest.legalEntityId ?? '').trim() || null,
+        sellerEmployeeId: (latest.sellerEmployeeId ?? '').trim(),
+        legalEntityName: toNull(latest.legalEntityName),
+        contractBasis: hideBasis ? null : toNull(latest.contractBasis),
+        legalAddress: toNull(latest.legalAddress),
+        inn: toNull(latest.inn),
+        kpp: toNull(latest.kpp),
+        ogrn: toNull(latest.ogrn),
+        rs: toNull(latest.rs),
+        bankName: toNull(latest.bankName),
+        bik: toNull(latest.bik),
+        ks: toNull(latest.ks),
+        paymentRequisites: toNull(latest.paymentRequisites),
+        contacts: toNull(latest.contacts),
       };
       const res = await fetch(url, {
         method,
