@@ -40,7 +40,15 @@ jobs:
             echo "🔄 Restarting application..."
             pm2 restart agency-finance --update-env || pm2 start npm --name agency-finance -- start
             echo "✅ Application restarted"
-            sleep 5
+            sleep 10
+            echo "📋 PM2 Status:"
             pm2 status
-            echo "📋 Checking application logs..."
-            pm2 logs agency-finance --lines 10 --nostream || echo "⚠️ Could not get logs"
+            echo ""
+            echo "📋 Checking application logs (last 30 lines):"
+            pm2 logs agency-finance --lines 30 --nostream || echo "⚠️ Could not get logs"
+            echo ""
+            echo "📋 Checking for errors:"
+            pm2 logs agency-finance --err --lines 20 --nostream || echo "⚠️ No errors found"
+            echo ""
+            echo "📋 Testing application health:"
+            curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" http://localhost:3000 || echo "⚠️ Application not responding on port 3000"
