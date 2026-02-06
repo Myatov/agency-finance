@@ -182,19 +182,33 @@ export async function PUT(
         uploadedAt: new Date(),
       },
       include: {
-        client: { select: { id: true, name: true } },
+        client: { select: { id: true, name: true, sellerEmployeeId: true } },
         uploader: { select: { id: true, fullName: true } },
         site: { select: { id: true, title: true } },
+        sections: true,
+        children: {
+          include: {
+            uploader: { select: { id: true, fullName: true } },
+            site: { select: { id: true, title: true } },
+          },
+        },
       },
     });
 
+    const serialize = (d: any) => ({
+      ...d,
+      docDate: d.docDate?.toISOString?.() ?? null,
+      endDate: d.endDate?.toISOString?.() ?? null,
+      uploadedAt: d.uploadedAt?.toISOString?.() ?? null,
+    });
+
+    const { sellerEmployeeId: _, ...clientSafe } = updated.client;
     return NextResponse.json({
-      contract: {
+      contract: serialize({
         ...updated,
-        docDate: updated.docDate?.toISOString?.() ?? null,
-        endDate: updated.endDate?.toISOString?.() ?? null,
-        uploadedAt: updated.uploadedAt?.toISOString?.() ?? null,
-      },
+        client: clientSafe,
+        children: updated.children.map((c) => serialize({ ...c, uploader: c.uploader, site: c.site })),
+      }),
     });
   } catch (error) {
     console.error('Error replacing contract file:', error);

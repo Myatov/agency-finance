@@ -171,16 +171,29 @@ export default function ContractCard({ contractId }: { contractId: string }) {
       const form = new FormData();
       form.set('file', replacementFile);
       const res = await fetch(`/api/contracts/${contractId}`, { method: 'PUT', body: form });
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch (e) {
+        console.error('Failed to parse response:', e);
+        setError('Ошибка обработки ответа сервера');
+        setReplacing(false);
+        return;
+      }
       if (res.ok) {
-        setContract(data.contract);
-        setReplacingFile(false);
-        setReplacementFile(null);
+        if (data.contract) {
+          setContract(data.contract);
+          setReplacingFile(false);
+          setReplacementFile(null);
+        } else {
+          setError('Неверный формат ответа от сервера');
+        }
       } else {
         setError(data.error || 'Ошибка замены файла');
       }
-    } catch {
-      setError('Ошибка соединения');
+    } catch (error: any) {
+      console.error('Error replacing file:', error);
+      setError(error.message || 'Ошибка соединения');
     } finally {
       setReplacing(false);
     }
