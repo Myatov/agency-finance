@@ -22,6 +22,18 @@ interface Client {
   }>;
   createdAt: Date | string;
   updatedAt: Date | string;
+  legalEntityName?: string | null;
+  contractBasis?: string | null;
+  legalAddress?: string | null;
+  inn?: string | null;
+  kpp?: string | null;
+  ogrn?: string | null;
+  rs?: string | null;
+  bankName?: string | null;
+  bik?: string | null;
+  ks?: string | null;
+  paymentRequisites?: string | null;
+  contacts?: string | null;
 }
 
 interface User {
@@ -238,8 +250,20 @@ export default function ClientsList() {
           client={editingClient ? {
             id: editingClient.id,
             name: editingClient.name,
-            legalEntityId: editingClient.legalEntity?.id || null,
+            legalEntityId: editingClient.legalEntity?.id ?? null,
             sellerEmployeeId: editingClient.seller.id,
+            legalEntityName: editingClient.legalEntityName ?? null,
+            contractBasis: editingClient.contractBasis ?? null,
+            legalAddress: editingClient.legalAddress ?? null,
+            inn: editingClient.inn ?? null,
+            kpp: editingClient.kpp ?? null,
+            ogrn: editingClient.ogrn ?? null,
+            rs: editingClient.rs ?? null,
+            bankName: editingClient.bankName ?? null,
+            bik: editingClient.bik ?? null,
+            ks: editingClient.ks ?? null,
+            paymentRequisites: editingClient.paymentRequisites ?? null,
+            contacts: editingClient.contacts ?? null,
           } : null}
           onClose={() => {
             setShowModal(false);
