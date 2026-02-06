@@ -219,18 +219,19 @@ export default function NichesList() {
   const renderNicheRow = (niche: Niche, isChild: boolean = false, index: number = 0) => {
     const children = getChildren(niche.id);
     const isDragging = draggedItem === niche.id;
+    const canDrag = canManage; // Можно перетаскивать и корневые, и дочерние
     
     return (
       <>
         <tr
           key={niche.id}
-          draggable={canManage && !isChild}
-          onDragStart={canManage && !isChild ? (e) => handleDragStart(e, niche) : undefined}
+          draggable={canDrag}
+          onDragStart={canDrag ? (e) => handleDragStart(e, niche) : undefined}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          onDrop={canManage && !isChild ? (e) => handleDrop(e, niche) : undefined}
+          onDrop={canDrag ? (e) => handleDrop(e, niche) : undefined}
           onDragEnd={handleDragEnd}
-          className={`group-row ${isDragging ? 'opacity-50' : ''} ${canManage && !isChild ? 'cursor-move' : ''} ${!isChild ? 'bg-gray-50 font-semibold' : ''}`}
+          className={`group-row ${isDragging ? 'opacity-50' : ''} ${canDrag ? 'cursor-move' : ''} ${!isChild ? 'bg-gray-50 font-semibold' : ''}`}
         >
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
             {!isChild && index + 1}
