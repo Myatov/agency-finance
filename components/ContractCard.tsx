@@ -234,10 +234,6 @@ export default function ContractCard({ contractId }: { contractId: string }) {
             {!editing ? (
               <>
                 <button type="button" onClick={() => setEditing(true)} className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm">Редактировать</button>
-                <button type="button" onClick={() => setReplacingFile(true)} className="px-4 py-2 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 text-sm">Заменить файл</button>
-                <button type="button" onClick={handleDelete} disabled={deleting} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm">
-                  {deleting ? 'Удаление...' : 'Удалить'}
-                </button>
               </>
             ) : (
               <>
@@ -245,6 +241,10 @@ export default function ContractCard({ contractId }: { contractId: string }) {
                 <button type="button" onClick={() => setEditing(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm">Отмена</button>
               </>
             )}
+            <button type="button" onClick={() => setReplacingFile(true)} className="px-4 py-2 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 text-sm">Заменить файл</button>
+            <button type="button" onClick={handleDelete} disabled={deleting} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm">
+              {deleting ? 'Удаление...' : 'Удалить'}
+            </button>
           </div>
         </div>
 
