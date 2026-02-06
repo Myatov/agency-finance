@@ -19,7 +19,8 @@ jobs:
           script: |
             cd /var/www/agency-finance
             git pull origin main
-            npm ci
+            echo "🔄 Installing dependencies..."
+            npm ci || npm install
             echo "🔄 Generating Prisma Client..."
             npm run db:generate
             echo "🔄 Applying DB schema changes..."
