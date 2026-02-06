@@ -91,11 +91,17 @@ interface LegalEntity {
   name: string;
 }
 
+interface ServiceOption {
+  id: string;
+  product: { name: string };
+}
+
 export default function ExpensesList() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [costItems, setCostItems] = useState<CostItem[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
+  const [quickAddServices, setQuickAddServices] = useState<ServiceOption[]>([]);
   const [legalEntities, setLegalEntities] = useState<LegalEntity[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
@@ -186,6 +192,21 @@ export default function ExpensesList() {
     const res = await fetch('/api/legal-entities');
     const data = await res.json();
     setLegalEntities(data.legalEntities || []);
+  };
+
+  const fetchQuickAddServices = async (siteId: string) => {
+    if (!siteId) {
+      setQuickAddServices([]);
+      return;
+    }
+    const res = await fetch(`/api/services?siteId=${siteId}&status=ACTIVE`);
+    const data = await res.json();
+    setQuickAddServices(data.services || []);
+  };
+
+  const handleQuickAddSiteChange = (siteId: string) => {
+    setQuickAdd({ ...quickAdd, siteId, serviceId: '' });
+    fetchQuickAddServices(siteId);
   };
 
   const fetchExpenses = async () => {
@@ -379,7 +400,7 @@ export default function ExpensesList() {
               </label>
               <select
                 value={quickAdd.siteId}
-                onChange={(e) => setQuickAdd({ ...quickAdd, siteId: e.target.value })}
+                onChange={(e) => handleQuickAddSiteChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
               >
                 <option value="">Не выбран</option>
@@ -389,6 +410,25 @@ export default function ExpensesList() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Услуга (опционально)
+              </label>
+              <select
+                value={quickAdd.serviceId}
+                onChange={(e) => setQuickAdd({ ...quickAdd, serviceId: e.target.value })}
+                disabled={!quickAdd.siteId}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md disabled:bg-gray-50 disabled:text-gray-400"
+              >
+                <option value="">Не выбрана</option>
+                {quickAddServices.map((svc) => (
+                  <option key={svc.id} value={svc.id}>
+                    {svc.product.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-0.5 text-xs text-gray-500">По выбранному сайту</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
