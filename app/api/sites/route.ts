@@ -231,9 +231,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Если nicheId не указан, но указана niche (для обратной совместимости)
-    const finalNiche = nicheId ? null : (niche || '');
-    const finalNicheId = nicheId || null;
+    // Если nicheId указан, получаем название ниши из БД, иначе используем переданное niche
+    let finalNiche = '';
+    let finalNicheId = null;
+    
+    if (nicheId) {
+      // Если указан nicheId, проверяем что ниша существует и получаем её название
+      try {
+        const nicheRecord = await prisma.niche.findUnique({
+          where: { id: nicheId },
+          select: { name: true },
+        });
+        if (nicheRecord) {
+          finalNiche = nicheRecord.name;
+          finalNicheId = nicheId;
+        } else {
+          return NextResponse.json(
+            { error: 'Указанная ниша не найдена' },
+            { status: 400 }
+          );
+        }
+      } catch (dbError: any) {
+        // Если таблица Niche не существует, используем переданное niche
+        if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
+          finalNiche = niche || '';
+          finalNicheId = null;
+        } else {
+          throw dbError;
+        }
+      }
+    } else {
+      // Если nicheId не указан, используем переданное niche
+      finalNiche = niche || '';
+      finalNicheId = null;
+    }
 
     // Check if user can assign account manager
     // ACCOUNT_MANAGER can assign themselves when creating a site

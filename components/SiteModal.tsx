@@ -146,12 +146,25 @@ export default function SiteModal({
       const url = site ? `/api/sites/${site.id}` : '/api/sites';
       const method = site ? 'PUT' : 'POST';
 
+      // Определяем niche и nicheId для отправки
+      let nicheName = formData.niche;
+      let nicheIdValue = formData.nicheId || null;
+      
+      if (formData.nicheId) {
+        // Если выбран nicheId, используем название из списка ниш
+        const selectedNiche = niches.find(n => n.id === formData.nicheId);
+        if (selectedNiche) {
+          nicheName = selectedNiche.name;
+          nicheIdValue = formData.nicheId;
+        }
+      }
+      
       const payload: any = {
         title: formData.title,
         websiteUrl: formData.websiteUrl || null,
         description: formData.description || null,
-        niche: formData.nicheId ? niches.find(n => n.id === formData.nicheId)?.name || formData.niche : formData.niche,
-        nicheId: formData.nicheId || null,
+        niche: nicheName,
+        nicheId: nicheIdValue,
         clientId: formData.clientId,
         isActive: formData.isActive,
       };
@@ -260,19 +273,23 @@ export default function SiteModal({
               
               // Сортируем: сначала по sortOrder родителя, затем по sortOrder дочерней ниши
               availableNiches = availableNiches.sort((a, b) => {
-                // Если у обеих есть родители, сортируем сначала по sortOrder родителя
+                // Если у обеих есть родители, используем данные из parent
+                if (a.parentId && b.parentId && a.parent && b.parent) {
+                  // Сначала сортируем по sortOrder родителя
+                  const parentOrderCompare = (a.parent.sortOrder || 0) - (b.parent.sortOrder || 0);
+                  if (parentOrderCompare !== 0) return parentOrderCompare;
+                  // Если родители одинаковые, сортируем по sortOrder дочерней ниши
+                  return a.sortOrder - b.sortOrder;
+                }
+                // Если у обеих есть parentId, но нет parent данных, ищем в массиве
                 if (a.parentId && b.parentId) {
                   const parentA = niches.find(n => n.id === a.parentId);
                   const parentB = niches.find(n => n.id === b.parentId);
                   if (parentA && parentB) {
-                    // Сначала сортируем по sortOrder родителя
                     const parentOrderCompare = (parentA.sortOrder || 0) - (parentB.sortOrder || 0);
                     if (parentOrderCompare !== 0) return parentOrderCompare;
-                    // Если родители одинаковые, сортируем по sortOrder дочерней ниши
                     return a.sortOrder - b.sortOrder;
                   }
-                  // Если не нашли родителя, сортируем по sortOrder дочерней ниши
-                  return a.sortOrder - b.sortOrder;
                 }
                 // Если только у одной есть родитель, она идет после
                 if (a.parentId && !b.parentId) return 1;
