@@ -22,6 +22,8 @@ jobs:
             npm ci
             echo "🔄 Generating Prisma Client..."
             npm run db:generate
+            echo "🔄 Applying DB schema changes..."
+            npx prisma db push --accept-data-loss || true
             echo "🔄 Applying DB migration (Expense.legalEntityId) if needed..."
             npx prisma db execute --file prisma/add-expense-legal-entity.sql || true
             echo "🔄 Applying DB migration (User extra fields) if needed..."
