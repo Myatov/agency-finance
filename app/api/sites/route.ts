@@ -235,16 +235,17 @@ export async function POST(request: NextRequest) {
     let finalNiche = '';
     let finalNicheId = null;
     
-    if (nicheId && nicheId.trim()) {
+    // Обрабатываем nicheId и niche
+    if (nicheId && typeof nicheId === 'string' && nicheId.trim()) {
       // Если указан nicheId, проверяем что ниша существует и получаем её название
       try {
         const nicheRecord = await prisma.niche.findUnique({
-          where: { id: nicheId },
+          where: { id: nicheId.trim() },
           select: { name: true },
         });
         if (nicheRecord) {
           finalNiche = nicheRecord.name;
-          finalNicheId = nicheId;
+          finalNicheId = nicheId.trim();
         } else {
           return NextResponse.json(
             { error: 'Указанная ниша не найдена' },
@@ -254,24 +255,23 @@ export async function POST(request: NextRequest) {
       } catch (dbError: any) {
         // Если таблица Niche не существует, используем переданное niche
         if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
+          console.warn('Table Niche does not exist, using provided niche name');
           finalNiche = niche || '';
           finalNicheId = null;
         } else {
           console.error('Error fetching niche:', dbError);
           return NextResponse.json(
-            { error: 'Ошибка при проверке ниши' },
+            { error: `Ошибка при проверке ниши: ${dbError.message || 'Unknown error'}` },
             { status: 500 }
           );
         }
       }
-    } else {
-      // Если nicheId не указан, используем переданное niche
-      finalNiche = niche || '';
+    } else if (niche && typeof niche === 'string' && niche.trim()) {
+      // Если nicheId не указан, но указана niche, используем её
+      finalNiche = niche.trim();
       finalNicheId = null;
-    }
-    
-    // Проверяем что niche не пустое (поле обязательное)
-    if (!finalNiche || !finalNiche.trim()) {
+    } else {
+      // Если ничего не указано
       return NextResponse.json(
         { error: 'Поле "Ниша" обязательно для заполнения' },
         { status: 400 }
