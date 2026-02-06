@@ -155,11 +155,25 @@ export default function ContractUploadPage() {
       form.set('status', status);
 
       const res = await fetch('/api/contracts', { method: 'POST', body: form });
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        // Если ответ не JSON, используем пустой объект
+      }
       if (!res.ok) {
-        // Улучшенная обработка ошибок
+        // Улучшенная обработка ошибок с расшифровкой даже для старого API
         if (res.status === 403) {
-          setError(data.error || 'Недостаточно прав для загрузки документа. Обратитесь к администратору.');
+          const errorMsg = data.error || '';
+          // Если сервер вернул только "Forbidden" без расшифровки, показываем понятное сообщение
+          if (!errorMsg || errorMsg.toLowerCase() === 'forbidden' || errorMsg === 'Запрещено') {
+            setError('Недостаточно прав для загрузки документа. Возможные причины:\n' +
+              '• У вас нет прав на создание/редактирование договоров\n' +
+              '• Клиент не назначен вам (вы можете загружать документы только для своих клиентов)\n' +
+              'Обратитесь к администратору для получения необходимых прав.');
+          } else {
+            setError(errorMsg);
+          }
         } else if (res.status === 401) {
           setError('Сессия истекла. Пожалуйста, войдите заново.');
         } else {
