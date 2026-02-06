@@ -121,14 +121,15 @@ export async function PUT(
         });
         return NextResponse.json({ niche: { ...niche, parentId: (niche as any).parentId || null, parent: null } });
       }
-    } catch (dbError: any) {
-      if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
-        return NextResponse.json({ 
-          error: 'Таблица Niche не создана в базе данных. Выполните: npx prisma db push' 
-        }, { status: 500 });
+      } catch (dbError: any) {
+        if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
+          console.error('Table Niche does not exist:', dbError);
+          return NextResponse.json({ 
+            error: 'Таблица Niche не создана в базе данных. Обратитесь к администратору для выполнения миграции.' 
+          }, { status: 500 });
+        }
+        throw dbError;
       }
-      throw dbError;
-    }
   } catch (error: unknown) {
     const e = error as { code?: string };
     if (e.code === 'P2002') {
@@ -216,14 +217,15 @@ export async function DELETE(
       });
 
       return NextResponse.json({ success: true });
-    } catch (dbError: any) {
-      if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
-        return NextResponse.json({ 
-          error: 'Таблица Niche не создана в базе данных. Выполните: npx prisma db push' 
-        }, { status: 500 });
+      } catch (dbError: any) {
+        if (dbError.message?.includes('does not exist') || dbError.message?.includes('Niche') || dbError.code === 'P2021') {
+          console.error('Table Niche does not exist:', dbError);
+          return NextResponse.json({ 
+            error: 'Таблица Niche не создана в базе данных. Обратитесь к администратору для выполнения миграции.' 
+          }, { status: 500 });
+        }
+        throw dbError;
       }
-      throw dbError;
-    }
   } catch (error: unknown) {
     const e = error as { code?: string };
     if (e.code === 'P2025') {
