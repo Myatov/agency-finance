@@ -73,12 +73,12 @@ export default function ClientModal({
 
   useEffect(() => {
     if (client) {
-      const c = client as Client & { legalEntity?: { id: string } | null; seller?: { id: string } };
+      const c = client as Client & { legalEntity?: { id: string; name?: string } | null; seller?: { id: string } };
       setFormData({
         name: c.name ?? '',
         legalEntityId: c.legalEntityId ?? c.legalEntity?.id ?? '',
         sellerEmployeeId: c.sellerEmployeeId ?? c.seller?.id ?? '',
-        legalEntityName: c.legalEntityName ?? '',
+        legalEntityName: c.legalEntityName ?? c.legalEntity?.name ?? '',
         contractBasis: c.contractBasis ?? '',
         legalAddress: c.legalAddress ?? '',
         inn: c.inn ?? '',
@@ -117,8 +117,8 @@ export default function ClientModal({
   };
 
   const selectedLegalEntity = legalEntities.find((le) => le.id === formData.legalEntityId);
-  // Показывать блок реквизитов при выборе любого юрлица, чтобы поля всегда сохранялись
-  const showRequisitesBlock = !!formData.legalEntityId;
+  // При редактировании показываем блок сразу (чтобы поля были в DOM при первом setFormData); при добавлении — когда выбрано юрлицо
+  const showRequisitesBlock = !!formData.legalEntityId || !!client;
   // Для этих юрлиц поле «Основание платежа» не показываем
   const hideContractBasis = selectedLegalEntity && ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'].includes(selectedLegalEntity.name);
 
