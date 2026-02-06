@@ -221,8 +221,7 @@ export default function ClientModal({
               value={formData.legalEntityId}
               onChange={(e) => {
                 const id = e.target.value;
-                const le = legalEntities.find((l) => l.id === id);
-                const next = { ...formDataRef.current, legalEntityId: id, legalEntityName: le ? le.name : formDataRef.current.legalEntityName };
+                const next = { ...formDataRef.current, legalEntityId: id };
                 formDataRef.current = next;
                 setFormData(next);
               }}
