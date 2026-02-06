@@ -7,11 +7,6 @@ const nextConfig = {
       bodySizeLimit: '100mb',
     },
   },
-  api: {
-    bodyParser: {
-      sizeLimit: '100mb',
-    },
-  },
   webpack: (config, { isServer, dev }) => {
     // Fix for webpack module resolution issues
     if (!isServer) {
