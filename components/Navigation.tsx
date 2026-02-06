@@ -118,7 +118,6 @@ export default function Navigation() {
     { href: '/storage', label: 'Хранилище', section: 'storage' },
     { href: '/employees', label: 'Команда', section: 'employees' },
     { href: '/products', label: 'Продукты', section: 'products' },
-    { href: '/incomes', label: 'Доходы', section: 'incomes' },
     { href: '/cost-items', label: 'Статьи расходов', section: 'cost-items' },
     { href: '/niches', label: 'Ниши', section: 'niches' },
     { href: '/contacts', label: 'Контакты', section: 'contacts' },
