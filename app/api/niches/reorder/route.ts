@@ -25,6 +25,7 @@ export async function PUT(request: NextRequest) {
     }
 
     try {
+      // Обновляем sortOrder для каждой ниши
       await Promise.all(
         nicheIds.map((nicheId: string, index: number) =>
           prisma.niche.update({
@@ -34,8 +35,26 @@ export async function PUT(request: NextRequest) {
         )
       );
 
+      // Возвращаем все ниши с иерархией
       const niches = await prisma.niche.findMany({
-        orderBy: { sortOrder: 'asc' },
+        include: {
+          parent: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          children: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: [
+          { parentId: 'asc' },
+          { sortOrder: 'asc' },
+        ],
       });
 
       return NextResponse.json({ niches });
