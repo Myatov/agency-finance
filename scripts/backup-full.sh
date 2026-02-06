@@ -41,9 +41,11 @@ if [ -f .env ] && command -v pg_dump >/dev/null 2>&1; then
   DATABASE_URL="${DATABASE_URL#\"}"
   DATABASE_URL="${DATABASE_URL%\'}"
   DATABASE_URL="${DATABASE_URL#\'}"
+  # pg_dump не понимает ?schema=public — убираем query string
+  PG_DUMP_URL="${DATABASE_URL%%\?*}"
   if [ -n "$DATABASE_URL" ]; then
     echo "Дамп базы данных..."
-    if pg_dump "$DATABASE_URL" -Fc -f "$BACKUP_DIR/database.dump"; then
+    if pg_dump "$PG_DUMP_URL" -Fc -f "$BACKUP_DIR/database.dump"; then
       echo "  -> database.dump"
     else
       echo "  Ошибка pg_dump (см. выше). Удаляю пустой файл."
