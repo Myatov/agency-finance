@@ -123,6 +123,12 @@ export async function GET(request: NextRequest) {
     const serialized = expenses.map((e) => ({
       ...e,
       amount: e.amount.toString(),
+      ...(e.service && {
+        service: {
+          ...e.service,
+          price: e.service.price != null ? e.service.price.toString() : null,
+        },
+      }),
     }));
 
     return NextResponse.json({ expenses: serialized });
@@ -227,11 +233,19 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    const expenseForJson = {
+      ...expense,
+      amount: expense.amount.toString(),
+      ...(expense.service && {
+        service: {
+          ...expense.service,
+          price: expense.service.price != null ? expense.service.price.toString() : null,
+        },
+      }),
+    };
+
     return NextResponse.json({
-      expense: {
-        ...expense,
-        amount: expense.amount.toString(),
-      },
+      expense: expenseForJson,
     });
   } catch (error) {
     console.error('Error creating expense:', error);

@@ -197,11 +197,19 @@ export async function PUT(
       },
     });
 
+    const expenseForJson = {
+      ...updated,
+      amount: updated.amount.toString(),
+      ...(updated.service && {
+        service: {
+          ...updated.service,
+          price: updated.service.price != null ? updated.service.price.toString() : null,
+        },
+      }),
+    };
+
     return NextResponse.json({
-      expense: {
-        ...updated,
-        amount: updated.amount.toString(),
-      },
+      expense: expenseForJson,
     });
   } catch (error) {
     console.error('Error updating expense:', error);
