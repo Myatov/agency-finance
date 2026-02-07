@@ -1,10 +1,5 @@
-import Layout from '@/components/Layout';
-import CloseoutPackageCard from '@/components/CloseoutPackageCard';
+import { redirect } from 'next/navigation';
 
-export default function CloseoutPackagePage({ params }: { params: { id: string } }) {
-  return (
-    <Layout>
-      <CloseoutPackageCard packageId={params.id} />
-    </Layout>
-  );
+export default function CloseoutPackagePage() {
+  redirect('/closeout');
 }

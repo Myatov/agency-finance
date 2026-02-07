@@ -8,38 +8,39 @@ interface Client {
   name: string;
 }
 
-interface CloseoutPackage {
+interface CloseoutDoc {
   id: string;
-  clientId: string;
-  period: string;
-  periodType: string;
-  status: string;
-  amount: string | null;
-  client?: { name: string };
+  originalName: string;
+  docType: string;
+  uploadedAt: string | null;
 }
 
+interface PeriodRow {
+  id: string;
+  dateFrom: string;
+  dateTo: string;
+  client: Client;
+  siteTitle: string;
+  productName: string;
+  serviceId: string;
+  closeoutDocuments: CloseoutDoc[];
+}
+
+const docTypeLabels: Record<string, string> = {
+  ACT: 'Акт',
+  INVOICE: 'Счёт',
+  SF: 'УПД',
+  UPD: 'УКД',
+  RECONCILIATION: 'Акт сверки',
+  REPORT: 'Отчёт',
+  OTHER: 'Прочее',
+};
+
 export default function CloseoutList() {
-  const [packages, setPackages] = useState<CloseoutPackage[]>([]);
+  const [periods, setPeriods] = useState<PeriodRow[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [clientId, setClientId] = useState('');
-  const [period, setPeriod] = useState('');
-  const [status, setStatus] = useState('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createPeriod, setCreatePeriod] = useState('');
-  const [createClientId, setCreateClientId] = useState('');
-  const [createAmount, setCreateAmount] = useState('');
-  const [createStatus, setCreateStatus] = useState('PREPARING');
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState('');
-
-  useEffect(() => {
-    fetchClients();
-  }, []);
-
-  useEffect(() => {
-    fetchPackages();
-  }, [clientId, period, status]);
 
   const fetchClients = async () => {
     const res = await fetch('/api/clients');
@@ -47,149 +48,93 @@ export default function CloseoutList() {
     setClients(data.clients || []);
   };
 
-  const fetchPackages = async () => {
+  const fetchPeriods = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (clientId) params.set('clientId', clientId);
-      if (period) params.set('period', period);
-      if (status) params.set('status', status);
-      const res = await fetch(`/api/closeout/packages?${params}`);
+    const params = new URLSearchParams();
+    if (clientId) params.set('clientId', clientId);
+      const res = await fetch(`/api/closeout/periods?${params}`);
       const data = await res.json();
-      if (res.ok) {
-        setPackages((data.packages || []).map((p: any) => ({ ...p, amount: p.amount?.toString?.() ?? p.amount })));
-      } else setPackages([]);
+      if (res.ok) setPeriods(data.periods || []);
+      else setPeriods([]);
     } catch {
-      setPackages([]);
+      setPeriods([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreatePackage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreateError('');
-    if (!createClientId || !createPeriod.trim()) {
-      setCreateError('Клиент и период обязательны');
-      return;
-    }
-    setCreating(true);
-    try {
-      const res = await fetch('/api/closeout/packages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: createClientId,
-          period: createPeriod.trim(),
-          periodType: 'MONTH',
-          amount: createAmount ? Number(createAmount) : null,
-          status: createStatus,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setCreateError(data.error || 'Ошибка создания');
-        setCreating(false);
-        return;
-      }
-      setShowCreateModal(false);
-      setCreatePeriod('');
-      setCreateAmount('');
-      setCreateClientId('');
-      setCreateStatus('PREPARING');
-      fetchPackages();
-    } catch {
-      setCreateError('Ошибка соединения');
-    } finally {
-      setCreating(false);
-    }
-  };
+  useEffect(() => {
+    fetchClients();
+  }, []);
 
-  const statusLabels: Record<string, string> = {
-    PREPARING: 'Готовится',
-    SENT: 'Отправлено',
-    SIGNED: 'Подписано',
-  };
+  useEffect(() => {
+    fetchPeriods();
+  }, [clientId]);
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Закрывающие документы</h1>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-          >
-            Создать пакет периода
-          </button>
-          <Link
-            href="/closeout/upload"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Загрузить документ
-          </Link>
-        </div>
-      </div>
+      <h1 className="text-3xl font-bold mb-6">Закрывающие документы</h1>
+      <p className="text-gray-600 mb-4">
+        Документы привязываются к периодам в разделе <strong>Услуги → Периоды</strong>. Откройте нужный период и в блоке «Закрывающие документы» прикрепите файлы или скачайте уже загруженные.
+      </p>
 
       <div className="bg-white rounded-lg shadow p-4 mb-4">
-        <h3 className="text-sm font-medium text-gray-700 mb-2">Фильтры</h3>
-        <div className="flex flex-wrap gap-4">
-          <select
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            className="px-3 py-2 border rounded-md min-w-[200px]"
-          >
-            <option value="">Все клиенты</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-          <input
-            type="text"
-            placeholder="Период (напр. 2026-02)"
-            value={period}
-            onChange={(e) => setPeriod(e.target.value)}
-            className="px-3 py-2 border rounded-md w-40"
-          />
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="px-3 py-2 border rounded-md"
-          >
-            <option value="">Все статусы</option>
-            <option value="PREPARING">Готовится</option>
-            <option value="SENT">Отправлено</option>
-            <option value="SIGNED">Подписано</option>
-          </select>
-        </div>
+        <h3 className="text-sm font-medium text-gray-700 mb-2">Фильтр</h3>
+        <select
+          value={clientId}
+          onChange={(e) => setClientId(e.target.value)}
+          className="px-3 py-2 border rounded-md min-w-[200px]"
+        >
+          <option value="">Все клиенты</option>
+          {clients.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-gray-500">Загрузка...</div>
-        ) : packages.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">Нет пакетов закрытия. Создайте пакет периода или загрузите документ.</div>
+        ) : periods.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">Нет периодов. Выберите услугу в разделе Услуги → Периоды и прикрепляйте закрывающие документы в карточке периода.</div>
         ) : (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Клиент</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Сайт / Услуга</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Период</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Статус</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Сумма</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Документы</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Действия</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {packages.map((p) => (
+              {periods.map((p) => (
                 <tr key={p.id}>
-                  <td className="px-6 py-4 text-sm text-gray-900">{p.client?.name ?? p.clientId}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{p.period}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{statusLabels[p.status] ?? p.status}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{p.amount ?? '—'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{p.client?.name ?? '—'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700">{p.siteTitle} — {p.productName}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{p.dateFrom} — {p.dateTo}</td>
                   <td className="px-6 py-4 text-sm">
-                    <Link href={`/closeout/packages/${p.id}`} className="text-blue-600 hover:underline">Документы пакета</Link>
+                    {p.closeoutDocuments.length > 0 ? (
+                      <ul className="space-y-1">
+                        {p.closeoutDocuments.map((d) => (
+                          <li key={d.id}>
+                            <a href={`/api/closeout/documents/${d.id}/download`} className="text-blue-600 hover:underline" download>
+                              {d.originalName}
+                            </a>
+                            <span className="text-gray-500 ml-1">({docTypeLabels[d.docType] ?? d.docType})</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-sm">
+                    <Link href={`/periods/${p.id}`} className="text-blue-600 hover:underline">
+                      Карточка периода
+                    </Link>
                   </td>
                 </tr>
               ))}
@@ -197,63 +142,6 @@ export default function CloseoutList() {
           </table>
         )}
       </div>
-
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-xl font-bold mb-4">Создать пакет периода</h2>
-            <form onSubmit={handleCreatePackage} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Клиент *</label>
-                <select
-                  required
-                  value={createClientId}
-                  onChange={(e) => setCreateClientId(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md"
-                >
-                  <option value="">Выберите клиента</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Период *</label>
-                <input
-                  type="text"
-                  required
-                  value={createPeriod}
-                  onChange={(e) => setCreatePeriod(e.target.value)}
-                  placeholder="2026-02"
-                  className="w-full px-3 py-2 border rounded-md"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Сумма</label>
-                <input
-                  type="number"
-                  value={createAmount}
-                  onChange={(e) => setCreateAmount(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Статус</label>
-                <select value={createStatus} onChange={(e) => setCreateStatus(e.target.value)} className="w-full px-3 py-2 border rounded-md">
-                  <option value="PREPARING">Готовится</option>
-                  <option value="SENT">Отправлено</option>
-                  <option value="SIGNED">Подписано</option>
-                </select>
-              </div>
-              {createError && <div className="text-red-600 text-sm">{createError}</div>}
-              <div className="flex gap-2 justify-end">
-                <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 border rounded-md hover:bg-gray-50">Отмена</button>
-                <button type="submit" disabled={creating} className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50">Создать</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
