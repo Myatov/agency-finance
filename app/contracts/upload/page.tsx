@@ -58,7 +58,7 @@ export default function ContractUploadPage() {
   }, [clientId]);
 
   const fetchClients = async () => {
-    const res = await fetch('/api/clients');
+    const res = await fetch('/api/clients?filter=all&includeNoProjects=1');
     const data = await res.json();
     setClients(data.clients || []);
   };
