@@ -96,7 +96,7 @@ export async function GET(
       [client.bik, client.ks].filter(Boolean).join(', ') || '—',
       line(client.paymentRequisites),
       line(client.contacts),
-    ];
+    ].filter((s) => s !== '—');
 
     const recipientLines = [
       line(legal.name),
@@ -109,10 +109,10 @@ export async function GET(
       line(legal.paymentInfo),
       line(legal.generalDirector),
       line(legal.activityBasis),
-    ];
+    ].filter((s) => s !== '—');
 
-    const payerBlock = payerLines.map((s) => `<div>${s}</div>`).join('');
-    const recipientBlock = recipientLines.map((s) => `<div>${s}</div>`).join('');
+    const payerBlock = payerLines.length ? payerLines.map((s) => `<div>${s}</div>`).join('') : '<div>—</div>';
+    const recipientBlock = recipientLines.length ? recipientLines.map((s) => `<div>${s}</div>`).join('') : '<div>—</div>';
 
     const html = `<!DOCTYPE html>
 <html lang="ru">
