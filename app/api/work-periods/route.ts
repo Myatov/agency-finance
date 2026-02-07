@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { canAccessServiceForPeriods } from '@/lib/permissions';
-import { WorkPeriodType } from '@prisma/client';
+import { getExpectedPeriods } from '@/lib/periods';
+import { WorkPeriodType, BillingType } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     );
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    const periods = await prisma.workPeriod.findMany({
+    let periods = await prisma.workPeriod.findMany({
       where: { serviceId },
       include: {
         invoices: {
@@ -43,6 +44,56 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { dateFrom: 'desc' },
     });
+
+    const serviceForExpected = await prisma.service.findUnique({
+      where: { id: serviceId },
+      select: { startDate: true, endDate: true, billingType: true },
+    });
+    if (serviceForExpected) {
+      const expected = getExpectedPeriods(
+        new Date(serviceForExpected.startDate),
+        serviceForExpected.billingType as BillingType,
+        serviceForExpected.endDate ? new Date(serviceForExpected.endDate) : undefined
+      );
+      const existingKeys = new Set(periods.map((p) => `${p.dateFrom.toISOString().slice(0, 10)}:${p.dateTo.toISOString().slice(0, 10)}`));
+      let anyCreated = false;
+      for (const ep of expected) {
+        if (existingKeys.has(`${ep.dateFrom}:${ep.dateTo}`)) continue;
+        try {
+          await prisma.workPeriod.create({
+            data: {
+              serviceId,
+              dateFrom: new Date(ep.dateFrom),
+              dateTo: new Date(ep.dateTo),
+              periodType: 'STANDARD',
+              invoiceNotRequired: false,
+            },
+          });
+          existingKeys.add(`${ep.dateFrom}:${ep.dateTo}`);
+          anyCreated = true;
+        } catch {
+          // ignore duplicate or constraint
+        }
+      }
+      if (anyCreated) {
+        periods = await prisma.workPeriod.findMany({
+          where: { serviceId },
+          include: {
+            invoices: {
+              include: {
+                payments: true,
+                legalEntity: { select: { id: true, name: true } },
+              },
+            },
+            periodReport: {
+              include: { accountManager: { select: { id: true, fullName: true } } },
+            },
+            closeoutDocuments: { select: { id: true } },
+          },
+          orderBy: { dateFrom: 'desc' },
+        });
+      }
+    }
 
     let clientGenerateClosingDocs = false;
     const legalEntityId = service.site.client.legalEntityId;

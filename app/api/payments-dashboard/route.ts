@@ -36,7 +36,50 @@ export async function GET(request: NextRequest) {
     }
     if (andParts.length) wherePeriod.service = { AND: andParts };
 
-    // Без фильтра по наличию счетов — показываем и периоды без счетов
+    // Все id периодов по фильтру (без take) — для полного учёта доходов и сводки
+    const allPeriodIds = await prisma.workPeriod.findMany({
+      where: wherePeriod,
+      select: { id: true },
+    });
+    const periodIdsAll = allPeriodIds.map((p) => p.id);
+
+    const incomeSums =
+      periodIdsAll.length > 0
+        ? await prisma.income.groupBy({
+            by: ['workPeriodId'],
+            where: { workPeriodId: { in: periodIdsAll } },
+            _sum: { amount: true },
+          })
+        : [];
+    const incomeByPeriod = new Map<string, number>();
+    for (const x of incomeSums) {
+      if (x.workPeriodId != null) incomeByPeriod.set(x.workPeriodId, Number(x._sum.amount ?? 0));
+    }
+
+    const paymentTotalAll =
+      periodIdsAll.length > 0
+        ? await prisma.payment.aggregate({
+            where: { invoice: { workPeriodId: { in: periodIdsAll } } },
+            _sum: { amount: true },
+          })
+        : { _sum: { amount: null } };
+    const totalPaymentsAll = Number(paymentTotalAll._sum?.amount ?? 0);
+    const totalIncomesAll = Array.from(incomeByPeriod.values()).reduce((s, v) => s + v, 0);
+    const factTotalFromAllPeriods = totalPaymentsAll + totalIncomesAll;
+
+    const periodsForPlanTotal = await prisma.workPeriod.findMany({
+      where: wherePeriod,
+      select: { id: true },
+      include: {
+        service: { select: { price: true } },
+      },
+    });
+    const planTotalFromAllPeriods = periodsForPlanTotal.reduce(
+      (s, p) => s + Number(p.service.price ?? 0),
+      0
+    );
+
+    // Без фильтра по наличию счетов — показываем и периоды без счетов (для таблицы берём больше записей)
     const periods = await prisma.workPeriod.findMany({
       where: wherePeriod,
       include: {
@@ -61,22 +104,8 @@ export async function GET(request: NextRequest) {
         closeoutDocuments: { take: 1, select: { id: true } },
       },
       orderBy: { dateTo: 'asc' },
-      take: 200,
+      take: 500,
     });
-
-    const periodIds = periods.map((p) => p.id);
-    const incomeSums =
-      periodIds.length > 0
-        ? await prisma.income.groupBy({
-            by: ['workPeriodId'],
-            where: { workPeriodId: { in: periodIds } },
-            _sum: { amount: true },
-          })
-        : [];
-    const incomeByPeriod = new Map<string, number>();
-    for (const x of incomeSums) {
-      if (x.workPeriodId != null) incomeByPeriod.set(x.workPeriodId, Number(x._sum.amount ?? 0));
-    }
 
     const now = new Date();
     const periodKey = (sid: string, from: string, to: string) => `${sid}:${from}:${to}`;
@@ -188,18 +217,18 @@ export async function GET(request: NextRequest) {
 
     rows.sort((a, b) => a.dateTo.localeCompare(b.dateTo));
 
+    const planVirtual = rows.filter((r) => r.isVirtual).reduce((s, r) => s + Number(r.expectedAmount), 0);
+    const planTotal = planTotalFromAllPeriods + planVirtual;
+
     let result = rows;
     if (overdueOnly) result = result.filter((r) => r.isOverdue || r.risk);
-
-    const planTotal = result.reduce((s, r) => s + Number(r.expectedAmount), 0);
-    const factTotal = result.reduce((s, r) => s + Number(r.paid), 0);
 
     return NextResponse.json({
       periods: result,
       summary: {
         planTotal: String(planTotal),
-        factTotal: String(factTotal),
-        deviation: String(planTotal - factTotal),
+        factTotal: String(factTotalFromAllPeriods),
+        deviation: String(planTotal - factTotalFromAllPeriods),
       },
       viewAllPayments,
       currentUserId: user.id,

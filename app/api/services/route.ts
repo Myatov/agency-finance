@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { hasViewAllPermission } from '@/lib/permissions';
+import { getExpectedPeriods } from '@/lib/periods';
 import { ServiceStatus, BillingType } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
@@ -193,6 +194,28 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    const expectedPeriods = getExpectedPeriods(
+      new Date(startDate),
+      billingType as BillingType,
+      endDate ? new Date(endDate) : undefined
+    );
+    if (expectedPeriods.length > 0) {
+      const first = expectedPeriods[0];
+      try {
+        await prisma.workPeriod.create({
+          data: {
+            serviceId: service.id,
+            dateFrom: new Date(first.dateFrom),
+            dateTo: new Date(first.dateTo),
+            periodType: 'STANDARD',
+            invoiceNotRequired: false,
+          },
+        });
+      } catch (e) {
+        console.error('Create first work period for service', service.id, e);
+      }
+    }
 
     // Convert BigInt to string for JSON serialization
     const serviceResponse = {
