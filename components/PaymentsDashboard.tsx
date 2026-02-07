@@ -143,6 +143,10 @@ export default function PaymentsDashboard() {
         )}
       </div>
 
+      <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200 text-sm text-gray-700">
+        <strong>Где вносить счета, отчёты и оплаты по периоду:</strong> Услуги → выберите услугу → Периоды → у нужного периода нажмите «Счета и оплаты». В карточке периода можно добавить счёт, прикрепить отчёт по периоду и внести оплаты. Закрывающие документы — в разделе меню «Закрывающие документы».
+      </div>
+
       <div className="bg-white p-4 rounded-lg shadow mb-6">
         <div className="flex flex-wrap gap-2 mb-3">
           <span className="text-sm text-gray-600 mr-1">Быстро:</span>

@@ -1,19 +1,22 @@
 /**
  * Вычисление ожидаемых периодов работ по дате старта услуги и типу биллинга.
- * Период по умолчанию: с даты старта → 1 месяц → последний день месяца (или -1 день от следующего месяца).
+ * Период: с даты старта до (то же число следующего месяца − 1 день).
+ * Пример: старт 04.12 → период 04.12–03.01, следующий 04.01–03.02 и т.д.
  */
 
 export type BillingType = 'ONE_TIME' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
-
-function lastDayOfMonth(d: Date): Date {
-  const next = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-  return next;
-}
 
 function addMonth(d: Date): Date {
   const r = new Date(d);
   r.setMonth(r.getMonth() + 1);
   return r;
+}
+
+/** Конец периода: то же число следующего месяца минус 1 день (04.12 → 03.01). */
+function periodEnd(from: Date): Date {
+  const next = addMonth(new Date(from));
+  next.setDate(next.getDate() - 1);
+  return next;
 }
 
 /** Один период: dateFrom/dateTo в формате YYYY-MM-DD */
@@ -38,7 +41,8 @@ export function getExpectedPeriods(
 
   if (billingType === 'ONE_TIME') {
     const from = new Date(startDate);
-    const to = lastDayOfMonth(from);
+    from.setHours(0, 0, 0, 0);
+    const to = periodEnd(from);
     periods.push({
       dateFrom: from.toISOString().slice(0, 10),
       dateTo: to.toISOString().slice(0, 10),
@@ -51,14 +55,13 @@ export function getExpectedPeriods(
     let from = new Date(startDate);
     from.setHours(0, 0, 0, 0);
     while (from <= end) {
-      const to = lastDayOfMonth(from);
+      const to = periodEnd(from);
       periods.push({
         dateFrom: from.toISOString().slice(0, 10),
         dateTo: to.toISOString().slice(0, 10),
         isInvoicePeriod: true,
       });
       from = addMonth(from);
-      from.setDate(1);
     }
     return periods;
   }
@@ -67,17 +70,16 @@ export function getExpectedPeriods(
     // Периоды для отчёта/акта — ежемесячно; счёт за год выставляется в конце года
     let from = new Date(startDate);
     from.setHours(0, 0, 0, 0);
-    const yearEnd = new Date(from.getFullYear(), 11, 31);
     while (from <= end) {
-      const to = lastDayOfMonth(from);
-      const isEndOfYear = to.getMonth() === 11 && to.getDate() === 31;
+      const to = periodEnd(from);
+      // Счёт за год только у периода, заканчивающегося в декабре (dateTo в декабре)
+      const isEndOfYear = to.getMonth() === 11;
       periods.push({
         dateFrom: from.toISOString().slice(0, 10),
         dateTo: to.toISOString().slice(0, 10),
-        isInvoicePeriod: isEndOfYear, // счёт за год только в конце декабря
+        isInvoicePeriod: isEndOfYear,
       });
       from = addMonth(from);
-      from.setDate(1);
     }
     return periods;
   }
@@ -87,14 +89,13 @@ export function getExpectedPeriods(
     let from = new Date(startDate);
     from.setHours(0, 0, 0, 0);
     while (from <= end) {
-      const to = lastDayOfMonth(from);
+      const to = periodEnd(from);
       periods.push({
         dateFrom: from.toISOString().slice(0, 10),
         dateTo: to.toISOString().slice(0, 10),
         isInvoicePeriod: true,
       });
       from = addMonth(from);
-      from.setDate(1);
     }
     return periods;
   }
