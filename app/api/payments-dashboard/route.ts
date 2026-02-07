@@ -66,16 +66,8 @@ export async function GET(request: NextRequest) {
       if (x.workPeriodId != null) incomeByPeriod.set(x.workPeriodId, Number(x._sum.amount ?? 0));
     }
 
-    const paymentTotalAll =
-      periodIdsAll.length > 0
-        ? await prisma.payment.aggregate({
-            where: { invoice: { workPeriodId: { in: periodIdsAll } } },
-            _sum: { amount: true },
-          })
-        : { _sum: { amount: null } };
-    const totalPaymentsAll = Number(paymentTotalAll._sum?.amount ?? 0);
     const totalIncomesAll = Array.from(incomeByPeriod.values()).reduce((s, v) => s + v, 0);
-    const factTotalFromAllPeriods = totalPaymentsAll + totalIncomesAll;
+    const factTotalFromAllPeriods = totalIncomesAll;
 
     const periodsForPlanTotal = await prisma.workPeriod.findMany({
       where: wherePeriod,
@@ -142,11 +134,8 @@ export async function GET(request: NextRequest) {
     const rows = periods.map((p) => {
       const invoices = p.invoices ?? [];
       const expected = p.service?.price ? Number(p.service.price) : 0;
-      const paidFromInvoices = invoices.reduce((sum, inv) => {
-        return sum + (inv.payments ?? []).reduce((s, pay) => s + Number(pay.amount), 0);
-      }, 0);
       const incomeSum = incomeByPeriod.get(p.id) ?? 0;
-      const paid = paidFromInvoices + incomeSum;
+      const paid = incomeSum;
       const totalInvoiced = invoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
       const balance = expected - paid;
       const hasReport = hasReportIds.has(p.id);

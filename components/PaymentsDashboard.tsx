@@ -287,6 +287,9 @@ export default function PaymentsDashboard() {
                       <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Оплачено</th>
                     </>
                   )}
+                  {tab === 'overdue' && (
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Оплата</th>
+                  )}
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Остаток</th>
                   <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Отчёт</th>
                   <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Счёт</th>
@@ -314,6 +317,11 @@ export default function PaymentsDashboard() {
                         <td className="px-4 py-2 text-sm text-right">{formatRub(row.expectedAmount)}</td>
                         <td className="px-4 py-2 text-sm text-right">{formatRub(row.paid)}</td>
                       </>
+                    )}
+                    {tab === 'overdue' && (
+                      <td className="px-4 py-2 text-center">
+                        {Number(row.balance) <= 0 ? <span className="text-green-600">✓</span> : <span className="text-gray-400">—</span>}
+                      </td>
                     )}
                     <td className="px-4 py-2 text-sm text-right">{formatRub(row.balance)}</td>
                     <td className="px-4 py-2 text-center">
