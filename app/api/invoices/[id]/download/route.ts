@@ -18,8 +18,8 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
-function line(s: string): string {
-  return s ? escapeHtml(s) : '—';
+function line(s: string | null | undefined): string {
+  return s != null && s !== '' ? escapeHtml(s) : '—';
 }
 
 export async function GET(
