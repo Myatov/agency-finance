@@ -165,14 +165,11 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
                 </div>
                 {p.invoices.length > 0 && (
                   <ul className="mt-2 list-disc list-inside text-sm">
-                    {p.invoices.map((inv) => {
-                      const paid = inv.payments.reduce((s, pay) => s + Number(pay.amount), 0);
-                      return (
-                        <li key={inv.id}>
-                          Счёт {inv.invoiceNumber || inv.id.slice(0, 8)} — {inv.legalEntity.name}: {formatAmount(inv.amount)}, оплачено {formatAmount(String(paid))}
-                        </li>
-                      );
-                    })}
+                    {p.invoices.map((inv) => (
+                      <li key={inv.id}>
+                        Счёт {inv.invoiceNumber || inv.id.slice(0, 8)} — {inv.legalEntity.name}
+                      </li>
+                    ))}
                   </ul>
                 )}
                 <div className="mt-2 flex gap-2 text-sm">
