@@ -146,6 +146,17 @@ export async function DELETE(
       );
     }
 
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const periodEnd = new Date(period.dateTo);
+    const periodEndDate = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), periodEnd.getDate());
+    if (periodEndDate.getTime() <= todayStart.getTime()) {
+      return NextResponse.json(
+        { error: 'Нельзя удалить прошлый период или период, в который входит сегодняшняя дата. Удалять можно только будущие периоды без доходов.' },
+        { status: 400 }
+      );
+    }
+
     await prisma.workPeriod.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (e: any) {
