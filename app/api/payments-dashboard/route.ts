@@ -249,6 +249,8 @@ export async function GET(request: NextRequest) {
 
     let result = rows;
     if (overdueOnly) result = result.filter((r) => r.isOverdue || r.risk);
+    // Просроченные с нулевым остатком (всё оплачено) не показываем в «Ближайшие оплаты»
+    result = result.filter((r) => !(r.isOverdue || r.risk) || Number(r.balance) > 0);
 
     return NextResponse.json({
       periods: result,

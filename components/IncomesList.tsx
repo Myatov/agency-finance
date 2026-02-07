@@ -38,6 +38,11 @@ interface Income {
   } | null;
   comment: string | null;
   incomeDate: Date | string;
+  workPeriod?: {
+    id: string;
+    dateFrom: string | Date;
+    dateTo: string | Date;
+  } | null;
   creator: {
     id: string;
     fullName: string;
@@ -227,6 +232,9 @@ export default function IncomesList() {
                   Услуга (Продукт)
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Период
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Юрлицо
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -260,6 +268,11 @@ export default function IncomesList() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {income.service.product.name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {income.workPeriod
+                      ? `${formatDate(income.workPeriod.dateFrom)} — ${formatDate(income.workPeriod.dateTo)}`
+                      : '—'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {income.legalEntity?.name || '-'}

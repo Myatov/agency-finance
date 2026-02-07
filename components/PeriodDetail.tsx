@@ -53,7 +53,6 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
   const [loading, setLoading] = useState(true);
   const [legalEntities, setLegalEntities] = useState<Array<{ id: string; name: string }>>([]);
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
-  const [showPaymentForm, setShowPaymentForm] = useState<string | null>(null);
   const [showReportForm, setShowReportForm] = useState(false);
   const [showCloseoutForm, setShowCloseoutForm] = useState(false);
   const [closeoutUploading, setCloseoutUploading] = useState(false);
@@ -96,21 +95,13 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
     }
   };
 
-  const handleCreatePayment = async (e: React.FormEvent<HTMLFormElement>, invoiceId: string) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const amount = (form.querySelector('[name="amount"]') as HTMLInputElement).value;
-    const res = await fetch('/api/payments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ invoiceId, amount: parseFloat(amount) }),
-    });
-    if (res.ok) {
-      setShowPaymentForm(null);
-      load();
-    } else {
+  const handleDeletePayment = async (paymentId: string) => {
+    if (!confirm('Удалить эту оплату по счёту? Доходы вносятся через раздел «Доходы».')) return;
+    const res = await fetch(`/api/payments/${paymentId}`, { method: 'DELETE' });
+    if (res.ok) load();
+    else {
       const err = await res.json();
-      alert(err.error || 'Ошибка');
+      alert(err.error || 'Ошибка удаления');
     }
   };
 
@@ -295,24 +286,19 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
             <li key={inv.id} className="border rounded p-4">
               <div className="flex justify-between">
                 <span>Счёт {inv.invoiceNumber || inv.id.slice(0, 8)} — {inv.legalEntity.name}: {formatAmount(inv.amount)}</span>
-                <span className="text-gray-500">Оплачено: {formatAmount(String(paid))}</span>
+                <span className="text-gray-500">По счёту: {formatAmount(String(paid))}</span>
               </div>
               {inv.payments.length > 0 && (
                 <ul className="mt-2 text-sm text-gray-600">
                   {inv.payments.map((p) => (
-                    <li key={p.id}>{formatAmount(p.amount)} — {p.paidAt.slice(0, 10)}</li>
+                    <li key={p.id} className="flex items-center gap-2">
+                      {formatAmount(p.amount)} — {p.paidAt.slice(0, 10)}
+                      <button type="button" onClick={() => handleDeletePayment(p.id)} className="text-red-600 hover:underline text-xs">Удалить</button>
+                    </li>
                   ))}
                 </ul>
               )}
-              {showPaymentForm !== inv.id ? (
-                <button onClick={() => setShowPaymentForm(inv.id)} className="mt-2 text-blue-600 hover:underline text-sm">+ Оплата</button>
-              ) : (
-                <form onSubmit={(e) => handleCreatePayment(e, inv.id)} className="mt-2 flex gap-2 items-end">
-                  <input type="number" name="amount" step="0.01" required placeholder="Сумма (руб)" className="border rounded px-2 py-1 w-32" />
-                  <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded text-sm">Добавить</button>
-                  <button type="button" onClick={() => setShowPaymentForm(null)} className="px-3 py-1 border rounded text-sm">Отмена</button>
-                </form>
-              )}
+              <p className="mt-1 text-xs text-gray-500">Доходы вносятся через раздел «Доходы»</p>
             </li>
           );
         })}

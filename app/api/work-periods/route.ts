@@ -109,7 +109,25 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const serialized = periods.map((p) => JSON.parse(JSON.stringify(p, (_, v) => (typeof v === 'bigint' ? v.toString() : v))));
+    const periodIds = periods.map((p) => p.id);
+    const incomeSums =
+      periodIds.length > 0
+        ? await prisma.income.groupBy({
+            by: ['workPeriodId'],
+            where: { workPeriodId: { in: periodIds } },
+            _sum: { amount: true },
+          })
+        : [];
+    const incomeByPeriod = new Map<string, number>();
+    for (const x of incomeSums) {
+      if (x.workPeriodId != null) incomeByPeriod.set(x.workPeriodId, Number(x._sum.amount ?? 0));
+    }
+
+    const serialized = periods.map((p) => {
+      const row = JSON.parse(JSON.stringify(p, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
+      (row as any).incomeSum = incomeByPeriod.get(p.id) ?? 0;
+      return row;
+    });
     return NextResponse.json({
       workPeriods: serialized,
       clientGenerateClosingDocs,

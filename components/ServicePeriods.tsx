@@ -10,6 +10,7 @@ interface WorkPeriod {
   dateTo: string;
   periodType: string;
   invoiceNotRequired: boolean;
+  incomeSum?: number;
   invoices: Array<{
     id: string;
     amount: string;
@@ -92,8 +93,9 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
 
   return (
     <div>
-      <div className="mb-4">
+      <div className="mb-4 flex gap-4">
         <Link href="/payments" className="text-blue-600 hover:underline text-sm">← Оплаты</Link>
+        <Link href="/services" className="text-blue-600 hover:underline text-sm">← Услуги</Link>
       </div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">
@@ -117,10 +119,10 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
         ) : (
           periods.map((p) => {
             const totalInvoiced = p.invoices.reduce((s, i) => s + Number(i.amount), 0);
-            const totalPaid = p.invoices.reduce((s, i) => s + i.payments.reduce((s2, pay) => s2 + Number(pay.amount), 0), 0);
+            const paidFromIncomes = p.incomeSum ?? 0;
             const expected = service?.price ? Number(service.price) : 0;
-            const balance = totalInvoiced - totalPaid;
-            const isFullyPaid = expected > 0 && totalPaid >= expected;
+            const balance = expected - paidFromIncomes;
+            const isFullyPaid = expected > 0 && paidFromIncomes >= expected;
             const hasInvoice = p.invoices.length > 0;
             const closeoutStatus = !clientGenerateClosingDocs
               ? 'не требуются'
@@ -144,7 +146,7 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
                   </div>
                   <div className="text-sm text-right">
                     <span className="text-gray-500">Выставлено: </span>{formatAmount(String(totalInvoiced))}
-                    <span className="text-gray-500 ml-2">Оплачено: </span>{formatAmount(String(totalPaid))}
+                    <span className="text-gray-500 ml-2">Оплачено: </span>{formatAmount(String(paidFromIncomes))}
                     <span className="ml-2">Остаток: {formatAmount(String(balance))}</span>
                   </div>
                 </div>
