@@ -76,7 +76,14 @@ export async function GET(
     );
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    const amountRub = (Number(invoice.amount) / 100).toFixed(2);
+    const amountBase = Number(invoice.amount) / 100;
+    const amountRub = amountBase.toFixed(2);
+    const vatPercent = legal.vatPercent != null ? Number(legal.vatPercent) : 0;
+    const showVat = vatPercent > 0;
+    const vatAmount = showVat ? amountBase * (vatPercent / 100) : 0;
+    const totalWithVat = showVat ? amountBase + vatAmount : 0;
+    const vatRub = vatAmount.toFixed(2);
+    const totalWithVatRub = totalWithVat.toFixed(2);
     const dateFrom = invoice.workPeriod.dateFrom;
     const dateTo = invoice.workPeriod.dateTo;
     const periodRu = `${toRuDate(dateFrom)} — ${toRuDate(dateTo)}`;
@@ -165,6 +172,7 @@ export async function GET(
       <tr><th>Услуга</th><td id="serviceDisp">${escapeHtml(productName)}</td></tr>
       <tr><th>Период</th><td>${periodRu}</td></tr>
       <tr><th>Сумма (руб)</th><td class="total">${amountRub}</td></tr>
+      ${showVat ? `<tr><th>НДС (руб)</th><td>${vatRub}</td></tr><tr><th>Сумма с НДС (руб)</th><td class="total">${totalWithVatRub}</td></tr>` : ''}
     </table>
   </div>
 
