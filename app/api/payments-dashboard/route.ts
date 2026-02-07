@@ -24,9 +24,18 @@ export async function GET(request: NextRequest) {
     const dateTo = request.nextUrl.searchParams.get('dateTo') || undefined;
     const overdueOnly = request.nextUrl.searchParams.get('overdueOnly') === '1';
 
+    // Период включаем, если он пересекается с диапазоном [dateFrom, dateTo], а не только если целиком внутри
     const wherePeriod: any = {};
-    if (dateFrom) wherePeriod.dateFrom = { gte: new Date(dateFrom) };
-    if (dateTo) wherePeriod.dateTo = { lte: new Date(dateTo) };
+    if (dateFrom && dateTo) {
+      wherePeriod.AND = [
+        { dateTo: { gte: new Date(dateFrom) } },
+        { dateFrom: { lte: new Date(dateTo) } },
+      ];
+    } else if (dateFrom) {
+      wherePeriod.dateTo = { gte: new Date(dateFrom) };
+    } else if (dateTo) {
+      wherePeriod.dateFrom = { lte: new Date(dateTo) };
+    }
 
     const andParts: any[] = [];
     if (accountManagerId) andParts.push({ site: { accountManagerId } });
