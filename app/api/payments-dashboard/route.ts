@@ -58,10 +58,24 @@ export async function GET(request: NextRequest) {
           },
         },
         periodReport: true,
+        closeoutDocuments: { take: 1, select: { id: true } },
       },
       orderBy: { dateTo: 'asc' },
       take: 200,
     });
+
+    const periodIds = periods.map((p) => p.id);
+    const incomeSums =
+      periodIds.length > 0
+        ? await prisma.income.groupBy({
+            by: ['workPeriodId'],
+            where: { workPeriodId: { in: periodIds } },
+            _sum: { amount: true },
+          })
+        : [];
+    const incomeByPeriod = new Map<string, number>(
+      incomeSums.map((x) => [x.workPeriodId, Number(x._sum.amount ?? 0)])
+    );
 
     const now = new Date();
     const periodKey = (sid: string, from: string, to: string) => `${sid}:${from}:${to}`;
@@ -71,12 +85,16 @@ export async function GET(request: NextRequest) {
 
     const rows = periods.map((p) => {
       const expected = p.service.price ? Number(p.service.price) : 0;
-      const paid = p.invoices.reduce((sum, inv) => {
+      const paidFromInvoices = p.invoices.reduce((sum, inv) => {
         return sum + inv.payments.reduce((s, pay) => s + Number(pay.amount), 0);
       }, 0);
+      const incomeSum = incomeByPeriod.get(p.id) ?? 0;
+      const paid = paidFromInvoices + incomeSum;
       const totalInvoiced = p.invoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
-      const balance = totalInvoiced - paid;
+      const balance = expected - paid;
       const hasReport = !!p.periodReport;
+      const hasInvoice = p.invoices.length > 0;
+      const hasCloseoutDoc = p.closeoutDocuments.length > 0;
       const isOverdue = !hasReport && p.dateTo < now;
       const risk = isOverdue || (p.dateTo >= now && !hasReport && totalInvoiced > 0);
       return {
@@ -95,6 +113,8 @@ export async function GET(request: NextRequest) {
         paid: String(paid),
         balance: String(balance),
         hasReport,
+        hasInvoice,
+        hasCloseoutDoc,
         isOverdue,
         risk,
         invoicesCount: p.invoices.length,
@@ -135,6 +155,8 @@ export async function GET(request: NextRequest) {
         if (dateToFilter && from > dateToFilter) continue;
         const expectedAmount = svc.price ? Number(svc.price) : 0;
         const hasReport = false;
+        const hasInvoice = false;
+        const hasCloseoutDoc = false;
         const isOverdue = to < now;
         const risk = isOverdue || (!hasReport && to >= now);
         rows.push({
@@ -151,8 +173,10 @@ export async function GET(request: NextRequest) {
           expectedAmount: String(expectedAmount),
           totalInvoiced: '0',
           paid: '0',
-          balance: '0',
+          balance: String(expectedAmount),
           hasReport: false,
+          hasInvoice: false,
+          hasCloseoutDoc: false,
           isOverdue,
           risk,
           invoicesCount: 0,

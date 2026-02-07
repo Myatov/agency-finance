@@ -20,6 +20,8 @@ interface PeriodRow {
   paid: string;
   balance: string;
   hasReport: boolean;
+  hasInvoice?: boolean;
+  hasCloseoutDoc?: boolean;
   isOverdue: boolean;
   risk: boolean;
   invoicesCount: number;
@@ -127,7 +129,7 @@ export default function PaymentsDashboard() {
           onClick={() => setTab('overdue')}
           className={`px-4 py-2 font-medium ${tab === 'overdue' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600'}`}
         >
-          Просрочки и риски
+          Просрочки
         </button>
         <button
           onClick={() => setTab('planfact')}
@@ -154,11 +156,11 @@ export default function PaymentsDashboard() {
                   <strong>Ближайшие оплаты.</strong> Показаны все периоды работ в выбранном диапазоне дат: и уже созданные в системе, и ожидаемые по активным услугам (считаются от даты старта и типа биллинга — ежемесячно, разово, ежегодно). По каждой строке: клиент, сайт/услуга, аккаунт-менеджер, период, ожидаемая сумма, оплачено, остаток, наличие отчёта. Строки без созданного периода в БД отображают прочерк в колонке «Периоды» — период можно создать в карточке услуги или при добавлении дохода.
                 </>
               )}
-              {tab === 'overdue' && (
-                <>
-                  <strong>Просрочки и риски.</strong> Те же периоды, что и в «Ближайшие оплаты», но отображаются только те, по которым есть просрочка выставления счёта или иной риск. Строки с риском подсвечены. Помогает сфокусироваться на проблемных позициях и не пропустить сроки.
-                </>
-              )}
+        {tab === 'overdue' && (
+          <>
+            <strong>Просрочки.</strong> Периоды с просрочкой по отчёту, счёту, оплате или закрывающему документу. Если просрочек нет — экран пустой.
+          </>
+        )}
               {tab === 'planfact' && (
                 <>
                   <strong>План vs Факт.</strong> Те же периоды за выбранный диапазон; сверху — сводка: ожидаемая выручка (план по периодам), фактически получено (сумма оплат), отклонение (план минус факт). Таблица внизу — детализация по каждому периоду для анализа, где план не совпадает с фактом.
@@ -266,10 +268,16 @@ export default function PaymentsDashboard() {
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Сайт / Услуга</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">АМ</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Период</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Ожидаемо</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Оплачено</th>
+                  {tab !== 'overdue' && (
+                    <>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Ожидаемо</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Оплачено</th>
+                    </>
+                  )}
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Остаток</th>
                   <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Отчёт</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Счёт</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Акт</th>
                   <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Действия</th>
                 </tr>
               </thead>
@@ -288,15 +296,25 @@ export default function PaymentsDashboard() {
                       {row.dateFrom} — {row.dateTo}
                       {row.isOverdue && <span className="ml-1 text-red-600 text-xs">просрочка</span>}
                     </td>
-                    <td className="px-4 py-2 text-sm text-right">{formatRub(row.expectedAmount)}</td>
-                    <td className="px-4 py-2 text-sm text-right">{formatRub(row.paid)}</td>
+                    {tab !== 'overdue' && (
+                      <>
+                        <td className="px-4 py-2 text-sm text-right">{formatRub(row.expectedAmount)}</td>
+                        <td className="px-4 py-2 text-sm text-right">{formatRub(row.paid)}</td>
+                      </>
+                    )}
                     <td className="px-4 py-2 text-sm text-right">{formatRub(row.balance)}</td>
                     <td className="px-4 py-2 text-center">
                       {row.hasReport ? <span className="text-green-600">✓</span> : <span className="text-gray-400">—</span>}
                     </td>
                     <td className="px-4 py-2 text-center">
+                      {(row.hasInvoice ?? row.invoicesCount > 0) ? <span className="text-green-600">✓</span> : <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      {(row.hasCloseoutDoc ?? false) ? <span className="text-green-600">✓</span> : <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-4 py-2 text-center">
                       {row.isVirtual ? (
-                        <span className="text-gray-400 text-sm">—</span>
+                        <span className="text-gray-400 text-sm" title="Период ещё не создан в БД; создайте в карточке услуги → Периоды">—</span>
                       ) : (
                         <Link
                           href={`/services/${row.serviceId}/periods`}
