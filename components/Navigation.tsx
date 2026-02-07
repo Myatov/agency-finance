@@ -59,7 +59,7 @@ export default function Navigation() {
         { href: '/storage', section: 'storage' },
         { href: '/incomes', section: 'incomes' },
         { href: '/expenses', section: 'expenses' },
-        { href: '/payments', section: 'services' },
+        { href: '/payments', section: 'payments' },
         { href: '/cost-items', section: 'cost-items' },
         { href: '/employees', section: 'employees' },
         { href: '/products', section: 'products' },

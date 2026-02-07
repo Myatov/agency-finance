@@ -113,6 +113,7 @@ export default function RolesList() {
     { code: 'storage', label: 'Хранилище' },
     { code: 'incomes', label: 'Доходы' },
     { code: 'expenses', label: 'Расходы' },
+    { code: 'payments', label: 'Оплаты' },
     { code: 'cost-items', label: 'Статьи расходов' },
     { code: 'employees', label: 'Сотрудники' },
     { code: 'products', label: 'Продукты' },

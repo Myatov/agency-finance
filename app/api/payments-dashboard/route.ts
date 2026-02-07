@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { hasViewAllPermission } from '@/lib/permissions';
+import { hasViewAllPermission, hasPermission } from '@/lib/permissions';
 import { getExpectedPeriods } from '@/lib/periods';
 import { BillingType } from '@prisma/client';
 
@@ -12,8 +12,13 @@ export async function GET(request: NextRequest) {
     const user = await getSession();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const viewAll = await hasViewAllPermission(user, 'services');
-    const accountManagerId = request.nextUrl.searchParams.get('accountManagerId') || undefined;
+    const canViewPayments = await hasPermission(user, 'payments', 'view');
+    if (!canViewPayments) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    const viewAllPayments = await hasViewAllPermission(user, 'payments');
+    // При просмотре только своих отчётов — принудительно только текущий пользователь (аккаунт-менеджер)
+    const accountManagerIdParam = request.nextUrl.searchParams.get('accountManagerId') || undefined;
+    const accountManagerId = !viewAllPayments ? user.id : accountManagerIdParam;
     const clientId = request.nextUrl.searchParams.get('clientId') || undefined;
     const dateFrom = request.nextUrl.searchParams.get('dateFrom') || undefined;
     const dateTo = request.nextUrl.searchParams.get('dateTo') || undefined;
@@ -26,14 +31,8 @@ export async function GET(request: NextRequest) {
     const andParts: any[] = [];
     if (accountManagerId) andParts.push({ site: { accountManagerId } });
     if (clientId) andParts.push({ site: { clientId } });
-    if (!viewAll) {
-      andParts.push({
-        OR: [
-          { site: { accountManagerId: user.id } },
-          { site: { creatorId: user.id } },
-          { site: { client: { sellerEmployeeId: user.id } } },
-        ],
-      });
+    if (!viewAllPayments) {
+      andParts.push({ site: { accountManagerId: user.id } });
     }
     if (andParts.length) wherePeriod.service = { AND: andParts };
 
@@ -177,6 +176,8 @@ export async function GET(request: NextRequest) {
         factTotal: String(factTotal),
         deviation: String(planTotal - factTotal),
       },
+      viewAllPayments,
+      currentUserId: user.id,
     });
   } catch (e: any) {
     console.error('GET payments-dashboard', e);

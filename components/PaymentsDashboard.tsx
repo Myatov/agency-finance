@@ -29,6 +29,8 @@ interface PeriodRow {
 interface DashboardData {
   periods: PeriodRow[];
   summary: { planTotal: string; factTotal: string; deviation: string };
+  viewAllPayments?: boolean;
+  currentUserId?: string;
 }
 
 interface User { id: string; fullName: string; roleCode: string; }
@@ -90,8 +92,17 @@ export default function PaymentsDashboard() {
     if (tab === 'overdue') params.set('overdueOnly', '1');
     const res = await fetch(`/api/payments-dashboard?${params}`);
     const json = await res.json();
-    if (res.ok) setData({ periods: json.periods, summary: json.summary });
-    else setData(null);
+    if (res.ok) {
+      setData({
+        periods: json.periods,
+        summary: json.summary,
+        viewAllPayments: json.viewAllPayments,
+        currentUserId: json.currentUserId,
+      });
+      if (json.viewAllPayments === false && json.currentUserId) {
+        setFilters((prev) => (!prev.accountManagerId ? { ...prev, accountManagerId: json.currentUserId } : prev));
+      }
+    } else setData(null);
     setLoading(false);
   };
 
@@ -192,15 +203,19 @@ export default function PaymentsDashboard() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Аккаунт</label>
             <select
-              value={filters.accountManagerId}
+              value={data?.viewAllPayments === false ? (data.currentUserId ?? '') : filters.accountManagerId}
               onChange={(e) => setFilters({ ...filters, accountManagerId: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              disabled={data?.viewAllPayments === false}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">Все</option>
               {accountManagers.map((u) => (
                 <option key={u.id} value={u.id}>{u.fullName}</option>
               ))}
             </select>
+            {data?.viewAllPayments === false && (
+              <p className="mt-1 text-xs text-gray-500">Доступ только к своим отчётам</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Клиент</label>
