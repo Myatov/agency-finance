@@ -16,6 +16,12 @@ interface Invoice {
   payments: Array<{ id: string; amount: string; paidAt: string }>;
 }
 
+interface IncomeRow {
+  id: string;
+  amount: string;
+  incomeDate: string | null;
+}
+
 interface WorkPeriodFull {
   id: string;
   dateFrom: string;
@@ -25,7 +31,14 @@ interface WorkPeriodFull {
   service: {
     id: string;
     price: string | null;
-    site: { title: string; client: { name: string } };
+    site: {
+      title: string;
+      client: {
+        name: string;
+        legalEntityId: string | null;
+        legalEntity?: { id: string; name: string } | null;
+      };
+    };
     product: { name: string };
   };
   invoices: Invoice[];
@@ -34,6 +47,7 @@ interface WorkPeriodFull {
 
 export default function PeriodDetail({ periodId }: PeriodDetailProps) {
   const [period, setPeriod] = useState<WorkPeriodFull | null>(null);
+  const [incomes, setIncomes] = useState<IncomeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [legalEntities, setLegalEntities] = useState<Array<{ id: string; name: string }>>([]);
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
@@ -41,9 +55,15 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
   const [showReportForm, setShowReportForm] = useState(false);
 
   const load = async () => {
-    const res = await fetch(`/api/work-periods/${periodId}`);
-    const data = await res.json();
-    if (res.ok) setPeriod(data.workPeriod);
+    setLoading(true);
+    const [pRes, iRes] = await Promise.all([
+      fetch(`/api/work-periods/${periodId}`),
+      fetch(`/api/incomes?workPeriodId=${periodId}`),
+    ]);
+    const pData = await pRes.json();
+    const iData = await iRes.json();
+    if (pRes.ok) setPeriod(pData.workPeriod);
+    setIncomes((iData.incomes || []).map((i: { id: string; amount: string; incomeDate: string | null }) => ({ id: i.id, amount: i.amount, incomeDate: i.incomeDate })));
     setLoading(false);
   };
 
@@ -117,6 +137,12 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
   const totalInvoiced = period.invoices.reduce((s, i) => s + Number(i.amount), 0);
   const totalPaid = period.invoices.reduce((s, i) => s + i.payments.reduce((s2, p) => s2 + Number(p.amount), 0), 0);
   const expected = period.service.price ? Number(period.service.price) : 0;
+  const expectedRub = expected / 100;
+  const totalIncomes = incomes.reduce((s, i) => s + Number(i.amount), 0);
+  const paymentDone = !period.invoiceNotRequired && period.invoices.length > 0;
+  const reportDone = !!period.periodReport;
+  const incomesDone = expected <= 0 || totalIncomes >= expected;
+  const clientLegalEntityId = period.service?.site?.client?.legalEntityId ?? null;
 
   return (
     <div>
@@ -129,6 +155,22 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
       <p className="text-gray-600 mb-4">
         {period.service.site.client.name} · {period.service.site.title} · {period.service.product.name}
       </p>
+
+      <div className="flex flex-wrap gap-4 mb-6 p-3 bg-gray-50 rounded">
+        <span className="flex items-center gap-2">
+          {reportDone ? <span className="text-green-600">✓</span> : <span className="text-gray-400">—</span>}
+          <span className="text-sm">Отчёт по периоду</span>
+        </span>
+        <span className="flex items-center gap-2">
+          {paymentDone ? <span className="text-green-600">✓</span> : <span className="text-gray-400">—</span>}
+          <span className="text-sm">Счёт выставлен</span>
+        </span>
+        <span className="flex items-center gap-2">
+          {incomesDone ? <span className="text-green-600">✓</span> : <span className="text-gray-400">—</span>}
+          <span className="text-sm">Оплата за период {incomesDone ? 'выполнено' : `(осталось ${formatAmount(String(Math.max(0, expected - totalIncomes)))} )`}</span>
+        </span>
+      </div>
+
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-gray-50 p-4 rounded">
           <p className="text-sm text-gray-500">Ожидаемо за период</p>
@@ -145,6 +187,28 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
       </div>
 
       <div className="mb-6">
+        <h2 className="text-lg font-semibold mb-2">Поступившие оплаты (доходы) за период</h2>
+        {incomes.length === 0 ? (
+          <p className="text-sm text-gray-500">Нет проведённых доходов по этому периоду</p>
+        ) : (
+          <ul className="space-y-1 text-sm">
+            {incomes.map((i) => (
+              <li key={i.id}>
+                {formatAmount(i.amount)} — внесён {i.incomeDate ? String(i.incomeDate).slice(0, 10) : '—'}
+              </li>
+            ))}
+            <li className="font-medium mt-2">
+              Всего поступило: {formatAmount(String(totalIncomes))}
+              {expected > 0 && (
+                <> · Осталось: {formatAmount(String(Math.max(0, expected - totalIncomes)))}</>
+              )}
+              {incomesDone && expected > 0 && <span className="text-green-600 ml-2">✓ выполнено</span>}
+            </li>
+          </ul>
+        )}
+      </div>
+
+      <div className="mb-6">
         <h2 className="text-lg font-semibold mb-2">Отчёт по периоду</h2>
         {period.periodReport ? (
           <p>
@@ -152,6 +216,7 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
               {period.periodReport.originalName}
             </a>
             {' '}({period.periodReport.paymentType})
+            <span className="text-green-600 ml-2">✓ выполнено</span>
           </p>
         ) : (
           <>
@@ -180,14 +245,14 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
         )}
       </div>
       {showInvoiceForm && (
-        <form onSubmit={handleCreateInvoice} className="mb-4 p-4 border rounded flex flex-wrap gap-2 items-end">
+        <form onSubmit={handleCreateInvoice} className="mb-4 p-4 border rounded flex flex-wrap gap-2 items-end" key={`inv-${period.id}-${expectedRub}-${clientLegalEntityId ?? ''}`}>
           <div>
             <label className="block text-xs text-gray-500">Сумма (руб)</label>
-            <input type="number" name="amount" step="0.01" required className="border rounded px-2 py-1 w-32" />
+            <input type="number" name="amount" step="0.01" required className="border rounded px-2 py-1 w-32" defaultValue={expectedRub > 0 ? expectedRub.toFixed(2) : ''} />
           </div>
           <div>
             <label className="block text-xs text-gray-500">Юрлицо</label>
-            <select name="legalEntityId" required className="border rounded px-2 py-1">
+            <select name="legalEntityId" required className="border rounded px-2 py-1" defaultValue={clientLegalEntityId ?? ''}>
               <option value="">Выберите</option>
               {legalEntities.map((le) => (
                 <option key={le.id} value={le.id}>{le.name}</option>

@@ -18,7 +18,15 @@ export async function GET(
       include: {
         service: {
           include: {
-            site: { include: { client: true } },
+            site: {
+              include: {
+                client: {
+                  include: {
+                    legalEntity: { select: { id: true, name: true } },
+                  },
+                },
+              },
+            },
             product: { select: { id: true, name: true } },
           },
         },

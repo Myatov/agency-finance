@@ -52,6 +52,7 @@ export default function RoleModal({
     { code: 'reports', label: 'Отчеты' },
     { code: 'legal-entities', label: 'Юрлица' },
     { code: 'roles', label: 'Роли' },
+    { code: 'niches', label: 'Ниши' },
   ];
 
   // Разделы, для которых можно включить «Просмотр всех» (иначе — только свои/все)
