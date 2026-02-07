@@ -73,9 +73,10 @@ export async function GET(request: NextRequest) {
             _sum: { amount: true },
           })
         : [];
-    const incomeByPeriod = new Map<string, number>(
-      incomeSums.map((x) => [x.workPeriodId, Number(x._sum.amount ?? 0)])
-    );
+    const incomeByPeriod = new Map<string, number>();
+    for (const x of incomeSums) {
+      if (x.workPeriodId != null) incomeByPeriod.set(x.workPeriodId, Number(x._sum.amount ?? 0));
+    }
 
     const now = new Date();
     const periodKey = (sid: string, from: string, to: string) => `${sid}:${from}:${to}`;
