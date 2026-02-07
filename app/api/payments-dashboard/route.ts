@@ -248,9 +248,15 @@ export async function GET(request: NextRequest) {
     const planTotal = planTotalFromAllPeriods + planVirtual;
 
     let result = rows;
-    if (overdueOnly) result = result.filter((r) => r.isOverdue || r.risk);
-    // Просроченные с нулевым остатком (всё оплачено) не показываем в «Ближайшие оплаты»
-    result = result.filter((r) => !(r.isOverdue || r.risk) || Number(r.balance) > 0);
+    if (overdueOnly) {
+      // Просрочки: периоды, где не заполнен хотя бы один из элементов — Отчёт / Счёт / Акт
+      result = result.filter(
+        (r) =>
+          !r.hasReport ||
+          (!r.invoiceNotRequired && !r.hasInvoice) ||
+          !r.hasCloseoutDoc
+      );
+    }
 
     return NextResponse.json({
       periods: result,
