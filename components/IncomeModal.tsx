@@ -187,7 +187,7 @@ export default function IncomeModal({
     const data = await res.json();
     const list = (data.incomes || []).map((i: any) => ({ id: i.id, amount: i.amount, incomeDate: i.incomeDate }));
     setPeriodIncomes(list);
-    const sum = list.reduce((s, i) => s + (i.id === excludeIncomeId ? 0 : Number(i.amount)), 0);
+    const sum = list.reduce((s: number, i: { id: string; amount: string }) => s + (i.id === excludeIncomeId ? 0 : Number(i.amount)), 0);
     const remaining = (Number(servicePriceKopecks) - sum) / 100;
     setFormData((prev) => ({ ...prev, amount: Math.max(0, remaining).toFixed(2) }));
   };
