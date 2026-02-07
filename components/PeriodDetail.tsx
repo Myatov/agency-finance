@@ -170,7 +170,9 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
   return (
     <div>
       <div className="mb-4">
-        <Link href={`/services/${period.service.id}/periods`} className="text-blue-600 hover:underline text-sm">← К периодам услуги</Link>
+        <button type="button" onClick={() => window.history.back()} className="text-blue-600 hover:underline text-sm">
+          ← Назад
+        </button>
       </div>
       <h1 className="text-2xl font-bold mb-2">
         Период {period.dateFrom} — {period.dateTo}

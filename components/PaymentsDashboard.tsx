@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { formatAmount } from '@/lib/utils';
 
@@ -74,6 +74,7 @@ export default function PaymentsDashboard() {
   const [accountManagers, setAccountManagers] = useState<Array<{ id: string; fullName: string }>>([]);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [descriptionsExpanded, setDescriptionsExpanded] = useState(false);
+  const fetchIdRef = useRef(0);
 
   useEffect(() => {
     fetchDashboard();
@@ -85,15 +86,18 @@ export default function PaymentsDashboard() {
   }, []);
 
   const fetchDashboard = async () => {
-    setLoading(true);
     const params = new URLSearchParams();
     if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
     if (filters.dateTo) params.set('dateTo', filters.dateTo);
     if (filters.accountManagerId) params.set('accountManagerId', filters.accountManagerId);
     if (filters.clientId) params.set('clientId', filters.clientId);
     if (tab === 'overdue') params.set('overdueOnly', '1');
+    const myId = ++fetchIdRef.current;
+    setLoading(true);
     const res = await fetch(`/api/payments-dashboard?${params}`, { cache: 'no-store' });
     const json = await res.json();
+    if (myId !== fetchIdRef.current) return;
+    setLoading(false);
     if (res.ok) {
       setData({
         periods: json.periods,
@@ -105,7 +109,6 @@ export default function PaymentsDashboard() {
         setFilters((prev) => (!prev.accountManagerId ? { ...prev, accountManagerId: json.currentUserId } : prev));
       }
     } else setData(null);
-    setLoading(false);
   };
 
   const formatRub = (s: string) => formatAmount(s || '0');
