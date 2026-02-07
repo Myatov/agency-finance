@@ -90,7 +90,7 @@ export default function IncomeModal({
   const [services, setServices] = useState<Service[]>([]);
   const [expectedPeriods, setExpectedPeriods] = useState<ExpectedPeriodOption[]>([]);
   const [legalEntities, setLegalEntities] = useState<LegalEntity[]>([]);
-  const [sites, setSites] = useState<Array<{ id: string; title: string; client: { id: string; name: string } }>>([]);
+  const [sites, setSites] = useState<Array<{ id: string; title: string; client: { id: string; name: string; legalEntityId: string | null } }>>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<string>('');
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [periodIncomes, setPeriodIncomes] = useState<Array<{ id: string; amount: string; incomeDate: string | null }>>([]);
@@ -237,9 +237,16 @@ export default function IncomeModal({
 
   const handleSiteChange = async (siteId: string) => {
     setSelectedSiteId(siteId);
+    const site = sites.find((s) => s.id === siteId);
+    const clientLegalEntityId = site?.client?.legalEntityId ?? '';
     await fetchServices(siteId);
     setExpectedPeriods([]);
-    setFormData({ ...formData, serviceId: '', workPeriodId: '' });
+    setFormData({
+      ...formData,
+      serviceId: '',
+      workPeriodId: '',
+      legalEntityId: clientLegalEntityId,
+    });
     setSelectedService(null);
   };
 
