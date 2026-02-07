@@ -43,7 +43,7 @@ export default function CloseoutList() {
   const [clientId, setClientId] = useState('');
 
   const fetchClients = async () => {
-    const res = await fetch('/api/clients');
+    const res = await fetch('/api/clients?forCloseout=1');
     const data = await res.json();
     setClients(data.clients || []);
   };

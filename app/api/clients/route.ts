@@ -20,12 +20,19 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const forPayments = searchParams.get('forPayments') === '1';
+    const forCloseout = searchParams.get('forCloseout') === '1';
     const filter = searchParams.get('filter') || 'active';
     const includeNoProjects = searchParams.get('includeNoProjects') === '1';
 
     let where: any = {};
 
-    if (forPayments) {
+    if (forCloseout) {
+      const canViewCloseout = await hasPermission(user, 'closeout', 'view') || await hasPermission(user, 'storage', 'view');
+      if (!canViewCloseout) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      where = { sites: { some: { accountManagerId: user.id } } };
+    } else if (forPayments) {
       const canViewPayments = await hasPermission(user, 'payments', 'view');
       if (!canViewPayments) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
