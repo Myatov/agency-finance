@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
       startDate,
       endDate,
       billingType,
+      prepaymentType,
       price,
       autoRenew,
       responsibleUserId,
@@ -150,6 +151,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const validPrepayment = ['FULL_PREPAY', 'PARTIAL_PREPAY', 'POSTPAY'];
+    const prepay = prepaymentType && validPrepayment.includes(prepaymentType) ? prepaymentType : 'POSTPAY';
+
     const service = await prisma.service.create({
       data: {
         siteId,
@@ -158,6 +162,7 @@ export async function POST(request: NextRequest) {
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
         billingType: billingType as BillingType,
+        prepaymentType: prepay as import('@prisma/client').PrepaymentType,
         price: price ? BigInt(Math.round(parseFloat(price) * 100)) : null,
         autoRenew: autoRenew !== undefined ? Boolean(autoRenew) : false,
         responsibleUserId: responsibleUserId || null,

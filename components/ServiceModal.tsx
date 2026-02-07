@@ -9,6 +9,7 @@ interface Service {
   startDate: Date | string;
   endDate: Date | string | null;
   billingType: 'ONE_TIME' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+  prepaymentType?: 'FULL_PREPAY' | 'PARTIAL_PREPAY' | 'POSTPAY';
   price: string | bigint | null;
   autoRenew: boolean;
   responsibleUserId: string | null;
@@ -47,7 +48,8 @@ export default function ServiceModal({
     status: 'ACTIVE' as 'ACTIVE' | 'PAUSED' | 'FINISHED',
     startDate: '',
     endDate: '',
-    billingType: 'ONE_TIME' as 'ONE_TIME' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY',
+    billingType: 'ONE_TIME' as 'ONE_TIME' | 'MONTHLY' | 'YEARLY',
+    prepaymentType: 'POSTPAY' as 'FULL_PREPAY' | 'PARTIAL_PREPAY' | 'POSTPAY',
     price: '',
     autoRenew: false,
     responsibleUserId: '',
@@ -71,7 +73,8 @@ export default function ServiceModal({
         status: service.status,
         startDate: service.startDate ? new Date(service.startDate).toISOString().split('T')[0] : '',
         endDate: service.endDate ? new Date(service.endDate).toISOString().split('T')[0] : '',
-        billingType: service.billingType,
+        billingType: service.billingType === 'QUARTERLY' ? 'MONTHLY' : service.billingType,
+        prepaymentType: (service as any).prepaymentType || 'POSTPAY',
         price: service.price ? (typeof service.price === 'bigint' ? Number(service.price) / 100 : parseFloat(service.price.toString()) / 100).toString() : '',
         autoRenew: service.autoRenew,
         responsibleUserId: service.responsibleUserId || '',
@@ -121,6 +124,7 @@ export default function ServiceModal({
         startDate: formData.startDate,
         endDate: formData.endDate || null,
         billingType: formData.billingType,
+        prepaymentType: formData.prepaymentType,
         price: formData.price ? parseFloat(formData.price) : null,
         autoRenew: formData.autoRenew,
         responsibleUserId: formData.responsibleUserId || null,
@@ -255,9 +259,24 @@ export default function ServiceModal({
             >
               <option value="ONE_TIME">Разово</option>
               <option value="MONTHLY">Ежемесячно</option>
-              <option value="QUARTERLY">Ежеквартально</option>
               <option value="YEARLY">Ежегодно</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Когда выставлять счёт
+            </label>
+            <select
+              value={formData.prepaymentType}
+              onChange={(e) => setFormData({ ...formData, prepaymentType: e.target.value as any })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            >
+              <option value="FULL_PREPAY">Полная предоплата</option>
+              <option value="PARTIAL_PREPAY">Частичная предоплата</option>
+              <option value="POSTPAY">Постоплата</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-500">Отчёт и закрывающие документы — всегда в конце периода</p>
           </div>
 
           <div>

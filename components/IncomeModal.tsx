@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from 'react';
 
-interface WorkPeriodOption {
-  id: string;
+interface ExpectedPeriodOption {
   dateFrom: string;
   dateTo: string;
-  periodType: string;
+  workPeriodId: string | null;
 }
 
 interface Income {
@@ -81,7 +80,7 @@ export default function IncomeModal({
     incomeDate: '',
   });
   const [services, setServices] = useState<Service[]>([]);
-  const [workPeriods, setWorkPeriods] = useState<WorkPeriodOption[]>([]);
+  const [expectedPeriods, setExpectedPeriods] = useState<ExpectedPeriodOption[]>([]);
   const [legalEntities, setLegalEntities] = useState<LegalEntity[]>([]);
   const [sites, setSites] = useState<Array<{ id: string; title: string; client: { id: string; name: string } }>>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<string>('');
@@ -115,7 +114,7 @@ export default function IncomeModal({
           const service = loadedServices.find((s: Service) => s.id === income.serviceId);
           if (service) setSelectedService(service);
         });
-        fetchWorkPeriods(income.serviceId);
+        fetchExpectedPeriods(income.serviceId);
       }
     } else {
       setFormData({
@@ -152,38 +151,51 @@ export default function IncomeModal({
     setLegalEntities((data.legalEntities || []).filter((le: LegalEntity) => le.isActive !== false));
   };
 
-  const fetchWorkPeriods = async (serviceId: string) => {
+  const fetchExpectedPeriods = async (serviceId: string) => {
     if (!serviceId) {
-      setWorkPeriods([]);
+      setExpectedPeriods([]);
       return [];
     }
-    const res = await fetch(`/api/work-periods?serviceId=${serviceId}`);
+    const res = await fetch(`/api/services/${serviceId}/expected-periods`);
     const data = await res.json();
-    const list = (data.workPeriods || []).map((p: any) => ({
-      id: p.id,
-      dateFrom: typeof p.dateFrom === 'string' ? p.dateFrom.slice(0, 10) : new Date(p.dateFrom).toISOString().slice(0, 10),
-      dateTo: typeof p.dateTo === 'string' ? p.dateTo.slice(0, 10) : new Date(p.dateTo).toISOString().slice(0, 10),
-      periodType: p.periodType || 'STANDARD',
+    const list = (data.periods || []).map((p: any) => ({
+      dateFrom: p.dateFrom?.slice(0, 10) || '',
+      dateTo: p.dateTo?.slice(0, 10) || '',
+      workPeriodId: p.workPeriodId || null,
     }));
-    setWorkPeriods(list);
+    setExpectedPeriods(list);
     return list;
   };
 
   const handleServiceChange = async (serviceId: string) => {
     const service = services.find(s => s.id === serviceId);
     setSelectedService(service || null);
-    const periods = await fetchWorkPeriods(serviceId);
+    const periods = await fetchExpectedPeriods(serviceId);
     const incomeDateStr = formData.incomeDate ? formData.incomeDate.slice(0, 10) : new Date().toISOString().slice(0, 10);
     let suggestedId = '';
+    let suggestedVirtual: ExpectedPeriodOption | null = null;
     for (const p of periods) {
       if (incomeDateStr >= p.dateFrom && incomeDateStr <= p.dateTo) {
-        suggestedId = p.id;
+        if (p.workPeriodId) suggestedId = p.workPeriodId;
+        else suggestedVirtual = p;
         break;
       }
     }
-    if (!suggestedId && periods.length > 0) {
-      const sorted = [...periods].sort((a, b) => b.dateTo.localeCompare(a.dateTo));
-      suggestedId = sorted[0].id;
+    if (!suggestedId && periods.length > 0 && !suggestedVirtual) {
+      const withId = periods.filter((p: ExpectedPeriodOption) => p.workPeriodId);
+      const sorted = [...withId].sort((a, b) => (b.dateTo || '').localeCompare(a.dateTo || ''));
+      if (sorted.length > 0) suggestedId = sorted[0].workPeriodId!;
+      else suggestedVirtual = periods[periods.length - 1] || null;
+    }
+    if (suggestedVirtual && !suggestedId) {
+      const res = await fetch('/api/work-periods', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceId, dateFrom: suggestedVirtual.dateFrom, dateTo: suggestedVirtual.dateTo }),
+      });
+      const data = await res.json();
+      if (res.ok && data.workPeriod?.id) suggestedId = data.workPeriod.id;
+      fetchExpectedPeriods(serviceId);
     }
     setFormData({ ...formData, serviceId, workPeriodId: suggestedId });
   };
@@ -191,9 +203,32 @@ export default function IncomeModal({
   const handleSiteChange = async (siteId: string) => {
     setSelectedSiteId(siteId);
     await fetchServices(siteId);
-    setWorkPeriods([]);
+    setExpectedPeriods([]);
     setFormData({ ...formData, serviceId: '', workPeriodId: '' });
     setSelectedService(null);
+  };
+
+  const handlePeriodChange = async (value: string) => {
+    if (!value) {
+      setFormData({ ...formData, workPeriodId: '' });
+      return;
+    }
+    if (value.startsWith('virtual:')) {
+      const [, dateFrom, dateTo] = value.split(':');
+      if (!formData.serviceId || !dateFrom || !dateTo) return;
+      const res = await fetch('/api/work-periods', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceId: formData.serviceId, dateFrom, dateTo }),
+      });
+      const data = await res.json();
+      if (res.ok && data.workPeriod?.id) {
+        setFormData({ ...formData, workPeriodId: data.workPeriod.id });
+        fetchExpectedPeriods(formData.serviceId);
+      }
+      return;
+    }
+    setFormData({ ...formData, workPeriodId: value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -333,20 +368,24 @@ export default function IncomeModal({
               Период работ
             </label>
             <select
-              value={formData.workPeriodId}
-              onChange={(e) => setFormData({ ...formData, workPeriodId: e.target.value })}
+              value={formData.workPeriodId || ''}
+              onChange={(e) => handlePeriodChange(e.target.value)}
               disabled={!formData.serviceId}
               className="w-full px-3 py-2 border border-gray-300 rounded-md disabled:bg-gray-50"
             >
               <option value="">— Не привязан</option>
-              {workPeriods.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.dateFrom} — {p.dateTo}
-                </option>
-              ))}
+              {expectedPeriods.map((p) => {
+                const val = p.workPeriodId || `virtual:${p.dateFrom}:${p.dateTo}`;
+                return (
+                  <option key={val} value={val}>
+                    {p.dateFrom} — {p.dateTo}
+                    {p.workPeriodId ? '' : ' (создать)'}
+                  </option>
+                );
+              })}
             </select>
-            {formData.serviceId && workPeriods.length === 0 && (
-              <p className="mt-1 text-xs text-gray-500">Создайте период в разделе Оплаты → Периоды по услуге</p>
+            {formData.serviceId && expectedPeriods.length === 0 && (
+              <p className="mt-1 text-xs text-gray-500">Периоды считаются от даты старта услуги и типа биллинга</p>
             )}
           </div>
 

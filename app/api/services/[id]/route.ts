@@ -107,6 +107,7 @@ export async function PUT(
       startDate,
       endDate,
       billingType,
+      prepaymentType,
       price,
       autoRenew,
       responsibleUserId,
@@ -163,6 +164,12 @@ export async function PUT(
         return NextResponse.json({ error: 'Invalid billingType' }, { status: 400 });
       }
       updateData.billingType = billingType as BillingType;
+    }
+    if (prepaymentType !== undefined) {
+      const validPrepayment = ['FULL_PREPAY', 'PARTIAL_PREPAY', 'POSTPAY'];
+      if (validPrepayment.includes(prepaymentType)) {
+        updateData.prepaymentType = prepaymentType;
+      }
     }
     if (price !== undefined) updateData.price = price ? BigInt(Math.round(parseFloat(price) * 100)) : null;
     if (autoRenew !== undefined) updateData.autoRenew = Boolean(autoRenew);

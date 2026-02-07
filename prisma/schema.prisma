@@ -281,20 +281,27 @@ model Site {
   @@map("Site")
 }
 
+enum PrepaymentType {
+  FULL_PREPAY
+  PARTIAL_PREPAY
+  POSTPAY
+}
+
 model Service {
-  id                String        @id @default(uuid())
+  id                String          @id @default(uuid())
   siteId            String
   productId         String
-  status            ServiceStatus @default(ACTIVE)
+  status            ServiceStatus   @default(ACTIVE)
   startDate         DateTime
   endDate           DateTime?
   billingType       BillingType
+  prepaymentType    PrepaymentType  @default(POSTPAY)
   price             BigInt?
-  autoRenew         Boolean       @default(false)
+  autoRenew         Boolean         @default(false)
   responsibleUserId String?
   comment           String?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
   expenses          Expense[]
   incomes           Income[]
   product           Product       @relation(fields: [productId], references: [id])

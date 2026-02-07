@@ -23,6 +23,7 @@ interface PeriodRow {
   isOverdue: boolean;
   risk: boolean;
   invoicesCount: number;
+  isVirtual?: boolean;
 }
 
 interface DashboardData {
@@ -42,6 +43,30 @@ export default function PaymentsDashboard() {
     accountManagerId: '',
     clientId: '',
   });
+
+  const setDatePreset = (preset: 'year' | 'currentYear' | '3months' | 'prevMonth' | 'currentMonth') => {
+    const now = new Date();
+    let from = '';
+    let to = now.toISOString().slice(0, 10);
+    if (preset === 'year') {
+      const y = new Date(now);
+      y.setFullYear(y.getFullYear() - 1);
+      from = y.toISOString().slice(0, 10);
+    } else if (preset === 'currentYear') {
+      from = `${now.getFullYear()}-01-01`;
+    } else if (preset === '3months') {
+      const m = new Date(now);
+      m.setMonth(m.getMonth() - 3);
+      from = m.toISOString().slice(0, 10);
+    } else if (preset === 'prevMonth') {
+      const m = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      from = m.toISOString().slice(0, 10);
+      to = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().slice(0, 10);
+    } else if (preset === 'currentMonth') {
+      from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    }
+    setFilters((f) => ({ ...f, dateFrom: from, dateTo: to }));
+  };
   const [accountManagers, setAccountManagers] = useState<Array<{ id: string; fullName: string }>>([]);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
 
@@ -101,6 +126,14 @@ export default function PaymentsDashboard() {
       </div>
 
       <div className="bg-white p-4 rounded-lg shadow mb-6">
+        <div className="flex flex-wrap gap-2 mb-3">
+          <span className="text-sm text-gray-600 mr-1">Быстро:</span>
+          <button type="button" onClick={() => setDatePreset('year')} className="px-2 py-1 text-sm border rounded hover:bg-gray-50">За последний год</button>
+          <button type="button" onClick={() => setDatePreset('currentYear')} className="px-2 py-1 text-sm border rounded hover:bg-gray-50">Текущий год</button>
+          <button type="button" onClick={() => setDatePreset('3months')} className="px-2 py-1 text-sm border rounded hover:bg-gray-50">3 месяца</button>
+          <button type="button" onClick={() => setDatePreset('prevMonth')} className="px-2 py-1 text-sm border rounded hover:bg-gray-50">Пред. месяц</button>
+          <button type="button" onClick={() => setDatePreset('currentMonth')} className="px-2 py-1 text-sm border rounded hover:bg-gray-50">Текущий месяц</button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Период с</label>
@@ -211,12 +244,16 @@ export default function PaymentsDashboard() {
                       {row.hasReport ? <span className="text-green-600">✓</span> : <span className="text-gray-400">—</span>}
                     </td>
                     <td className="px-4 py-2 text-center">
-                      <Link
-                        href={`/services/${row.serviceId}/periods`}
-                        className="text-blue-600 hover:underline text-sm"
-                      >
-                        Периоды
-                      </Link>
+                      {row.isVirtual ? (
+                        <span className="text-gray-400 text-sm">—</span>
+                      ) : (
+                        <Link
+                          href={`/services/${row.serviceId}/periods`}
+                          className="text-blue-600 hover:underline text-sm"
+                        >
+                          Периоды
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ))}
