@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import ServiceModal from './ServiceModal';
 
 interface Service {
@@ -316,6 +317,12 @@ export default function ServicesList({
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       {canEdit && (
+                        <Link
+                          href={`/services/${service.id}/periods`}
+                          className="text-blue-600 hover:text-blue-900 mr-4"
+                        >
+                          Периоды
+                        </Link>
                         <button
                           onClick={() => handleEdit(service)}
                           className="text-blue-600 hover:text-blue-900 mr-4"

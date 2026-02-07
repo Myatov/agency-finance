@@ -92,7 +92,7 @@ export default function PaymentsDashboard() {
     if (filters.accountManagerId) params.set('accountManagerId', filters.accountManagerId);
     if (filters.clientId) params.set('clientId', filters.clientId);
     if (tab === 'overdue') params.set('overdueOnly', '1');
-    const res = await fetch(`/api/payments-dashboard?${params}`);
+    const res = await fetch(`/api/payments-dashboard?${params}`, { cache: 'no-store' });
     const json = await res.json();
     if (res.ok) {
       setData({

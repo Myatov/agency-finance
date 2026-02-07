@@ -305,6 +305,12 @@ export default function ServicesListAll() {
                     {service.responsible?.fullName || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <Link
+                      href={`/services/${service.id}/periods`}
+                      className="text-blue-600 hover:text-blue-900 mr-4"
+                    >
+                      Периоды
+                    </Link>
                     {canEdit && (
                       <button
                         onClick={() => handleEdit(service)}
