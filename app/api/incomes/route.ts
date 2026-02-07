@@ -111,6 +111,14 @@ export async function GET(request: NextRequest) {
             name: true,
           },
         },
+        workPeriod: {
+          select: {
+            id: true,
+            dateFrom: true,
+            dateTo: true,
+            periodType: true,
+          },
+        },
         creator: {
           select: {
             id: true,
@@ -150,7 +158,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { amount, serviceId, legalEntityId, comment, incomeDate } = body;
+    const { amount, serviceId, workPeriodId, legalEntityId, comment, incomeDate } = body;
 
     if (!amount || !serviceId) {
       return NextResponse.json(
@@ -192,6 +200,7 @@ export async function POST(request: NextRequest) {
       data: {
         amount: amountBigInt,
         serviceId,
+        workPeriodId: workPeriodId || null,
         legalEntityId: legalEntityId || null,
         comment: comment || null,
         incomeDate: incomeDate ? new Date(incomeDate) : new Date(),
@@ -232,6 +241,14 @@ export async function POST(request: NextRequest) {
           select: {
             id: true,
             name: true,
+          },
+        },
+        workPeriod: {
+          select: {
+            id: true,
+            dateFrom: true,
+            dateTo: true,
+            periodType: true,
           },
         },
         creator: {

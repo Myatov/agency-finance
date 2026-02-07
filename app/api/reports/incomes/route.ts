@@ -143,6 +143,13 @@ export async function GET(request: NextRequest) {
               name: true,
             },
           },
+          workPeriod: {
+            select: {
+              id: true,
+              dateFrom: true,
+              dateTo: true,
+            },
+          },
           creator: {
             select: {
               id: true,

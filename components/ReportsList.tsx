@@ -90,6 +90,9 @@ export default function ReportsList() {
         site: inc.service.site.title,
         service: inc.service.product.name,
         product: inc.service.product.name,
+        period: inc.workPeriod
+          ? `${formatDate(inc.workPeriod.dateFrom)} — ${formatDate(inc.workPeriod.dateTo)}`
+          : '',
         legalEntity: inc.legalEntity?.name || '',
         seller: inc.service.site.client.seller.fullName,
         accountManager: inc.service.site.accountManager?.fullName || '',
@@ -103,6 +106,7 @@ export default function ReportsList() {
         'site',
         'service',
         'product',
+        'period',
         'legalEntity',
         'seller',
         'accountManager',
@@ -306,6 +310,9 @@ export default function ReportsList() {
                     Услуга (Продукт)
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Период работ
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Юрлицо
                   </th>
                 </tr>
@@ -327,6 +334,11 @@ export default function ReportsList() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {inc.service.product.name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {inc.workPeriod
+                        ? `${formatDate(inc.workPeriod.dateFrom)} — ${formatDate(inc.workPeriod.dateTo)}`
+                        : '—'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {inc.legalEntity?.name || '-'}

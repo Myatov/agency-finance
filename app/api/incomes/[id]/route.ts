@@ -53,6 +53,14 @@ export async function GET(
             name: true,
           },
         },
+        workPeriod: {
+          select: {
+            id: true,
+            dateFrom: true,
+            dateTo: true,
+            periodType: true,
+          },
+        },
         creator: {
           select: {
             id: true,
@@ -108,7 +116,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { amount, serviceId, legalEntityId, comment, incomeDate } = body;
+    const { amount, serviceId, workPeriodId, legalEntityId, comment, incomeDate } = body;
 
     const updateData: any = {
       updatedAt: new Date(),
@@ -127,6 +135,9 @@ export async function PUT(
         return NextResponse.json({ error: 'Service not found' }, { status: 404 });
       }
       updateData.serviceId = serviceId;
+    }
+    if (workPeriodId !== undefined) {
+      updateData.workPeriodId = workPeriodId || null;
     }
     if (legalEntityId !== undefined) {
       updateData.legalEntityId = legalEntityId || null;
@@ -177,6 +188,14 @@ export async function PUT(
           select: {
             id: true,
             name: true,
+          },
+        },
+        workPeriod: {
+          select: {
+            id: true,
+            dateFrom: true,
+            dateTo: true,
+            periodType: true,
           },
         },
         creator: {

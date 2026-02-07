@@ -3,7 +3,8 @@ import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { hasViewAllPermission } from '@/lib/permissions';
 
-/** Данные для раздела «Оплаты»: периоды с ожидаемой суммой, оплачено, остаток, статус. */
+/** Данные для раздела «Оплаты»: периоды с ожидаемой суммой, оплачено, остаток, статус.
+ *  Возвращаются ВСЕ периоды по фильтрам, в т.ч. без выставленных счетов (invoicesCount может быть 0). */
 export async function GET(request: NextRequest) {
   try {
     const user = await getSession();
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
     }
     if (andParts.length) wherePeriod.service = { AND: andParts };
 
+    // Без фильтра по наличию счетов — показываем и периоды без счетов
     const periods = await prisma.workPeriod.findMany({
       where: wherePeriod,
       include: {

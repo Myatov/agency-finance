@@ -2,10 +2,19 @@
 
 import { useState, useEffect } from 'react';
 
+interface WorkPeriodOption {
+  id: string;
+  dateFrom: string;
+  dateTo: string;
+  periodType: string;
+}
+
 interface Income {
   id: string;
   amount: string;
   serviceId: string;
+  workPeriodId?: string | null;
+  workPeriod?: WorkPeriodOption | null;
   service?: {
     id: string;
     product: {
@@ -66,11 +75,13 @@ export default function IncomeModal({
   const [formData, setFormData] = useState({
     amount: '',
     serviceId: '',
+    workPeriodId: '',
     legalEntityId: '',
     comment: '',
     incomeDate: '',
   });
   const [services, setServices] = useState<Service[]>([]);
+  const [workPeriods, setWorkPeriods] = useState<WorkPeriodOption[]>([]);
   const [legalEntities, setLegalEntities] = useState<LegalEntity[]>([]);
   const [sites, setSites] = useState<Array<{ id: string; title: string; client: { id: string; name: string } }>>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<string>('');
@@ -91,26 +102,26 @@ export default function IncomeModal({
       setFormData({
         amount: (Number(income.amount) / 100).toString(),
         serviceId: income.serviceId,
+        workPeriodId: income.workPeriodId || '',
         legalEntityId: income.legalEntityId || '',
         comment: income.comment || '',
         incomeDate: incomeDate,
       });
       
-      // If editing, fetch services for the site of this income's service
+      // If editing, fetch services and work periods for this income's service
       if (income.service?.site?.id) {
         setSelectedSiteId(income.service.site.id);
         fetchServices(income.service.site.id).then((loadedServices) => {
-          // Set selected service after services are loaded
           const service = loadedServices.find((s: Service) => s.id === income.serviceId);
-          if (service) {
-            setSelectedService(service);
-          }
+          if (service) setSelectedService(service);
         });
+        fetchWorkPeriods(income.serviceId);
       }
     } else {
       setFormData({
         amount: '',
         serviceId: '',
+        workPeriodId: '',
         legalEntityId: '',
         comment: '',
         incomeDate: new Date().toISOString().slice(0, 16),
@@ -141,16 +152,47 @@ export default function IncomeModal({
     setLegalEntities((data.legalEntities || []).filter((le: LegalEntity) => le.isActive !== false));
   };
 
-  const handleServiceChange = (serviceId: string) => {
+  const fetchWorkPeriods = async (serviceId: string) => {
+    if (!serviceId) {
+      setWorkPeriods([]);
+      return [];
+    }
+    const res = await fetch(`/api/work-periods?serviceId=${serviceId}`);
+    const data = await res.json();
+    const list = (data.workPeriods || []).map((p: any) => ({
+      id: p.id,
+      dateFrom: typeof p.dateFrom === 'string' ? p.dateFrom.slice(0, 10) : new Date(p.dateFrom).toISOString().slice(0, 10),
+      dateTo: typeof p.dateTo === 'string' ? p.dateTo.slice(0, 10) : new Date(p.dateTo).toISOString().slice(0, 10),
+      periodType: p.periodType || 'STANDARD',
+    }));
+    setWorkPeriods(list);
+    return list;
+  };
+
+  const handleServiceChange = async (serviceId: string) => {
     const service = services.find(s => s.id === serviceId);
     setSelectedService(service || null);
-    setFormData({ ...formData, serviceId });
+    const periods = await fetchWorkPeriods(serviceId);
+    const incomeDateStr = formData.incomeDate ? formData.incomeDate.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    let suggestedId = '';
+    for (const p of periods) {
+      if (incomeDateStr >= p.dateFrom && incomeDateStr <= p.dateTo) {
+        suggestedId = p.id;
+        break;
+      }
+    }
+    if (!suggestedId && periods.length > 0) {
+      const sorted = [...periods].sort((a, b) => b.dateTo.localeCompare(a.dateTo));
+      suggestedId = sorted[0].id;
+    }
+    setFormData({ ...formData, serviceId, workPeriodId: suggestedId });
   };
 
   const handleSiteChange = async (siteId: string) => {
     setSelectedSiteId(siteId);
     await fetchServices(siteId);
-    setFormData({ ...formData, serviceId: '' });
+    setWorkPeriods([]);
+    setFormData({ ...formData, serviceId: '', workPeriodId: '' });
     setSelectedService(null);
   };
 
@@ -172,6 +214,7 @@ export default function IncomeModal({
       const payload: any = {
         amount: formData.amount,
         serviceId: formData.serviceId,
+        workPeriodId: formData.workPeriodId || null,
         legalEntityId: formData.legalEntityId || null,
         comment: formData.comment || null,
       };
@@ -282,6 +325,28 @@ export default function IncomeModal({
               <div className="mt-1 text-sm text-gray-500">
                 Продукт: {selectedService.product.name}
               </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Период работ
+            </label>
+            <select
+              value={formData.workPeriodId}
+              onChange={(e) => setFormData({ ...formData, workPeriodId: e.target.value })}
+              disabled={!formData.serviceId}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md disabled:bg-gray-50"
+            >
+              <option value="">— Не привязан</option>
+              {workPeriods.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.dateFrom} — {p.dateTo}
+                </option>
+              ))}
+            </select>
+            {formData.serviceId && workPeriods.length === 0 && (
+              <p className="mt-1 text-xs text-gray-500">Создайте период в разделе Оплаты → Периоды по услуге</p>
             )}
           </div>
 

@@ -335,6 +335,7 @@ model WorkPeriod {
   updatedAt           DateTime         @updatedAt
   service             Service          @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   invoices            Invoice[]
+  incomes             Income[]
   periodReport        WorkPeriodReport?
   closeoutDocuments   CloseoutDocument[]
 
@@ -410,6 +411,7 @@ model Income {
   id              String       @id @default(uuid())
   amount          BigInt
   serviceId       String
+  workPeriodId    String?
   legalEntityId   String?
   comment         String?
   incomeDate      DateTime     @default(now())
@@ -420,9 +422,11 @@ model Income {
   creator         User         @relation("IncomeCreator", fields: [createdByUserId], references: [id])
   legalEntity     LegalEntity? @relation(fields: [legalEntityId], references: [id])
   service         Service      @relation(fields: [serviceId], references: [id])
+  workPeriod      WorkPeriod?  @relation(fields: [workPeriodId], references: [id], onDelete: SetNull)
   updater         User?        @relation("IncomeUpdater", fields: [updatedByUserId], references: [id])
 
   @@index([serviceId])
+  @@index([workPeriodId])
   @@index([createdByUserId])
   @@index([incomeDate])
   @@index([legalEntityId])

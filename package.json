@@ -13,6 +13,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:push-periods": "prisma db execute --file prisma/add-work-periods-invoices-payments.sql",
+    "db:push-income-period": "prisma db execute --file prisma/add-income-work-period-id.sql",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:migrate-server": "tsx scripts/run-migrate-cost-categories.ts",
