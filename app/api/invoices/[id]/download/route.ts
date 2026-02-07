@@ -145,13 +145,20 @@ export async function GET(
     .hint { color: #666; font-size: 0.8rem; margin-top: 1.5rem; }
   </style>
 </head>
-<body>
+<body data-invoice-id="${escapeHtml(id)}">
   <div class="no-print">
     <p class="hint">Можно изменить № счёта и наименование услуги только для печати (в базу не сохраняется). Затем нажмите Ctrl+P для печати или сохранения в PDF.</p>
     <label>№ счета</label>
     <input type="text" id="invNum" value="${escapeHtml(uniqueNum)}" />
     <label>Услуга (для печати)</label>
     <input type="text" id="serviceName" value="${escapeHtml(productName)}" />
+    <p style="margin-top: 1rem;">
+      <button type="button" id="btnPdf" style="padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">Печать отчета</button>
+    </p>
+    <div class="instruction-block" style="margin-top: 1rem; padding: 0.75rem; background: #fefce8; border: 1px solid #e7e5e4; border-radius: 6px; font-size: 0.8rem; color: #444; max-width: 700px;">
+      <strong>Внутренняя инструкция по формированию счёта</strong> (можно править в docs/INVOICE_FORM_RULES.md):<br/>
+      Структура PDF: заголовок «Счёт № …»; реквизиты плательщика (из карточки Клиента); реквизиты получателя (из справочника Юрлица); Сайт, Услуга (из полей выше), Период (ДД.ММ.ГГГГ), Сумма (руб); при НДС юрлица &gt; 0 — НДС (руб) и Сумма с НДС (руб). Имя файла при скачивании: № счета.pdf.
+    </div>
   </div>
 
   <div id="printArea">
@@ -187,6 +194,30 @@ export async function GET(
     document.getElementById('invNum').addEventListener('change', updatePrintView);
     document.getElementById('serviceName').addEventListener('input', updatePrintView);
     document.getElementById('serviceName').addEventListener('change', updatePrintView);
+
+    document.getElementById('btnPdf').addEventListener('click', function() {
+      var id = document.body.getAttribute('data-invoice-id');
+      if (!id) return;
+      var num = document.getElementById('invNum').value.trim();
+      var svc = document.getElementById('serviceName').value.trim();
+      var url = '/api/invoices/' + encodeURIComponent(id) + '/pdf?invoiceNumber=' + encodeURIComponent(num) + '&serviceName=' + encodeURIComponent(svc);
+      var btn = this;
+      btn.disabled = true;
+      fetch(url, { credentials: 'same-origin' })
+        .then(function(r) {
+          if (!r.ok) throw new Error('Ошибка загрузки');
+          return r.blob();
+        })
+        .then(function(blob) {
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = (num || 'schet') + '.pdf';
+          a.click();
+          URL.revokeObjectURL(a.href);
+        })
+        .catch(function(e) { alert(e.message || 'Ошибка'); })
+        .finally(function() { btn.disabled = false; });
+    });
   </script>
 </body>
 </html>`;
