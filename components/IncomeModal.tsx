@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { formatAmount } from '@/lib/utils';
 
 interface ExpectedPeriodOption {
   dateFrom: string;
@@ -46,6 +47,7 @@ interface User {
 
 interface Service {
   id: string;
+  price: string | null;
   product: {
     id: string;
     name: string;
@@ -91,6 +93,7 @@ export default function IncomeModal({
   const [sites, setSites] = useState<Array<{ id: string; title: string; client: { id: string; name: string } }>>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<string>('');
   const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [periodIncomes, setPeriodIncomes] = useState<Array<{ id: string; amount: string; incomeDate: string | null }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -116,9 +119,15 @@ export default function IncomeModal({
       // If editing, fetch services and work periods for this income's service
       if (income.service?.site?.id) {
         setSelectedSiteId(income.service.site.id);
-        fetchServices(income.service.site.id).then((loadedServices) => {
+        fetchServices(income.service.site.id).then(async (loadedServices) => {
           const service = loadedServices.find((s: Service) => s.id === income.serviceId);
           if (service) setSelectedService(service);
+          if (income.workPeriodId) {
+            const r = await fetch(`/api/incomes?workPeriodId=${income.workPeriodId}`);
+            const d = await r.json();
+            const list = (d.incomes || []).map((i: any) => ({ id: i.id, amount: i.amount, incomeDate: i.incomeDate }));
+            setPeriodIncomes(list);
+          }
         });
         fetchExpectedPeriods(income.serviceId);
       }
@@ -173,6 +182,16 @@ export default function IncomeModal({
     return list;
   };
 
+  const fetchPeriodIncomesAndSuggestAmount = async (workPeriodId: string, servicePriceKopecks: string, excludeIncomeId?: string) => {
+    const res = await fetch(`/api/incomes?workPeriodId=${workPeriodId}`);
+    const data = await res.json();
+    const list = (data.incomes || []).map((i: any) => ({ id: i.id, amount: i.amount, incomeDate: i.incomeDate }));
+    setPeriodIncomes(list);
+    const sum = list.reduce((s, i) => s + (i.id === excludeIncomeId ? 0 : Number(i.amount)), 0);
+    const remaining = (Number(servicePriceKopecks) - sum) / 100;
+    setFormData((prev) => ({ ...prev, amount: Math.max(0, remaining).toFixed(2) }));
+  };
+
   const handleServiceChange = async (serviceId: string) => {
     const service = services.find(s => s.id === serviceId);
     setSelectedService(service || null);
@@ -204,6 +223,16 @@ export default function IncomeModal({
       fetchExpectedPeriods(serviceId);
     }
     setFormData({ ...formData, serviceId, workPeriodId: suggestedId });
+    if (service?.price) {
+      if (suggestedId) {
+        await fetchPeriodIncomesAndSuggestAmount(suggestedId, service.price, income?.id);
+      } else {
+        setPeriodIncomes([]);
+        setFormData((prev) => ({ ...prev, amount: (Number(service.price) / 100).toFixed(2) }));
+      }
+    } else {
+      setPeriodIncomes([]);
+    }
   };
 
   const handleSiteChange = async (siteId: string) => {
@@ -216,7 +245,11 @@ export default function IncomeModal({
 
   const handlePeriodChange = async (value: string) => {
     if (!value) {
+      setPeriodIncomes([]);
       setFormData({ ...formData, workPeriodId: '' });
+      if (selectedService?.price) {
+        setFormData((prev) => ({ ...prev, amount: (Number(selectedService.price) / 100).toFixed(2) }));
+      }
       return;
     }
     if (value.startsWith('virtual:')) {
@@ -229,12 +262,23 @@ export default function IncomeModal({
       });
       const data = await res.json();
       if (res.ok && data.workPeriod?.id) {
-        setFormData({ ...formData, workPeriodId: data.workPeriod.id });
+        const newId = data.workPeriod.id;
+        setFormData({ ...formData, workPeriodId: newId });
         fetchExpectedPeriods(formData.serviceId);
+        if (selectedService?.price) {
+          await fetchPeriodIncomesAndSuggestAmount(newId, selectedService.price, income?.id);
+        } else {
+          setPeriodIncomes([]);
+        }
       }
       return;
     }
     setFormData({ ...formData, workPeriodId: value });
+    if (selectedService?.price) {
+      await fetchPeriodIncomesAndSuggestAmount(value, selectedService.price, income?.id);
+    } else {
+      setPeriodIncomes([]);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -399,6 +443,27 @@ export default function IncomeModal({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Сумма (руб.) *
             </label>
+            {selectedService?.price != null && (
+              <p className="text-sm text-gray-600 mb-1">
+                Цена за период (из услуги): {formatAmount(selectedService.price)}
+              </p>
+            )}
+            {periodIncomes.length > 0 && (
+              <div className="mb-2 p-2 bg-gray-50 rounded text-sm text-gray-700">
+                <span className="font-medium">По этому периоду уже проведено:</span>
+                <ul className="list-disc list-inside mt-1">
+                  {periodIncomes
+                    .filter((i) => i.id !== income?.id)
+                    .map((i) => (
+                      <li key={i.id}>
+                        {formatAmount(i.amount)}
+                        {i.incomeDate ? ` — ${String(i.incomeDate).slice(0, 10)}` : ''}
+                      </li>
+                    ))}
+                </ul>
+                <p className="mt-1 text-gray-600">Можно проводить частичные оплаты. В поле ниже подставлен остаток к проведению.</p>
+              </div>
+            )}
             <input
               type="number"
               step="0.01"

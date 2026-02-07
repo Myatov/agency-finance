@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const siteId = searchParams.get('siteId');
     const sellerId = searchParams.get('sellerId');
     const accountManagerId = searchParams.get('accountManagerId');
+    const workPeriodId = searchParams.get('workPeriodId');
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
 
@@ -33,6 +34,10 @@ export async function GET(request: NextRequest) {
 
     if (serviceId) {
       where.serviceId = serviceId;
+    }
+
+    if (workPeriodId) {
+      where.workPeriodId = workPeriodId;
     }
 
     if (siteId) {
