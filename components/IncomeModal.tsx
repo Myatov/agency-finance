@@ -8,6 +8,12 @@ interface ExpectedPeriodOption {
   workPeriodId: string | null;
 }
 
+interface WorkPeriodOption {
+  id: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
 interface Income {
   id: string;
   amount: string;
