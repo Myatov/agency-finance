@@ -136,6 +136,16 @@ export async function DELETE(
     );
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
+    const incomesCount = await prisma.income.count({
+      where: { workPeriodId: id },
+    });
+    if (incomesCount > 0) {
+      return NextResponse.json(
+        { error: 'Удаление невозможно: к этому периоду привязаны доходы в разделе «Доходы». Сначала отвяжите или удалите их.' },
+        { status: 400 }
+      );
+    }
+
     await prisma.workPeriod.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (e: any) {

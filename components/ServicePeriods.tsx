@@ -172,10 +172,23 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
                     ))}
                   </ul>
                 )}
-                <div className="mt-2 flex gap-2 text-sm">
+                <div className="mt-2 flex gap-2 text-sm items-center flex-wrap">
                   <Link href={`/periods/${p.id}`} className="text-blue-600 hover:underline">
                     Счета и оплаты →
                   </Link>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm('Удалить этот период?')) return;
+                      const res = await fetch(`/api/work-periods/${p.id}`, { method: 'DELETE' });
+                      const data = await res.json().catch(() => ({}));
+                      if (res.ok) load();
+                      else alert(data.error || 'Не удалось удалить период');
+                    }}
+                    className="text-red-600 hover:underline"
+                  >
+                    Удалить период
+                  </button>
                 </div>
               </div>
             );
