@@ -43,6 +43,10 @@ export default function NichesList() {
     const data = await res.json();
     if (data.user) {
       setUser(data.user);
+      if (data.user.roleCode !== 'OWNER' && data.user.roleCode !== 'CEO') {
+        window.location.href = '/';
+        return;
+      }
     }
   };
 

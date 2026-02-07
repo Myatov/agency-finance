@@ -95,7 +95,7 @@ export default function SiteModal({
   }, [site, niches, formData.niche, formData.nicheId]);
 
   const fetchClients = async () => {
-    const res = await fetch('/api/clients');
+    const res = await fetch('/api/clients?filter=all');
     const data = await res.json();
     setClients(data.clients || []);
   };
