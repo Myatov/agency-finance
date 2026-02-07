@@ -205,10 +205,30 @@ export async function GET(
       btn.disabled = true;
       fetch(url, { credentials: 'same-origin' })
         .then(function(r) {
-          if (!r.ok) throw new Error('Ошибка загрузки');
+          if (!r.ok) {
+            return r.text().then(function(t) {
+              var msg = 'Ошибка загрузки (' + r.status + ')';
+              try {
+                var d = JSON.parse(t);
+                if (d.error || d.details) msg = d.error || d.details;
+              } catch (_) {}
+              throw new Error(msg);
+            });
+          }
           return r.blob();
         })
         .then(function(blob) {
+          if (blob.type && blob.type.indexOf('pdf') === -1 && blob.type.indexOf('octet') === -1) {
+            return blob.text().then(function(t) {
+              try {
+                var d = JSON.parse(t);
+                throw new Error(d.error || d.details || 'Ответ не PDF');
+              } catch (e) {
+                if (e instanceof Error) throw e;
+                throw new Error('Ответ не PDF');
+              }
+            });
+          }
           var a = document.createElement('a');
           a.href = URL.createObjectURL(blob);
           a.download = (num || 'schet') + '.pdf';

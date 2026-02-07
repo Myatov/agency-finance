@@ -6,6 +6,8 @@ import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
 
+export const runtime = 'nodejs';
+
 function toRuDate(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -120,8 +122,13 @@ export async function GET(
       line(legal.activityBasis),
     ].filter((s) => s !== '—');
 
-    const fontPath = path.join(process.cwd(), 'public', 'fonts', 'DejaVuSans.ttf');
-    const useUnicode = fs.existsSync(fontPath);
+    let fontPath: string | null = null;
+    try {
+      const p = path.join(process.cwd(), 'public', 'fonts', 'DejaVuSans.ttf');
+      if (fs.existsSync(p)) fontPath = p;
+    } catch {
+      // ignore
+    }
 
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     const chunks: Buffer[] = [];
@@ -130,9 +137,13 @@ export async function GET(
       doc.on('end', () => resolve(Buffer.concat(chunks)));
     });
 
-    if (useUnicode) {
-      doc.registerFont('Main', fontPath);
-      doc.font('Main');
+    if (fontPath) {
+      try {
+        doc.registerFont('Main', fontPath);
+        doc.font('Main');
+      } catch (fontErr) {
+        console.warn('PDF font registration failed, using default:', fontErr);
+      }
     }
 
     doc.fontSize(16).text(`Счёт № ${uniqueNum}`, { continued: false });
