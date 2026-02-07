@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const service = await prisma.service.findUnique({
       where: { id: serviceId },
-      include: { site: { include: { client: { include: { legalEntity: { select: { id: true, name: true, generateClosingDocs: true } } } } } } },
+      include: { site: { include: { client: { select: { id: true, name: true, sellerEmployeeId: true, legalEntityId: true } } } } },
     });
     if (!service) return NextResponse.json({ error: 'Service not found' }, { status: 404 });
 
@@ -44,11 +44,24 @@ export async function GET(request: NextRequest) {
       orderBy: { dateFrom: 'desc' },
     });
 
+    let clientGenerateClosingDocs = false;
+    const legalEntityId = service.site.client.legalEntityId;
+    if (legalEntityId) {
+      try {
+        const le = await prisma.legalEntity.findUnique({
+          where: { id: legalEntityId },
+          select: { generateClosingDocs: true },
+        });
+        clientGenerateClosingDocs = le?.generateClosingDocs ?? false;
+      } catch {
+        // ignore
+      }
+    }
+
     const serialized = periods.map((p) => JSON.parse(JSON.stringify(p, (_, v) => (typeof v === 'bigint' ? v.toString() : v))));
-    const clientLegalEntity = service.site.client.legalEntity;
     return NextResponse.json({
       workPeriods: serialized,
-      clientGenerateClosingDocs: clientLegalEntity?.generateClosingDocs ?? false,
+      clientGenerateClosingDocs,
     });
   } catch (e: any) {
     console.error('GET work-periods', e);
