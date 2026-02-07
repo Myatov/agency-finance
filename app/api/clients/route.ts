@@ -1,49 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { canAddClient, hasViewAllPermission } from '@/lib/permissions';
+import { canAddClient, hasViewAllPermission, hasPermission } from '@/lib/permissions';
 
-export async function GET() {
+const clientInclude = {
+  legalEntity: true,
+  seller: { select: { id: true, fullName: true } },
+  agent: { select: { id: true, name: true, phone: true, telegram: true } },
+  sites: { select: { id: true, title: true, niche: true } },
+  clientContacts: { include: { contact: true } },
+};
+
+export async function GET(request: NextRequest) {
   try {
     const user = await getSession();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const viewAll = await hasViewAllPermission(user, 'clients');
-    const where = viewAll ? {} : { sellerEmployeeId: user.id };
+    const searchParams = request.nextUrl.searchParams;
+    const forPayments = searchParams.get('forPayments') === '1';
+    const filter = searchParams.get('filter') || 'active';
+    const includeNoProjects = searchParams.get('includeNoProjects') === '1';
+
+    let where: any = {};
+
+    if (forPayments) {
+      const canViewPayments = await hasPermission(user, 'payments', 'view');
+      if (!canViewPayments) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      const viewAllPayments = await hasViewAllPermission(user, 'payments');
+      if (viewAllPayments) {
+        where = { sites: { some: { services: { some: { status: 'ACTIVE' } } } } };
+      } else {
+        where = { sites: { some: { accountManagerId: user.id } } };
+      }
+    } else {
+      const viewAll = await hasViewAllPermission(user, 'clients');
+      const baseWhere = viewAll ? {} : { sellerEmployeeId: user.id };
+
+      if (filter === 'active') {
+        where = { ...baseWhere, sites: { some: { services: { some: { status: 'ACTIVE' } } } } };
+      } else if (filter === 'inactive') {
+        where = {
+          ...baseWhere,
+          AND: [
+            { sites: { some: { services: { some: {} } } } },
+            { NOT: { sites: { some: { services: { some: { status: 'ACTIVE' } } } } } },
+          ],
+        };
+      } else {
+        where = { ...baseWhere };
+      }
+
+      if (includeNoProjects) {
+        const baseForNoProjects = viewAll ? {} : { sellerEmployeeId: user.id };
+        const noProjectsWhere = {
+          OR: [
+            { sites: { none: {} } },
+            { AND: [{ sites: { some: {} } }, { sites: { every: { services: { none: {} } } } }] },
+          ],
+        };
+        where = {
+          OR: [where, { ...baseForNoProjects, ...noProjectsWhere }],
+        };
+      }
+    }
 
     const clients = await prisma.client.findMany({
       where,
-      include: {
-        legalEntity: true,
-        seller: {
-          select: {
-            id: true,
-            fullName: true,
-          },
-        },
-        agent: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            telegram: true,
-          },
-        },
-        sites: {
-          select: {
-            id: true,
-            title: true,
-            niche: true,
-          },
-        },
-        clientContacts: {
-          include: {
-            contact: true,
-          },
-        },
-      },
+      include: clientInclude,
       orderBy: { name: 'asc' },
     });
 

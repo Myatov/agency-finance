@@ -48,6 +48,8 @@ interface User {
   roleCode: string;
 }
 
+type ClientFilter = 'active' | 'all' | 'inactive';
+
 export default function ClientsList() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,11 +60,16 @@ export default function ClientsList() {
   const [canAdd, setCanAdd] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [canDelete, setCanDelete] = useState(false);
+  const [filter, setFilter] = useState<ClientFilter>('active');
+  const [includeNoProjects, setIncludeNoProjects] = useState(false);
 
   useEffect(() => {
     fetchUser();
-    fetchClients();
   }, []);
+
+  useEffect(() => {
+    fetchClients();
+  }, [filter, includeNoProjects]);
 
   useEffect(() => {
     if (user) {
@@ -101,7 +108,10 @@ export default function ClientsList() {
 
   const fetchClients = async () => {
     setLoading(true);
-    const res = await fetch('/api/clients', { cache: 'no-store' });
+    const params = new URLSearchParams();
+    params.set('filter', filter);
+    if (includeNoProjects) params.set('includeNoProjects', '1');
+    const res = await fetch(`/api/clients?${params}`, { cache: 'no-store' });
     const data = await res.json();
     setClients(data.clients || []);
     setLoading(false);
@@ -154,6 +164,51 @@ export default function ClientsList() {
             + Добавить клиента
           </button>
         )}
+      </div>
+
+      <div className="bg-white p-4 rounded-lg shadow mb-6">
+        <div className="flex flex-wrap items-center gap-4">
+          <span className="text-sm font-medium text-gray-700">Показать:</span>
+          <label className="inline-flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="clientFilter"
+              checked={filter === 'active'}
+              onChange={() => setFilter('active')}
+              className="rounded border-gray-300"
+            />
+            <span className="text-sm">с активными проектами</span>
+          </label>
+          <label className="inline-flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="clientFilter"
+              checked={filter === 'all'}
+              onChange={() => setFilter('all')}
+              className="rounded border-gray-300"
+            />
+            <span className="text-sm">всех клиентов</span>
+          </label>
+          <label className="inline-flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="clientFilter"
+              checked={filter === 'inactive'}
+              onChange={() => setFilter('inactive')}
+              className="rounded border-gray-300"
+            />
+            <span className="text-sm">с неактивными проектами</span>
+          </label>
+          <label className="inline-flex items-center gap-2 cursor-pointer ml-4">
+            <input
+              type="checkbox"
+              checked={includeNoProjects}
+              onChange={(e) => setIncludeNoProjects(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            <span className="text-sm">включая без проектов</span>
+          </label>
+        </div>
       </div>
 
       {/* Clients Table */}

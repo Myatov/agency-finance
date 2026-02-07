@@ -79,7 +79,7 @@ export default function PaymentsDashboard() {
 
   useEffect(() => {
     fetch('/api/users/account-managers').then((r) => r.json()).then((d) => setAccountManagers(d.accountManagers || []));
-    fetch('/api/clients').then((r) => r.json()).then((d) => setClients(d.clients || []));
+    fetch('/api/clients?forPayments=1').then((r) => r.json()).then((d) => setClients(d.clients || []));
   }, []);
 
   const fetchDashboard = async () => {
