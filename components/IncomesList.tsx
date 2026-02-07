@@ -40,8 +40,8 @@ interface Income {
   incomeDate: Date | string;
   workPeriod?: {
     id: string;
-    dateFrom: string | Date;
-    dateTo: string | Date;
+    dateFrom: string;
+    dateTo: string;
   } | null;
   creator: {
     id: string;
