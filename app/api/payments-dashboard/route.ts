@@ -24,26 +24,27 @@ export async function GET(request: NextRequest) {
     const dateTo = request.nextUrl.searchParams.get('dateTo') || undefined;
     const overdueOnly = request.nextUrl.searchParams.get('overdueOnly') === '1';
 
-    // Период включаем, если он пересекается с диапазоном [dateFrom, dateTo], а не только если целиком внутри
-    const wherePeriod: any = {};
-    if (dateFrom && dateTo) {
-      wherePeriod.AND = [
-        { dateTo: { gte: new Date(dateFrom) } },
-        { dateFrom: { lte: new Date(dateTo) } },
-      ];
-    } else if (dateFrom) {
-      wherePeriod.dateTo = { gte: new Date(dateFrom) };
-    } else if (dateTo) {
-      wherePeriod.dateFrom = { lte: new Date(dateTo) };
-    }
-
     const andParts: any[] = [];
     if (accountManagerId) andParts.push({ site: { accountManagerId } });
     if (clientId) andParts.push({ site: { clientId } });
     if (!viewAllPayments) {
       andParts.push({ site: { accountManagerId: user.id } });
     }
-    if (andParts.length) wherePeriod.service = { AND: andParts };
+
+    // Период включаем, если он пересекается с диапазоном [dateFrom, dateTo]; все условия в одном AND для стабильной загрузки связей
+    const wherePeriodConditions: any[] = [];
+    if (dateFrom && dateTo) {
+      wherePeriodConditions.push(
+        { dateTo: { gte: new Date(dateFrom) } },
+        { dateFrom: { lte: new Date(dateTo) } }
+      );
+    } else if (dateFrom) {
+      wherePeriodConditions.push({ dateTo: { gte: new Date(dateFrom) } });
+    } else if (dateTo) {
+      wherePeriodConditions.push({ dateFrom: { lte: new Date(dateTo) } });
+    }
+    if (andParts.length) wherePeriodConditions.push({ service: { AND: andParts } });
+    const wherePeriod = wherePeriodConditions.length > 0 ? { AND: wherePeriodConditions } : {};
 
     // Все id периодов по фильтру (без take) — для полного учёта доходов и сводки
     const allPeriodIds = await prisma.workPeriod.findMany({
@@ -115,6 +116,23 @@ export async function GET(request: NextRequest) {
       take: 500,
     });
 
+    const periodIdsForFlags = periods.map((p) => p.id);
+    const [reportsForPeriods, closeoutForPeriods] =
+      periodIdsForFlags.length > 0
+        ? await Promise.all([
+            prisma.workPeriodReport.findMany({
+              where: { workPeriodId: { in: periodIdsForFlags } },
+              select: { workPeriodId: true },
+            }),
+            prisma.closeoutDocument.findMany({
+              where: { workPeriodId: { in: periodIdsForFlags } },
+              select: { workPeriodId: true },
+            }),
+          ])
+        : [[], []];
+    const hasReportIds = new Set(reportsForPeriods.map((r) => r.workPeriodId));
+    const hasCloseoutDocIds = new Set(closeoutForPeriods.map((d) => d.workPeriodId));
+
     const now = new Date();
     const periodKey = (sid: string, from: string, to: string) => `${sid}:${from}:${to}`;
     const existingKeys = new Set(
@@ -122,17 +140,18 @@ export async function GET(request: NextRequest) {
     );
 
     const rows = periods.map((p) => {
-      const expected = p.service.price ? Number(p.service.price) : 0;
-      const paidFromInvoices = p.invoices.reduce((sum, inv) => {
-        return sum + inv.payments.reduce((s, pay) => s + Number(pay.amount), 0);
+      const invoices = p.invoices ?? [];
+      const expected = p.service?.price ? Number(p.service.price) : 0;
+      const paidFromInvoices = invoices.reduce((sum, inv) => {
+        return sum + (inv.payments ?? []).reduce((s, pay) => s + Number(pay.amount), 0);
       }, 0);
       const incomeSum = incomeByPeriod.get(p.id) ?? 0;
       const paid = paidFromInvoices + incomeSum;
-      const totalInvoiced = p.invoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
+      const totalInvoiced = invoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
       const balance = expected - paid;
-      const hasReport = !!p.periodReport;
-      const hasInvoice = p.invoices.length > 0;
-      const hasCloseoutDoc = p.closeoutDocuments.length > 0;
+      const hasReport = hasReportIds.has(p.id);
+      const hasInvoice = invoices.length > 0;
+      const hasCloseoutDoc = hasCloseoutDocIds.has(p.id);
       const isOverdue = !hasReport && p.dateTo < now;
       const risk = isOverdue || (p.dateTo >= now && !hasReport && totalInvoiced > 0);
       return {
@@ -155,7 +174,7 @@ export async function GET(request: NextRequest) {
         hasCloseoutDoc,
         isOverdue,
         risk,
-        invoicesCount: p.invoices.length,
+        invoicesCount: invoices.length,
         isVirtual: false,
       };
     });
