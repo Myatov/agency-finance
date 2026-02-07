@@ -56,6 +56,7 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
   const [showPaymentForm, setShowPaymentForm] = useState<string | null>(null);
   const [showReportForm, setShowReportForm] = useState(false);
   const [showCloseoutForm, setShowCloseoutForm] = useState(false);
+  const [closeoutUploading, setCloseoutUploading] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -115,23 +116,31 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
 
   const handleUploadCloseout = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!period) return;
+    if (!period || closeoutUploading) return;
     const form = e.currentTarget;
     const file = (form.querySelector('[name="closeoutFile"]') as HTMLInputElement).files?.[0];
     const docType = (form.querySelector('[name="closeoutDocType"]') as HTMLSelectElement).value;
-    if (!file || !docType) return;
-    const fd = new FormData();
-    fd.set('file', file);
-    fd.set('clientId', period.service.site.client.id);
-    fd.set('workPeriodId', periodId);
-    fd.set('docType', docType);
-    const res = await fetch('/api/closeout/documents', { method: 'POST', body: fd });
-    if (res.ok) {
-      setShowCloseoutForm(false);
-      load();
-    } else {
-      const err = await res.json();
-      alert(err.error || 'Ошибка загрузки');
+    if (!file || !docType) {
+      alert('Выберите файл и тип документа');
+      return;
+    }
+    setCloseoutUploading(true);
+    try {
+      const fd = new FormData();
+      fd.set('file', file);
+      fd.set('clientId', period.service.site.client.id);
+      fd.set('workPeriodId', periodId);
+      fd.set('docType', docType);
+      const res = await fetch('/api/closeout/documents', { method: 'POST', body: fd });
+      if (res.ok) {
+        setShowCloseoutForm(false);
+        load();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || `Ошибка загрузки (${res.status})`);
+      }
+    } finally {
+      setCloseoutUploading(false);
     }
   };
 
@@ -330,7 +339,7 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
           <button onClick={() => setShowCloseoutForm(true)} className="mt-2 text-blue-600 hover:underline text-sm">Прикрепить закрывающий документ</button>
         ) : (
           <form onSubmit={handleUploadCloseout} className="mt-2 flex flex-wrap gap-2 items-end p-4 border rounded bg-gray-50">
-            <input type="file" name="closeoutFile" required className="border rounded px-2 py-1" />
+            <input type="file" name="closeoutFile" required className="border rounded px-2 py-1" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" />
             <select name="closeoutDocType" required className="border rounded px-2 py-1">
               <option value="ACT">Акт</option>
               <option value="INVOICE">Счёт</option>
@@ -340,8 +349,10 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
               <option value="REPORT">Отчёт</option>
               <option value="OTHER">Прочее</option>
             </select>
-            <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded text-sm">Загрузить</button>
-            <button type="button" onClick={() => setShowCloseoutForm(false)} className="px-3 py-1 border rounded text-sm">Отмена</button>
+            <button type="submit" disabled={closeoutUploading} className="px-3 py-1 bg-blue-600 text-white rounded text-sm disabled:opacity-50">
+              {closeoutUploading ? 'Загрузка…' : 'Загрузить'}
+            </button>
+            <button type="button" onClick={() => setShowCloseoutForm(false)} disabled={closeoutUploading} className="px-3 py-1 border rounded text-sm">Отмена</button>
           </form>
         )}
       </div>

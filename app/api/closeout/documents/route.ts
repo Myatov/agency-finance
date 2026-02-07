@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { hasPermission, hasViewAllPermission } from '@/lib/permissions';
+import { hasPermission, hasViewAllPermission, canAccessServiceForPeriods } from '@/lib/permissions';
 import { saveCloseoutFile } from '@/lib/storage';
 
 export async function GET(request: NextRequest) {
@@ -65,11 +65,6 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const canCreate = await hasPermission(user, 'closeout', 'create') || await hasPermission(user, 'closeout', 'edit')
-      || await hasPermission(user, 'storage', 'view');
-    if (!canCreate) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
@@ -90,13 +85,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File is required' }, { status: 400 });
     }
 
-    const viewAll = await hasViewAllPermission(user, 'closeout');
     const client = await prisma.client.findUnique({ where: { id: clientId } });
     if (!client) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });
     }
-    if (!viewAll && client.sellerEmployeeId !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    let canUpload = false;
+    if (workPeriodId) {
+      const workPeriod = await prisma.workPeriod.findUnique({
+        where: { id: workPeriodId },
+        include: { service: { include: { site: { include: { client: true } } } } },
+      });
+      if (workPeriod && workPeriod.service.site.client.id === clientId) {
+        const access = await canAccessServiceForPeriods(
+          user,
+          workPeriod.service.site.accountManagerId,
+          workPeriod.service.site.client.sellerEmployeeId
+        );
+        if (access) canUpload = true;
+      }
+    }
+    if (!canUpload) {
+      const canCreate = await hasPermission(user, 'closeout', 'create') || await hasPermission(user, 'closeout', 'edit')
+        || await hasPermission(user, 'storage', 'view');
+      if (!canCreate) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      const viewAll = await hasViewAllPermission(user, 'closeout');
+      if (!viewAll && client.sellerEmployeeId !== user.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
     }
 
     const periodResolved = period || (packageId ? (await prisma.closeoutPackage.findUnique({ where: { id: packageId }, select: { period: true } }))?.period : null) || '';
