@@ -39,6 +39,7 @@ next-env.d.ts
 /uploads
 
 # backups and dumps
+/backups/
 backup_*.tar.gz
 backup_*.dump
 *.dump

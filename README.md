@@ -25,8 +25,11 @@ echo 'DATABASE_URL="postgresql://user:password@localhost:5432/agency_finance?sch
 # Сгенерируйте Prisma Client
 npm run db:generate
 
-# Примените миграции
+# Примените схему БД (или миграции)
 npm run db:push
+
+# Если включены периоды/счета/оплаты — применить их миграцию:
+npm run db:push-periods
 
 # Заполните базу начальными данными
 npm run db:seed

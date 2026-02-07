@@ -1,0 +1,233 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { formatAmount } from '@/lib/utils';
+
+interface PeriodDetailProps {
+  periodId: string;
+}
+
+interface Invoice {
+  id: string;
+  amount: string;
+  invoiceNumber: string | null;
+  legalEntity: { id: string; name: string };
+  payments: Array<{ id: string; amount: string; paidAt: string }>;
+}
+
+interface WorkPeriodFull {
+  id: string;
+  dateFrom: string;
+  dateTo: string;
+  periodType: string;
+  invoiceNotRequired: boolean;
+  service: {
+    id: string;
+    price: string | null;
+    site: { title: string; client: { name: string } };
+    product: { name: string };
+  };
+  invoices: Invoice[];
+  periodReport: { id: string; originalName: string; paymentType: string } | null;
+}
+
+export default function PeriodDetail({ periodId }: PeriodDetailProps) {
+  const [period, setPeriod] = useState<WorkPeriodFull | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [legalEntities, setLegalEntities] = useState<Array<{ id: string; name: string }>>([]);
+  const [showInvoiceForm, setShowInvoiceForm] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState<string | null>(null);
+  const [showReportForm, setShowReportForm] = useState(false);
+
+  const load = async () => {
+    const res = await fetch(`/api/work-periods/${periodId}`);
+    const data = await res.json();
+    if (res.ok) setPeriod(data.workPeriod);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+    fetch('/api/legal-entities').then((r) => r.json()).then((d) => setLegalEntities(d.legalEntities || []));
+  }, [periodId]);
+
+  const handleCreateInvoice = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const amount = (form.querySelector('[name="amount"]') as HTMLInputElement).value;
+    const legalEntityId = (form.querySelector('[name="legalEntityId"]') as HTMLSelectElement).value;
+    if (!legalEntityId || !amount) return;
+    const res = await fetch('/api/invoices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workPeriodId: periodId, amount: parseFloat(amount), legalEntityId }),
+    });
+    if (res.ok) {
+      setShowInvoiceForm(false);
+      load();
+    } else {
+      const err = await res.json();
+      alert(err.error || 'Ошибка');
+    }
+  };
+
+  const handleCreatePayment = async (e: React.FormEvent<HTMLFormElement>, invoiceId: string) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const amount = (form.querySelector('[name="amount"]') as HTMLInputElement).value;
+    const res = await fetch('/api/payments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invoiceId, amount: parseFloat(amount) }),
+    });
+    if (res.ok) {
+      setShowPaymentForm(null);
+      load();
+    } else {
+      const err = await res.json();
+      alert(err.error || 'Ошибка');
+    }
+  };
+
+  const handleUploadReport = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const file = (form.querySelector('[name="file"]') as HTMLInputElement).files?.[0];
+    const paymentType = (form.querySelector('[name="paymentType"]') as HTMLSelectElement).value;
+    if (!file || !paymentType) return;
+    const fd = new FormData();
+    fd.set('file', file);
+    fd.set('workPeriodId', periodId);
+    fd.set('paymentType', paymentType);
+    const res = await fetch('/api/period-reports', { method: 'POST', body: fd });
+    if (res.ok) {
+      setShowReportForm(false);
+      load();
+    } else {
+      const err = await res.json();
+      alert(err.error || 'Ошибка');
+    }
+  };
+
+  if (loading || !period) {
+    return <div className="py-8 text-center">{loading ? 'Загрузка...' : 'Период не найден'}</div>;
+  }
+
+  const totalInvoiced = period.invoices.reduce((s, i) => s + Number(i.amount), 0);
+  const totalPaid = period.invoices.reduce((s, i) => s + i.payments.reduce((s2, p) => s2 + Number(p.amount), 0), 0);
+  const expected = period.service.price ? Number(period.service.price) : 0;
+
+  return (
+    <div>
+      <div className="mb-4">
+        <Link href={`/services/${period.service.id}/periods`} className="text-blue-600 hover:underline text-sm">← К периодам услуги</Link>
+      </div>
+      <h1 className="text-2xl font-bold mb-2">
+        Период {period.dateFrom} — {period.dateTo}
+      </h1>
+      <p className="text-gray-600 mb-4">
+        {period.service.site.client.name} · {period.service.site.title} · {period.service.product.name}
+      </p>
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-gray-50 p-4 rounded">
+          <p className="text-sm text-gray-500">Ожидаемо за период</p>
+          <p className="text-lg font-semibold">{formatAmount(String(expected))}</p>
+        </div>
+        <div className="bg-gray-50 p-4 rounded">
+          <p className="text-sm text-gray-500">Выставлено</p>
+          <p className="text-lg font-semibold">{formatAmount(String(totalInvoiced))}</p>
+        </div>
+        <div className="bg-gray-50 p-4 rounded">
+          <p className="text-sm text-gray-500">Оплачено</p>
+          <p className="text-lg font-semibold">{formatAmount(String(totalPaid))}</p>
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold mb-2">Отчёт по периоду</h2>
+        {period.periodReport ? (
+          <p>
+            <a href={`/api/period-reports/${period.periodReport.id}/download`} className="text-blue-600 hover:underline" download>
+              {period.periodReport.originalName}
+            </a>
+            {' '}({period.periodReport.paymentType})
+          </p>
+        ) : (
+          <>
+            {!showReportForm ? (
+              <button onClick={() => setShowReportForm(true)} className="text-blue-600 hover:underline text-sm">Прикрепить отчёт</button>
+            ) : (
+              <form onSubmit={handleUploadReport} className="flex flex-wrap gap-2 items-end">
+                <input type="file" name="file" required className="border rounded px-2 py-1" />
+                <select name="paymentType" required className="border rounded px-2 py-1">
+                  <option value="PREPAY">Предоплата</option>
+                  <option value="POSTPAY">Постоплата</option>
+                  <option value="FRACTIONAL">Дробная</option>
+                </select>
+                <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded text-sm">Загрузить</button>
+                <button type="button" onClick={() => setShowReportForm(false)} className="px-3 py-1 border rounded text-sm">Отмена</button>
+              </form>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="mb-4 flex justify-between items-center">
+        <h2 className="text-lg font-semibold">Счета</h2>
+        {!showInvoiceForm && (
+          <button onClick={() => setShowInvoiceForm(true)} className="px-3 py-1 bg-blue-600 text-white rounded text-sm">+ Счёт</button>
+        )}
+      </div>
+      {showInvoiceForm && (
+        <form onSubmit={handleCreateInvoice} className="mb-4 p-4 border rounded flex flex-wrap gap-2 items-end">
+          <div>
+            <label className="block text-xs text-gray-500">Сумма (руб)</label>
+            <input type="number" name="amount" step="0.01" required className="border rounded px-2 py-1 w-32" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500">Юрлицо</label>
+            <select name="legalEntityId" required className="border rounded px-2 py-1">
+              <option value="">Выберите</option>
+              {legalEntities.map((le) => (
+                <option key={le.id} value={le.id}>{le.name}</option>
+              ))}
+            </select>
+          </div>
+          <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded text-sm">Создать</button>
+          <button type="button" onClick={() => setShowInvoiceForm(false)} className="px-3 py-1 border rounded text-sm">Отмена</button>
+        </form>
+      )}
+
+      <ul className="space-y-4">
+        {period.invoices.map((inv) => {
+          const paid = inv.payments.reduce((s, p) => s + Number(p.amount), 0);
+          return (
+            <li key={inv.id} className="border rounded p-4">
+              <div className="flex justify-between">
+                <span>Счёт {inv.invoiceNumber || inv.id.slice(0, 8)} — {inv.legalEntity.name}: {formatAmount(inv.amount)}</span>
+                <span className="text-gray-500">Оплачено: {formatAmount(String(paid))}</span>
+              </div>
+              {inv.payments.length > 0 && (
+                <ul className="mt-2 text-sm text-gray-600">
+                  {inv.payments.map((p) => (
+                    <li key={p.id}>{formatAmount(p.amount)} — {p.paidAt.slice(0, 10)}</li>
+                  ))}
+                </ul>
+              )}
+              {showPaymentForm !== inv.id ? (
+                <button onClick={() => setShowPaymentForm(inv.id)} className="mt-2 text-blue-600 hover:underline text-sm">+ Оплата</button>
+              ) : (
+                <form onSubmit={(e) => handleCreatePayment(e, inv.id)} className="mt-2 flex gap-2 items-end">
+                  <input type="number" name="amount" step="0.01" required placeholder="Сумма (руб)" className="border rounded px-2 py-1 w-32" />
+                  <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded text-sm">Добавить</button>
+                  <button type="button" onClick={() => setShowPaymentForm(null)} className="px-3 py-1 border rounded text-sm">Отмена</button>
+                </form>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}

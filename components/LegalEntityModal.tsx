@@ -9,6 +9,8 @@ interface LegalEntity {
   usnPercent: number;
   vatPercent: number;
   isActive: boolean;
+  generateClosingDocs?: boolean;
+  closingDocPerInvoice?: boolean | null;
   generalDirector?: string | null;
   activityBasis?: string | null;
   legalAddress?: string | null;
@@ -45,6 +47,8 @@ export default function LegalEntityModal({
     usnPercent: '0',
     vatPercent: '0',
     isActive: true,
+    generateClosingDocs: false,
+    closingDocPerInvoice: null as boolean | null,
     // Поля для ИП и ООО
     generalDirector: '',
     activityBasis: '',
@@ -70,6 +74,8 @@ export default function LegalEntityModal({
         usnPercent: legalEntity.usnPercent.toString(),
         vatPercent: legalEntity.vatPercent.toString(),
         isActive: legalEntity.isActive,
+        generateClosingDocs: legalEntity.generateClosingDocs ?? false,
+        closingDocPerInvoice: legalEntity.closingDocPerInvoice ?? null,
         generalDirector: legalEntity.generalDirector || '',
         activityBasis: legalEntity.activityBasis || '',
         legalAddress: legalEntity.legalAddress || '',
@@ -89,6 +95,8 @@ export default function LegalEntityModal({
         usnPercent: '0',
         vatPercent: '0',
         isActive: true,
+        generateClosingDocs: false,
+        closingDocPerInvoice: null,
         generalDirector: '',
         activityBasis: '',
         legalAddress: '',
@@ -122,6 +130,8 @@ export default function LegalEntityModal({
           usnPercent: formData.usnPercent,
           vatPercent: formData.vatPercent,
           isActive: formData.isActive,
+          generateClosingDocs: formData.generateClosingDocs,
+          closingDocPerInvoice: formData.generateClosingDocs ? formData.closingDocPerInvoice : null,
           generalDirector: formData.type === 'OOO' ? formData.generalDirector || null : null,
           activityBasis: formData.type === 'OOO' ? formData.activityBasis || null : null,
           legalAddress: formData.type === 'IP' || formData.type === 'OOO' ? formData.legalAddress || null : null,
@@ -376,6 +386,30 @@ export default function LegalEntityModal({
               />
             </div>
           )}
+
+          <div className="border-t pt-4 space-y-2">
+            <p className="text-sm font-medium text-gray-700">Закрывающие документы</p>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={formData.generateClosingDocs}
+                onChange={(e) => setFormData({ ...formData, generateClosingDocs: e.target.checked, closingDocPerInvoice: e.target.checked ? formData.closingDocPerInvoice : null })}
+                className="mr-2"
+              />
+              <span className="text-sm text-gray-700">Формировать закрывающие документы</span>
+            </label>
+            {formData.generateClosingDocs && (
+              <label className="flex items-center ml-4">
+                <input
+                  type="checkbox"
+                  checked={formData.closingDocPerInvoice === true}
+                  onChange={(e) => setFormData({ ...formData, closingDocPerInvoice: e.target.checked })}
+                  className="mr-2"
+                />
+                <span className="text-sm text-gray-700">Закрывающий документ на каждый счёт (иначе — один на период)</span>
+              </label>
+            )}
+          </div>
 
           <div>
             <label className="flex items-center">

@@ -37,14 +37,14 @@ export default function Navigation() {
       if (user.roleCode === 'OWNER') {
         setAccessibleSections([
           '/sites', '/services', '/clients', '/contracts', '/closeout', '/storage',
-          '/incomes', '/expenses', '/employees', '/products', '/reports', '/roles', '/legal-entities', '/niches', '/contacts', '/agents',
+          '/incomes', '/expenses', '/payments', '/employees', '/products', '/reports', '/roles', '/legal-entities', '/niches', '/contacts', '/agents',
         ]);
         return;
       }
       if (user.roleCode === 'CEO') {
         setAccessibleSections([
           '/sites', '/services', '/clients', '/contracts', '/closeout', '/storage',
-          '/incomes', '/expenses', '/employees', '/products', '/reports', '/roles', '/niches', '/contacts', '/agents',
+          '/incomes', '/expenses', '/payments', '/employees', '/products', '/reports', '/roles', '/niches', '/contacts', '/agents',
         ]);
         return;
       }
@@ -59,6 +59,7 @@ export default function Navigation() {
         { href: '/storage', section: 'storage' },
         { href: '/incomes', section: 'incomes' },
         { href: '/expenses', section: 'expenses' },
+        { href: '/payments', section: 'services' },
         { href: '/cost-items', section: 'cost-items' },
         { href: '/employees', section: 'employees' },
         { href: '/products', section: 'products' },
@@ -153,6 +154,7 @@ export default function Navigation() {
     { href: '#work', label: 'Клиенты и документы', isDropdown: true, submenu: workSubmenu },
     { href: '/incomes', label: 'Доходы' },
     { href: '/expenses', label: 'Расходы' },
+    { href: '/payments', label: 'Оплаты' },
     { href: '/reports', label: 'Отчеты' },
   ];
 
