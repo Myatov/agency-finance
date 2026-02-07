@@ -154,6 +154,22 @@ export async function canDeleteClient(user: SessionUser): Promise<boolean> {
   return hasPermission(user, 'clients', 'delete');
 }
 
+// Может ли пользователь работать с периодами/счетами/оплатами по данной услуге (по сайту и клиенту)
+export async function canAccessServiceForPeriods(
+  user: SessionUser,
+  serviceSiteAccountManagerId?: string | null,
+  serviceSiteClientSellerId?: string
+): Promise<boolean> {
+  if (user.roleCode === 'OWNER' || user.roleCode === 'CEO' || user.roleCode === 'FINANCE' || user.roleCode === 'HEAD_ACCOUNTING') {
+    return true;
+  }
+  const canView = await hasPermission(user, 'services', 'view');
+  if (!canView) return false;
+  if (user.roleCode === 'ACCOUNT_MANAGER' && serviceSiteAccountManagerId !== user.id) return false;
+  if (user.roleCode === 'SELLER' && serviceSiteClientSellerId !== user.id) return false;
+  return true;
+}
+
 export async function canAddIncome(
   user: SessionUser,
   serviceSiteAccountManagerId?: string | null,

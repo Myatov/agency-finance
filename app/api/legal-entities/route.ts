@@ -67,6 +67,8 @@ export async function POST(request: NextRequest) {
       bik,
       ks,
       paymentInfo,
+      generateClosingDocs,
+      closingDocPerInvoice,
     } = body;
 
     if (!name || type === undefined || usnPercent === undefined || vatPercent === undefined) {
@@ -119,6 +121,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (generateClosingDocs !== undefined) createData.generateClosingDocs = Boolean(generateClosingDocs);
+    if (closingDocPerInvoice !== undefined) createData.closingDocPerInvoice = closingDocPerInvoice === null || closingDocPerInvoice === undefined ? null : Boolean(closingDocPerInvoice);
 
     const legalEntity = await prisma.legalEntity.create({
       data: createData,

@@ -79,34 +79,40 @@ model User {
   role                Role        @relation(fields: [roleId], references: [id])
   uploadedContracts   ContractDocument[]   @relation("ContractUploader")
   uploadedCloseoutDocs CloseoutDocument[]   @relation("CloseoutDocUploader")
+  periodReports       WorkPeriodReport[]   @relation("PeriodReportAM")
+  createdInvoices     Invoice[]            @relation("InvoiceCreator")
+  createdPayments     Payment[]             @relation("PaymentCreator")
 
   @@index([departmentId])
   @@index([roleId])
 }
 
 model LegalEntity {
-  id              String          @id @default(uuid())
-  name            String          @unique
-  type            LegalEntityType
-  usnPercent      Float           @default(0)
-  vatPercent      Float           @default(0)
-  isActive        Boolean         @default(true)
-  generalDirector String?
-  activityBasis   String?
-  legalAddress    String?
-  inn             String?
-  kpp             String?
-  ogrn            String?
-  rs              String?
-  bankName        String?
-  bik             String?
-  ks              String?
-  paymentInfo     String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  clients         Client[]
-  incomes         Income[]
-  expenses        Expense[]
+  id                    String          @id @default(uuid())
+  name                  String          @unique
+  type                  LegalEntityType
+  usnPercent            Float           @default(0)
+  vatPercent            Float           @default(0)
+  isActive              Boolean         @default(true)
+  generalDirector       String?
+  activityBasis         String?
+  legalAddress         String?
+  inn                   String?
+  kpp                   String?
+  ogrn                  String?
+  rs                    String?
+  bankName              String?
+  bik                   String?
+  ks                    String?
+  paymentInfo           String?
+  generateClosingDocs   Boolean         @default(false)
+  closingDocPerInvoice  Boolean?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  clients               Client[]
+  incomes               Income[]
+  expenses              Expense[]
+  invoices              Invoice[]
 
   @@index([isActive])
   @@map("LegalEntity")
@@ -295,6 +301,7 @@ model Service {
   responsible       User?         @relation("ServiceResponsible", fields: [responsibleUserId], references: [id])
   site              Site          @relation(fields: [siteId], references: [id], onDelete: Cascade)
   closeoutPackages  CloseoutPackage[]
+  workPeriods      WorkPeriod[]
 
   @@index([siteId])
   @@index([productId])
@@ -302,6 +309,101 @@ model Service {
   @@index([responsibleUserId])
   @@index([siteId, status])
   @@map("Service")
+}
+
+enum WorkPeriodType {
+  STANDARD
+  EXTENDED
+  BONUS
+  COMPENSATION
+}
+
+enum PeriodReportPaymentType {
+  PREPAY
+  POSTPAY
+  FRACTIONAL
+}
+
+model WorkPeriod {
+  id                  String           @id @default(uuid())
+  serviceId           String
+  dateFrom            DateTime
+  dateTo              DateTime
+  periodType          WorkPeriodType   @default(STANDARD)
+  invoiceNotRequired  Boolean          @default(false)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  service             Service          @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  invoices            Invoice[]
+  periodReport        WorkPeriodReport?
+  closeoutDocuments   CloseoutDocument[]
+
+  @@index([serviceId])
+  @@index([dateFrom, dateTo])
+  @@map("WorkPeriod")
+}
+
+model WorkPeriodReport {
+  id               String                   @id @default(uuid())
+  workPeriodId     String                   @unique
+  filePath         String
+  originalName     String
+  mimeType         String?
+  sizeBytes        Int?
+  paymentType      PeriodReportPaymentType
+  accountManagerId String
+  completedAt      DateTime                 @default(now())
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  workPeriod       WorkPeriod               @relation(fields: [workPeriodId], references: [id], onDelete: Cascade)
+  accountManager   User                     @relation("PeriodReportAM", fields: [accountManagerId], references: [id])
+
+  @@index([workPeriodId])
+  @@index([accountManagerId])
+  @@map("WorkPeriodReport")
+}
+
+model Invoice {
+  id                          String    @id @default(uuid())
+  workPeriodId                String
+  amount                      BigInt
+  coverageFrom                DateTime?
+  coverageTo                  DateTime?
+  invoiceNumber               String?
+  legalEntityId               String
+  generateClosingDocsAtInvoice Boolean  @default(false)
+  closingDocPerInvoiceAtInvoice Boolean?
+  invoiceNotRequired          Boolean   @default(false)
+  createdAt                   DateTime  @default(now())
+  createdByUserId             String?
+  updatedAt                   DateTime  @updatedAt
+  workPeriod                  WorkPeriod @relation(fields: [workPeriodId], references: [id], onDelete: Cascade)
+  legalEntity                 LegalEntity @relation(fields: [legalEntityId], references: [id])
+  creator                     User?     @relation("InvoiceCreator", fields: [createdByUserId], references: [id])
+  payments                    Payment[]
+  closeoutDocuments           CloseoutDocument[]
+
+  @@index([workPeriodId])
+  @@index([legalEntityId])
+  @@index([createdByUserId])
+  @@map("Invoice")
+}
+
+model Payment {
+  id              String   @id @default(uuid())
+  invoiceId       String
+  amount          BigInt
+  paidAt          DateTime @default(now())
+  comment         String?
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  invoice         Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  creator         User     @relation("PaymentCreator", fields: [createdByUserId], references: [id])
+
+  @@index([invoiceId])
+  @@index([createdByUserId])
+  @@index([paidAt])
+  @@map("Payment")
 }
 
 model Income {
@@ -524,6 +626,8 @@ model CloseoutDocument {
   packageId     String?
   clientId      String
   period        String?
+  workPeriodId  String?
+  invoiceId     String?
   docType       CloseoutDocType    @default(ACT)
   filePath      String
   originalName  String
@@ -538,11 +642,15 @@ model CloseoutDocument {
   package       CloseoutPackage?   @relation(fields: [packageId], references: [id], onDelete: SetNull)
   client        Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
   uploader      User              @relation("CloseoutDocUploader", fields: [uploadedById], references: [id])
+  workPeriod    WorkPeriod?       @relation(fields: [workPeriodId], references: [id], onDelete: SetNull)
+  invoice       Invoice?          @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
   @@index([packageId])
   @@index([period])
   @@index([uploadedById])
+  @@index([workPeriodId])
+  @@index([invoiceId])
 }
 
 enum LegalEntityType {

@@ -12,6 +12,7 @@
     "lint": "next lint",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "db:push-periods": "prisma db execute --file prisma/add-work-periods-invoices-payments.sql",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:migrate-server": "tsx scripts/run-migrate-cost-categories.ts",

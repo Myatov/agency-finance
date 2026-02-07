@@ -71,6 +71,8 @@ export async function PUT(
       bik,
       ks,
       paymentInfo,
+      generateClosingDocs,
+      closingDocPerInvoice,
     } = body;
 
     const updateData: any = {};
@@ -96,6 +98,8 @@ export async function PUT(
     if (bik !== undefined) updateData.bik = bik && bik.trim() !== '' ? bik.trim() : null;
     if (ks !== undefined) updateData.ks = ks && ks.trim() !== '' ? ks.trim() : null;
     if (paymentInfo !== undefined) updateData.paymentInfo = paymentInfo && paymentInfo.trim() !== '' ? paymentInfo.trim() : null;
+    if (generateClosingDocs !== undefined) updateData.generateClosingDocs = Boolean(generateClosingDocs);
+    if (closingDocPerInvoice !== undefined) updateData.closingDocPerInvoice = closingDocPerInvoice === null || closingDocPerInvoice === undefined ? null : Boolean(closingDocPerInvoice);
 
     const updated = await prisma.legalEntity.update({
       where: { id: params.id },
