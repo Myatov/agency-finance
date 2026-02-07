@@ -78,6 +78,7 @@ export async function GET(
 
     const amountBase = Number(invoice.amount) / 100;
     const amountRub = amountBase.toFixed(2);
+    const legal = invoice.legalEntity;
     const vatPercent = legal.vatPercent != null ? Number(legal.vatPercent) : 0;
     const showVat = vatPercent > 0;
     const vatAmount = showVat ? amountBase * (vatPercent / 100) : 0;
@@ -90,7 +91,6 @@ export async function GET(
     const client = invoice.workPeriod.service.site.client;
     const siteTitle = invoice.workPeriod.service.site.title;
     const productName = invoice.workPeriod.service.product.name;
-    const legal = invoice.legalEntity;
     const uniqueNum = invoice.invoiceNumber?.trim() || `INV-${dateFrom.toISOString().slice(0, 10).replace(/-/g, '')}-${id.slice(-6)}`;
 
     const payerLines = [
