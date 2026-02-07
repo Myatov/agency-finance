@@ -69,7 +69,6 @@ export async function GET(request: NextRequest) {
 
     const periodsForPlanTotal = await prisma.workPeriod.findMany({
       where: wherePeriod,
-      select: { id: true },
       include: {
         service: { select: { price: true } },
       },
