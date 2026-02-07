@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const clientId = searchParams.get('clientId') || undefined;
     const packageId = searchParams.get('packageId') || undefined;
+    const workPeriodId = searchParams.get('workPeriodId') || undefined;
     const period = searchParams.get('period') || undefined;
     const docType = searchParams.get('docType') || undefined;
     const status = searchParams.get('status') as 'DRAFT' | 'SIGNED' | undefined;
@@ -26,6 +27,7 @@ export async function GET(request: NextRequest) {
     const where: any = {};
     if (clientId) where.clientId = clientId;
     if (packageId) where.packageId = packageId;
+    if (workPeriodId) where.workPeriodId = workPeriodId;
     if (period) where.period = period;
     if (docType && ['ACT', 'INVOICE', 'SF', 'UPD', 'RECONCILIATION', 'REPORT', 'OTHER'].includes(docType)) where.docType = docType;
     if (status) where.status = status;
@@ -73,6 +75,7 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null;
     const clientId = formData.get('clientId') as string | null;
     const packageId = (formData.get('packageId') as string) || null;
+    const workPeriodId = (formData.get('workPeriodId') as string) || null;
     const period = (formData.get('period') as string) || null;
     const docType = (formData.get('docType') as string) || 'ACT';
     const docDateStr = (formData.get('docDate') as string) || null;
@@ -107,6 +110,7 @@ export async function POST(request: NextRequest) {
     const doc = await prisma.closeoutDocument.create({
       data: {
         packageId: packageId || undefined,
+        workPeriodId: workPeriodId || undefined,
         clientId,
         period: periodResolved,
         docType: resolvedDocType,

@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const service = await prisma.service.findUnique({
       where: { id: serviceId },
-      include: { site: { include: { client: true } } },
+      include: { site: { include: { client: { include: { legalEntity: { select: { id: true, name: true, generateClosingDocs: true } } } } } } },
     });
     if (!service) return NextResponse.json({ error: 'Service not found' }, { status: 404 });
 
@@ -39,12 +39,17 @@ export async function GET(request: NextRequest) {
         periodReport: {
           include: { accountManager: { select: { id: true, fullName: true } } },
         },
+        closeoutDocuments: { select: { id: true } },
       },
       orderBy: { dateFrom: 'desc' },
     });
 
     const serialized = periods.map((p) => JSON.parse(JSON.stringify(p, (_, v) => (typeof v === 'bigint' ? v.toString() : v))));
-    return NextResponse.json({ workPeriods: serialized });
+    const clientLegalEntity = service.site.client.legalEntity;
+    return NextResponse.json({
+      workPeriods: serialized,
+      clientGenerateClosingDocs: clientLegalEntity?.generateClosingDocs ?? false,
+    });
   } catch (e: any) {
     console.error('GET work-periods', e);
     return NextResponse.json({ error: 'Internal server error', details: e?.message }, { status: 500 });

@@ -116,7 +116,17 @@ export default function PaymentsDashboard() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6">Оплаты</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Оплаты</h1>
+        <button
+          type="button"
+          onClick={() => fetchDashboard()}
+          disabled={loading}
+          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium disabled:opacity-50"
+        >
+          Обновить
+        </button>
+      </div>
 
       <div className="flex gap-2 mb-4 border-b">
         <button

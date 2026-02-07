@@ -34,6 +34,7 @@ interface WorkPeriodFull {
     site: {
       title: string;
       client: {
+        id: string;
         name: string;
         legalEntityId: string | null;
         legalEntity?: { id: string; name: string } | null;
@@ -43,6 +44,7 @@ interface WorkPeriodFull {
   };
   invoices: Invoice[];
   periodReport: { id: string; originalName: string; paymentType: string } | null;
+  closeoutDocuments?: Array<{ id: string; originalName: string; docType: string; uploadedAt: string }>;
 }
 
 export default function PeriodDetail({ periodId }: PeriodDetailProps) {
@@ -53,6 +55,7 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState<string | null>(null);
   const [showReportForm, setShowReportForm] = useState(false);
+  const [showCloseoutForm, setShowCloseoutForm] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -110,6 +113,28 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
     }
   };
 
+  const handleUploadCloseout = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!period) return;
+    const form = e.currentTarget;
+    const file = (form.querySelector('[name="closeoutFile"]') as HTMLInputElement).files?.[0];
+    const docType = (form.querySelector('[name="closeoutDocType"]') as HTMLSelectElement).value;
+    if (!file || !docType) return;
+    const fd = new FormData();
+    fd.set('file', file);
+    fd.set('clientId', period.service.site.client.id);
+    fd.set('workPeriodId', periodId);
+    fd.set('docType', docType);
+    const res = await fetch('/api/closeout/documents', { method: 'POST', body: fd });
+    if (res.ok) {
+      setShowCloseoutForm(false);
+      load();
+    } else {
+      const err = await res.json();
+      alert(err.error || 'Ошибка загрузки');
+    }
+  };
+
   const handleUploadReport = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -134,8 +159,6 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
     return <div className="py-8 text-center">{loading ? 'Загрузка...' : 'Период не найден'}</div>;
   }
 
-  const totalInvoiced = period.invoices.reduce((s, i) => s + Number(i.amount), 0);
-  const totalPaid = period.invoices.reduce((s, i) => s + i.payments.reduce((s2, p) => s2 + Number(p.amount), 0), 0);
   const expected = period.service.price ? Number(period.service.price) : 0;
   const expectedRub = expected / 100;
   const totalIncomes = incomes.reduce((s, i) => s + Number(i.amount), 0);
@@ -171,19 +194,9 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
         </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-gray-50 p-4 rounded">
-          <p className="text-sm text-gray-500">Ожидаемо за период</p>
-          <p className="text-lg font-semibold">{formatAmount(String(expected))}</p>
-        </div>
-        <div className="bg-gray-50 p-4 rounded">
-          <p className="text-sm text-gray-500">Выставлено</p>
-          <p className="text-lg font-semibold">{formatAmount(String(totalInvoiced))}</p>
-        </div>
-        <div className="bg-gray-50 p-4 rounded">
-          <p className="text-sm text-gray-500">Оплачено</p>
-          <p className="text-lg font-semibold">{formatAmount(String(totalPaid))}</p>
-        </div>
+      <div className="mb-6">
+        <p className="text-sm text-gray-500">Ожидаемо за период</p>
+        <p className="text-lg font-semibold">{formatAmount(String(expected))}</p>
       </div>
 
       <div className="mb-6">
@@ -293,6 +306,43 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
           );
         })}
       </ul>
+
+      <div className="mt-6 mb-4">
+        <h2 className="text-lg font-semibold mb-2">Закрывающие документы</h2>
+        {(period.closeoutDocuments?.length ?? 0) > 0 ? (
+          <ul className="space-y-2 text-sm">
+            {period.closeoutDocuments?.map((doc) => (
+              <li key={doc.id} className="flex items-center gap-2">
+                <a href={`/api/closeout/documents/${doc.id}/download`} className="text-blue-600 hover:underline" download>
+                  {doc.originalName}
+                </a>
+                <span className="text-gray-500">({doc.docType})</span>
+                <span className="text-gray-400">{doc.uploadedAt?.slice(0, 10)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-gray-500">Нет прикреплённых закрывающих документов</p>
+        )}
+        {!showCloseoutForm ? (
+          <button onClick={() => setShowCloseoutForm(true)} className="mt-2 text-blue-600 hover:underline text-sm">Прикрепить закрывающий документ</button>
+        ) : (
+          <form onSubmit={handleUploadCloseout} className="mt-2 flex flex-wrap gap-2 items-end p-4 border rounded bg-gray-50">
+            <input type="file" name="closeoutFile" required className="border rounded px-2 py-1" />
+            <select name="closeoutDocType" required className="border rounded px-2 py-1">
+              <option value="ACT">Акт</option>
+              <option value="INVOICE">Счёт</option>
+              <option value="SF">УПД</option>
+              <option value="UPD">УКД</option>
+              <option value="RECONCILIATION">Акт сверки</option>
+              <option value="REPORT">Отчёт</option>
+              <option value="OTHER">Прочее</option>
+            </select>
+            <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded text-sm">Загрузить</button>
+            <button type="button" onClick={() => setShowCloseoutForm(false)} className="px-3 py-1 border rounded text-sm">Отмена</button>
+          </form>
+        )}
+      </div>
     </div>
   );
 }

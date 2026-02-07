@@ -18,6 +18,7 @@ interface WorkPeriod {
     payments: Array<{ id: string; amount: string; paidAt: string }>;
   }>;
   periodReport: { id: string; paymentType: string; originalName: string } | null;
+  closeoutDocuments: Array<{ id: string }>;
 }
 
 interface Service {
@@ -37,6 +38,7 @@ const PERIOD_TYPES: Record<string, string> = {
 export default function ServicePeriods({ serviceId }: { serviceId: string }) {
   const [service, setService] = useState<Service | null>(null);
   const [periods, setPeriods] = useState<WorkPeriod[]>([]);
+  const [clientGenerateClosingDocs, setClientGenerateClosingDocs] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -49,7 +51,10 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
       const sData = await sRes.json();
       const pData = await pRes.json();
       if (sRes.ok && sData.service) setService(sData.service);
-      if (pRes.ok && pData.workPeriods) setPeriods(pData.workPeriods);
+      if (pRes.ok) {
+        setPeriods(pData.workPeriods || []);
+        setClientGenerateClosingDocs(!!pData.clientGenerateClosingDocs);
+      }
     } finally {
       setLoading(false);
     }
@@ -113,6 +118,15 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
           periods.map((p) => {
             const totalInvoiced = p.invoices.reduce((s, i) => s + Number(i.amount), 0);
             const totalPaid = p.invoices.reduce((s, i) => s + i.payments.reduce((s2, pay) => s2 + Number(pay.amount), 0), 0);
+            const expected = service?.price ? Number(service.price) : 0;
+            const balance = totalInvoiced - totalPaid;
+            const isFullyPaid = expected > 0 && totalPaid >= expected;
+            const hasInvoice = p.invoices.length > 0;
+            const closeoutStatus = !clientGenerateClosingDocs
+              ? 'не требуются'
+              : (p.closeoutDocuments?.length ?? 0) > 0
+                ? 'высланы'
+                : 'не высланы';
             return (
               <div key={p.id} className="border rounded-lg p-4 bg-white shadow-sm">
                 <div className="flex justify-between items-start">
@@ -124,19 +138,28 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
                       {PERIOD_TYPES[p.periodType] || p.periodType}
                       {p.invoiceNotRequired && ' · Счёт не требуется'}
                     </span>
+                    {isFullyPaid && (
+                      <span className="ml-2 text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded">оплачено полностью</span>
+                    )}
                   </div>
                   <div className="text-sm text-right">
                     <span className="text-gray-500">Выставлено: </span>{formatAmount(String(totalInvoiced))}
                     <span className="text-gray-500 ml-2">Оплачено: </span>{formatAmount(String(totalPaid))}
-                    <span className="ml-2">Остаток: {formatAmount(String(totalInvoiced - totalPaid))}</span>
+                    <span className="ml-2">Остаток: {formatAmount(String(balance))}</span>
                   </div>
                 </div>
-                <div className="mt-2 text-sm text-gray-600">
-                  Отчёт: {p.periodReport ? (
-                    <a href={`/api/period-reports/${p.periodReport.id}/download`} className="text-blue-600 hover:underline" download>
-                      {p.periodReport.originalName}
-                    </a>
-                  ) : 'не прикреплён'}
+                <div className="mt-2 text-sm text-gray-600 space-y-1">
+                  <div>
+                    Отчёт: {p.periodReport ? (
+                      <a href={`/api/period-reports/${p.periodReport.id}/download`} className="text-blue-600 hover:underline" download>
+                        {p.periodReport.originalName}
+                      </a>
+                    ) : 'не прикреплён'}
+                  </div>
+                  {!p.invoiceNotRequired && (
+                    <div>Счет: {hasInvoice ? 'выставлен' : 'не выставлен'}</div>
+                  )}
+                  <div>Закрывающие документы: {closeoutStatus}</div>
                 </div>
                 {p.invoices.length > 0 && (
                   <ul className="mt-2 list-disc list-inside text-sm">

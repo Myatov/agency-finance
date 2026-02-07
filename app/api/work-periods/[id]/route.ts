@@ -39,6 +39,9 @@ export async function GET(
         periodReport: {
           include: { accountManager: { select: { id: true, fullName: true } } },
         },
+        closeoutDocuments: {
+          select: { id: true, originalName: true, docType: true, uploadedAt: true },
+        },
       },
     });
 
