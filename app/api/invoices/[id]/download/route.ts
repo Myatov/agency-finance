@@ -259,7 +259,7 @@ export async function GET(
     <p style="margin: 1rem 0 0.5rem; font-size: 16px; font-weight: bold;">Счет № <span id="invNumTitleBlank">${escapeHtml(uniqueNum)}</span> от <span id="invDateDisp">${escapeHtml(invoiceDateRu)}</span> г.</p>
 
     <table style="width: 100%; max-width: 681px; border-collapse: collapse; font-size: 12pt; margin: 0.5rem 0 1rem;">
-      <tr><td style="padding: 4px 0; width: 85px;">Поставщик:</td><td style="padding: 4px 0;"><b>${escapeHtml(legal.name ?? '')}</b></td></tr>
+      <tr><td style="padding: 4px 0; width: 85px;">Поставщик:</td><td style="padding: 4px 0;"><b>${escapeHtml((legal.fullName ?? legal.name) ?? '')}</b></td></tr>
       <tr><td style="padding: 4px 0;">Покупатель:</td><td style="padding: 4px 0;"><b>${escapeHtml(client.legalEntityName ?? '')}</b></td></tr>
     </table>
 

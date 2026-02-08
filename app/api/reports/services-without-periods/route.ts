@@ -54,9 +54,15 @@ export async function GET() {
       orderBy: { site: { title: 'asc' } },
     });
 
+    // BigInt (price) не сериализуется в JSON — приводим к строке
+    const serialized = services.map(({ price, ...rest }) => ({
+      ...rest,
+      price: price != null ? String(price) : null,
+    }));
+
     return NextResponse.json({
-      services,
-      count: services.length,
+      services: serialized,
+      count: serialized.length,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
