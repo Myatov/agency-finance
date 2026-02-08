@@ -249,9 +249,13 @@ export async function POST(request: NextRequest) {
       {
         amount: expense.amount,
         paymentAt: expense.paymentAt,
+        comment: expense.comment,
         creator: expense.creator,
+        costItem: expense.costItem,
+        employee: expense.employee,
         site: expense.site,
         service: expense.service,
+        legalEntity: expense.legalEntity,
       },
       false
     ).catch(() => {});

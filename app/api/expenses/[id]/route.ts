@@ -213,10 +213,14 @@ export async function PUT(
       {
         amount: updated.amount,
         paymentAt: updated.paymentAt,
+        comment: updated.comment,
         creator: updated.creator,
         updater: updated.updater,
+        costItem: updated.costItem,
+        employee: updated.employee,
         site: updated.site,
         service: updated.service,
+        legalEntity: updated.legalEntity,
       },
       true
     ).catch(() => {});
