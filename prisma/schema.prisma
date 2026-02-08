@@ -94,6 +94,8 @@ model LegalEntity {
   usnPercent            Float           @default(0)
   vatPercent            Float           @default(0)
   isActive              Boolean         @default(true)
+  fullName              String?         // Полное название юридического лица
+  contactInfo           String?         // Контактные данные
   generalDirector       String?
   activityBasis         String?
   legalAddress         String?

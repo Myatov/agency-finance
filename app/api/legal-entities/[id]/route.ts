@@ -60,6 +60,8 @@ export async function PUT(
       usnPercent,
       vatPercent,
       isActive,
+      fullName,
+      contactInfo,
       generalDirector,
       activityBasis,
       legalAddress,
@@ -87,6 +89,8 @@ export async function PUT(
     if (usnPercent !== undefined) updateData.usnPercent = parseFloat(usnPercent) || 0;
     if (vatPercent !== undefined) updateData.vatPercent = parseFloat(vatPercent) || 0;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (fullName !== undefined) updateData.fullName = fullName && fullName.trim() !== '' ? fullName.trim() : null;
+    if (contactInfo !== undefined) updateData.contactInfo = contactInfo && contactInfo.trim() !== '' ? contactInfo.trim() : null;
     if (generalDirector !== undefined) updateData.generalDirector = generalDirector && generalDirector.trim() !== '' ? generalDirector.trim() : null;
     if (activityBasis !== undefined) updateData.activityBasis = activityBasis && activityBasis.trim() !== '' ? activityBasis.trim() : null;
     if (legalAddress !== undefined) updateData.legalAddress = legalAddress && legalAddress.trim() !== '' ? legalAddress.trim() : null;

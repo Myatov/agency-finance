@@ -11,6 +11,8 @@ interface LegalEntity {
   isActive: boolean;
   generateClosingDocs?: boolean;
   closingDocPerInvoice?: boolean | null;
+  fullName?: string | null;
+  contactInfo?: string | null;
   generalDirector?: string | null;
   activityBasis?: string | null;
   legalAddress?: string | null;
@@ -49,6 +51,8 @@ export default function LegalEntityModal({
     isActive: true,
     generateClosingDocs: false,
     closingDocPerInvoice: null as boolean | null,
+    fullName: '',
+    contactInfo: '',
     // Поля для ИП и ООО
     generalDirector: '',
     activityBasis: '',
@@ -76,6 +80,8 @@ export default function LegalEntityModal({
         isActive: legalEntity.isActive,
         generateClosingDocs: legalEntity.generateClosingDocs ?? false,
         closingDocPerInvoice: legalEntity.closingDocPerInvoice ?? null,
+        fullName: legalEntity.fullName || '',
+        contactInfo: legalEntity.contactInfo || '',
         generalDirector: legalEntity.generalDirector || '',
         activityBasis: legalEntity.activityBasis || '',
         legalAddress: legalEntity.legalAddress || '',
@@ -97,6 +103,8 @@ export default function LegalEntityModal({
         isActive: true,
         generateClosingDocs: false,
         closingDocPerInvoice: null,
+        fullName: '',
+        contactInfo: '',
         generalDirector: '',
         activityBasis: '',
         legalAddress: '',
@@ -132,6 +140,8 @@ export default function LegalEntityModal({
           isActive: formData.isActive,
           generateClosingDocs: formData.generateClosingDocs,
           closingDocPerInvoice: formData.generateClosingDocs ? formData.closingDocPerInvoice : null,
+          fullName: formData.fullName || null,
+          contactInfo: formData.contactInfo || null,
           generalDirector: formData.type === 'OOO' ? formData.generalDirector || null : null,
           activityBasis: formData.type === 'OOO' ? formData.activityBasis || null : null,
           legalAddress: formData.type === 'IP' || formData.type === 'OOO' ? formData.legalAddress || null : null,
@@ -183,6 +193,32 @@ export default function LegalEntityModal({
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Полное название юридического лица
+            </label>
+            <input
+              type="text"
+              value={formData.fullName}
+              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              placeholder="Необязательно"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Контактные данные
+            </label>
+            <input
+              type="text"
+              value={formData.contactInfo}
+              onChange={(e) => setFormData({ ...formData, contactInfo: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              placeholder="Необязательно"
             />
           </div>
 

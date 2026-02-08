@@ -42,6 +42,8 @@ jobs:
             npx prisma db push --skip-generate || echo "⚠️ DB push failed, continuing..."
             echo "🔄 Applying DB migration (Expense.legalEntityId) if needed..."
             npx prisma db execute --file prisma/add-expense-legal-entity.sql || true
+            echo "🔄 Applying DB migration (LegalEntity fullName, contactInfo) if needed..."
+            npx prisma db execute --file prisma/add-legal-entity-fullname-contact.sql || true
             echo "🔄 Applying DB migration (User extra fields) if needed..."
             npx prisma db execute --file prisma/add-user-fields.sql || true
             echo "🔄 Applying DB migration (Contracts & Closeout tables) if needed..."

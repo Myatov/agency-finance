@@ -56,6 +56,8 @@ export async function POST(request: NextRequest) {
       usnPercent,
       vatPercent,
       isActive,
+      fullName,
+      contactInfo,
       generalDirector,
       activityBasis,
       legalAddress,
@@ -101,6 +103,8 @@ export async function POST(request: NextRequest) {
 
     // Add optional fields only if they have values
     const optionalFields = {
+      fullName,
+      contactInfo,
       generalDirector,
       activityBasis,
       legalAddress,
