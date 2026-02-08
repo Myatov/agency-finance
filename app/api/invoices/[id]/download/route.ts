@@ -223,7 +223,7 @@ export async function GET(
 
     <table style="width: 100%; max-width: 681px; border-collapse: collapse; font-size: 12pt; margin: 0.5rem 0 1rem;">
       <tr><td style="padding: 4px 0; width: 85px;">Поставщик:</td><td style="padding: 4px 0;"><b>${escapeHtml(legal.name ?? '')}</b></td></tr>
-      <tr><td style="padding: 4px 0;">Покупатель:</td><td style="padding: 4px 0;"><b>${escapeHtml(client.name || client.legalEntityName ?? '')}</b></td></tr>
+      <tr><td style="padding: 4px 0;">Покупатель:</td><td style="padding: 4px 0;"><b>${escapeHtml((client.name || client.legalEntityName) ?? '')}</b></td></tr>
     </table>
 
     <table class="blank-table" style="width: 100%; max-width: 684px; border-collapse: collapse; border: 1.5px solid #000; font-size: 10pt;">
