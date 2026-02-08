@@ -258,7 +258,7 @@ export async function POST(request: NextRequest) {
         legalEntity: expense.legalEntity,
       },
       false
-    ).catch(() => {});
+    ).catch((err) => console.error('[Telegram] notifyExpense error:', err));
 
     return NextResponse.json({
       expense: expenseForJson,

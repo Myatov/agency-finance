@@ -6,9 +6,9 @@
 const TELEGRAM_API = 'https://api.telegram.org';
 
 export async function sendTelegramMessage(chatId: string, text: string): Promise<boolean> {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token?.trim()) {
-    console.warn('Telegram: TELEGRAM_BOT_TOKEN не задан, уведомление не отправлено');
+  const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
+  if (!token) {
+    console.warn('[Telegram] TELEGRAM_BOT_TOKEN не задан — уведомление не отправлено');
     return false;
   }
   try {
@@ -17,19 +17,29 @@ export async function sendTelegramMessage(chatId: string, text: string): Promise
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: chatId,
+        chat_id: String(chatId),
         text,
         disable_web_page_preview: true,
       }),
     });
+    const raw = await res.text();
+    let data: { ok?: boolean; description?: string; error_code?: number };
+    try {
+      data = JSON.parse(raw) as { ok?: boolean; description?: string; error_code?: number };
+    } catch {
+      data = {};
+    }
     if (!res.ok) {
-      const err = await res.text();
-      console.error('Telegram sendMessage error:', res.status, chatId, err);
+      console.error('[Telegram] HTTP error', res.status, 'chat_id=', chatId, raw.slice(0, 300));
+      return false;
+    }
+    if (data.ok === false) {
+      console.error('[Telegram] API error chat_id=', chatId, ':', data.description || raw.slice(0, 200), 'code=', data.error_code);
       return false;
     }
     return true;
   } catch (e) {
-    console.error('Telegram sendMessage exception:', chatId, e);
+    console.error('[Telegram] Exception chat_id=', chatId, e);
     return false;
   }
 }
@@ -112,11 +122,24 @@ export async function notifyExpense(
   payload: ExpenseNotifyPayload,
   isCorrection: boolean
 ): Promise<void> {
+  if (!process.env.TELEGRAM_BOT_TOKEN?.trim()) {
+    console.warn('[Telegram] notifyExpense: TELEGRAM_BOT_TOKEN не задан, пропуск');
+    return;
+  }
   const text = formatExpenseNotification(payload, isCorrection);
   const groupId = getExpensesChatId();
   const personalId = getPersonalChatId();
-  const promises: Promise<boolean>[] = [];
-  if (groupId) promises.push(sendTelegramMessage(groupId, text));
-  if (personalId) promises.push(sendTelegramMessage(personalId, text));
-  await Promise.allSettled(promises);
+  const results: { chatId: string; ok: boolean }[] = [];
+  if (groupId) {
+    const ok = await sendTelegramMessage(groupId, text);
+    results.push({ chatId: `group:${groupId}`, ok });
+  }
+  if (personalId) {
+    const ok = await sendTelegramMessage(personalId, text);
+    results.push({ chatId: `personal:${personalId}`, ok });
+  }
+  const failed = results.filter((r) => !r.ok);
+  if (failed.length > 0) {
+    console.error('[Telegram] notifyExpense: не удалось отправить:', failed);
+  }
 }

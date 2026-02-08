@@ -223,7 +223,7 @@ export async function PUT(
         legalEntity: updated.legalEntity,
       },
       true
-    ).catch(() => {});
+    ).catch((err) => console.error('[Telegram] notifyExpense error:', err));
 
     return NextResponse.json({
       expense: expenseForJson,
