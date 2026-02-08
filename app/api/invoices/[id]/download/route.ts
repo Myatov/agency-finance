@@ -211,7 +211,7 @@ export async function GET(
     <label>Услуга</label>
     <input type="text" id="serviceName" value="${escapeHtml(productName)}" />
     <p style="margin-top: 1rem;">
-      <button type="button" id="btnPdf" style="padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">Печать отчета</button>
+      <button type="button" id="btnPdf" style="padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">Печать счета</button>
     </p>
     <div class="instruction-block debug-block" style="margin-top: 1rem; padding: 0.75rem; background: #f0f0f0; border: 1px solid #ccc; border-radius: 6px; font-size: 0.8rem; color: #444; max-width: 700px;">
       <strong>Для отладки</strong><br/>
@@ -228,7 +228,7 @@ export async function GET(
     </div>
     <div class="instruction-block" style="margin-top: 1rem; padding: 0.75rem; background: #fefce8; border: 1px solid #e7e5e4; border-radius: 6px; font-size: 0.8rem; color: #444; max-width: 700px;">
       <strong>Внутренняя инструкция по формированию счёта</strong> (можно править в docs/INVOICE_FORM_RULES.md):<br/>
-      PDF строится по бланку <code>public/templates/schet-na-oplatu-blank-dlya-ip.pdf</code>: на него наносятся номер счёта, дата, плательщик, получатель, сайт, услуга, период, сумма (и при НДС — НДС и сумма с НДС). Координаты текста можно подстроить в <code>app/api/invoices/[id]/pdf/route.ts</code> (объект LAYOUT). Имя файла при скачивании: № счета.pdf.
+      Кнопка «Печать счета» открывает диалог печати браузера — в печать попадает заполненный шаблон с этой страницы. Для сохранения в PDF выберите в диалоге «Сохранить как PDF».
     </div>
   </div>
 
@@ -245,19 +245,14 @@ export async function GET(
         <td style="border: 1px solid #000; padding: 4px 6px;">${escapeHtml(legal.rs ?? '')}</td>
       </tr>
       <tr>
-        <td style="border: 1px solid #000; padding: 4px 6px;" colspan="2"></td>
+        <td style="border: 1px solid #000; padding: 4px 6px;" colspan="2">ИНН ${escapeHtml(legal.inn ?? '')}</td>
         <td style="border: 1px solid #000; padding: 4px 6px; text-align: center;">Банк получателя</td>
         <td style="border: 1px solid #000; padding: 4px 6px;">${escapeHtml(legal.bankName ?? '')}</td>
       </tr>
       <tr>
-        <td style="border: 1px solid #000; padding: 4px 6px;" colspan="2"></td>
+        <td style="border: 1px solid #000; padding: 4px 6px;" colspan="2">КПП ${escapeHtml(legal.kpp ?? '')}</td>
         <td style="border: 1px solid #000; padding: 4px 6px; text-align: center;">К/с №</td>
         <td style="border: 1px solid #000; padding: 4px 6px;">${escapeHtml(legal.ks ?? '')}</td>
-      </tr>
-      <tr>
-        <td style="border: 1px solid #000; padding: 4px 6px;">ИНН</td>
-        <td style="border: 1px solid #000; padding: 4px 6px;">КПП</td>
-        <td style="border: 1px solid #000; padding: 4px 6px;" colspan="2">${escapeHtml(legal.inn ?? '')} / ${escapeHtml(legal.kpp ?? '')}</td>
       </tr>
     </table>
 
@@ -293,7 +288,6 @@ export async function GET(
       <tr><td style="padding: 4px 0; text-align: right;"><b>Всего к оплате:</b></td><td style="padding: 4px 0; text-align: right;">${showVat ? totalWithVatRub : amountRub}</td></tr>
       <tr><td style="padding: 8px 0 0;" colspan="2">Всего наименований 1, на сумму ${showVat ? totalWithVatRub : amountRub} руб.</td></tr>
       <tr><td style="padding: 4px 0 0;" colspan="2"><span id="amountWordsDisp">${escapeHtml(amountWords)}</span></td></tr>
-      <tr><td style="padding: 16px 0 0;" colspan="2">___________________________________________________</td></tr>
     </table>
 
     <table style="width: 100%; max-width: 520px; margin-top: 1rem; font-size: 12pt; border-collapse: collapse;">
@@ -337,48 +331,8 @@ export async function GET(
     document.getElementById('serviceName').addEventListener('change', updatePrintView);
 
     document.getElementById('btnPdf').addEventListener('click', function() {
-      var id = document.body.getAttribute('data-invoice-id');
-      if (!id) return;
-      var num = document.getElementById('invNum').value.trim();
-      var svc = document.getElementById('serviceName').value.trim();
-      var url = '/api/invoices/' + encodeURIComponent(id) + '/pdf?invoiceNumber=' + encodeURIComponent(num) + '&serviceName=' + encodeURIComponent(svc);
-      var btn = this;
-      btn.disabled = true;
-      fetch(url, { credentials: 'same-origin' })
-        .then(function(r) {
-          if (!r.ok) {
-            return r.text().then(function(t) {
-              var msg = 'Ошибка загрузки (' + r.status + ')';
-              try {
-                var d = JSON.parse(t);
-                if (d.error) msg = d.details ? d.error + ': ' + d.details : d.error;
-                else if (d.details) msg = d.details;
-              } catch (_) {}
-              throw new Error(msg);
-            });
-          }
-          return r.blob();
-        })
-        .then(function(blob) {
-          if (blob.type && blob.type.indexOf('pdf') === -1 && blob.type.indexOf('octet') === -1) {
-            return blob.text().then(function(t) {
-              try {
-                var d = JSON.parse(t);
-                throw new Error(d.error || d.details || 'Ответ не PDF');
-              } catch (e) {
-                if (e instanceof Error) throw e;
-                throw new Error('Ответ не PDF');
-              }
-            });
-          }
-          var a = document.createElement('a');
-          a.href = URL.createObjectURL(blob);
-          a.download = (num || 'schet') + '.pdf';
-          a.click();
-          URL.revokeObjectURL(a.href);
-        })
-        .catch(function(e) { alert(e.message || 'Ошибка'); })
-        .finally(function() { btn.disabled = false; });
+      // Печать текущего заполненного шаблона счёта (тот же вид, что на странице); пользователь может сохранить в PDF через диалог печати
+      window.print();
     });
   </script>
 </body>
