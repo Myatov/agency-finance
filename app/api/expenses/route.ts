@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { hasViewAllPermission } from '@/lib/permissions';
 import { parseAmount } from '@/lib/utils';
+import { notifyExpense } from '@/lib/telegram';
 
 export async function GET(request: NextRequest) {
   try {
@@ -243,6 +244,17 @@ export async function POST(request: NextRequest) {
         },
       }),
     };
+
+    notifyExpense(
+      {
+        amount: expense.amount,
+        paymentAt: expense.paymentAt,
+        creator: expense.creator,
+        site: expense.site,
+        service: expense.service,
+      },
+      false
+    ).catch(() => {});
 
     return NextResponse.json({
       expense: expenseForJson,

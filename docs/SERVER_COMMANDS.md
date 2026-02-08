@@ -98,7 +98,11 @@ nano /var/www/agency-finance/.env
 DATABASE_URL="postgresql://agency_finance:ваш_надёжный_пароль@localhost:5432/agency_finance?schema=public"
 NODE_ENV=production
 SECURE_COOKIES=false
+TELEGRAM_BOT_TOKEN=токен_бота_от_BotFather
+TELEGRAM_EXPENSES_CHAT_ID=-1001755796924
 ```
+
+Переменные `TELEGRAM_*` нужны для уведомлений в Telegram при добавлении/изменении расхода (раздел «Расходы»). Если не заданы — уведомления не отправляются.
 
 **Важно:** 
 - Если используете HTTPS (SSL настроен) — установите `SECURE_COOKIES=true`
