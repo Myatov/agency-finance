@@ -8,6 +8,22 @@ import fs from 'fs';
 
 export const runtime = 'nodejs';
 
+/** Пути к public/fonts/DejaVuSans.ttf (cwd и от __dirname для бандла .next/server/...). */
+function getFontCandidates(): string[] {
+  const cwd = process.cwd();
+  const out: string[] = [
+    path.join(cwd, 'public', 'fonts', 'DejaVuSans.ttf'),
+    path.join(cwd, '..', 'public', 'fonts', 'DejaVuSans.ttf'),
+    path.join(cwd, '..', '..', 'public', 'fonts', 'DejaVuSans.ttf'),
+  ];
+  if (typeof __dirname !== 'undefined') {
+    const dir = __dirname;
+    out.push(path.join(dir, '..', '..', '..', '..', '..', '..', '..', 'public', 'fonts', 'DejaVuSans.ttf'));
+    out.push(path.join(dir, '..', '..', '..', '..', '..', '..', '..', '..', 'public', 'fonts', 'DejaVuSans.ttf'));
+  }
+  return out;
+}
+
 function toRuDate(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -128,13 +144,7 @@ export async function GET(
     ].filter((s) => s !== '—');
 
     let fontPath: string | null = null;
-    const cwd = process.cwd();
-    const candidates = [
-      path.join(cwd, 'public', 'fonts', 'DejaVuSans.ttf'),
-      path.join(cwd, '..', 'public', 'fonts', 'DejaVuSans.ttf'),
-      path.join(cwd, '..', '..', 'public', 'fonts', 'DejaVuSans.ttf'),
-    ];
-    for (const p of candidates) {
+    for (const p of getFontCandidates()) {
       try {
         if (fs.existsSync(p)) {
           fontPath = p;
@@ -145,6 +155,14 @@ export async function GET(
       }
     }
 
+    if (!fontPath) {
+      const tried = getFontCandidates().join(', ');
+      return NextResponse.json(
+        { error: 'Шрифт не найден', details: `DejaVuSans.ttf не найден. Проверенные пути: ${tried}. CWD: ${process.cwd()}` },
+        { status: 500 }
+      );
+    }
+
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -153,16 +171,9 @@ export async function GET(
       doc.on('error', (err) => reject(err));
     });
 
-    let useUnicodeFont = false;
-    if (fontPath) {
-      try {
-        doc.registerFont('Main', fontPath);
-        doc.font('Main');
-        useUnicodeFont = true;
-      } catch (fontErr) {
-        console.warn('PDF font registration failed, using default:', fontErr);
-      }
-    }
+    doc.registerFont('Main', fontPath);
+    doc.font('Main');
+    const useUnicodeFont = true;
 
     const pdfText = (str: string) => {
       doc.text(useUnicodeFont ? str : safeForDefaultFont(str), { lineBreak: true });
