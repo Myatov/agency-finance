@@ -92,6 +92,7 @@ export async function GET(
     const siteTitle = invoice.workPeriod.service.site.title;
     const productName = invoice.workPeriod.service.product.name;
     const uniqueNum = invoice.invoiceNumber?.trim() || `INV-${dateFrom.toISOString().slice(0, 10).replace(/-/g, '')}-${id.slice(-6)}`;
+    const invoiceDateRu = toRuDate(invoice.createdAt);
 
     const payerLines = [
       line(client.name || client.legalEntityName),
@@ -133,6 +134,7 @@ export async function GET(
     .no-print input { width: 100%; max-width: 400px; padding: 0.35rem 0.5rem; margin-top: 0.25rem; }
     @media print {
       .no-print { display: none !important; }
+      .invoice-blank .blank-hint { display: none !important; }
     }
     h1 { font-size: 1.25rem; margin-bottom: 1rem; }
     .block { margin-bottom: 1.25rem; }
@@ -183,12 +185,98 @@ export async function GET(
     </table>
   </div>
 
+  <div id="printAreaBlank" class="invoice-blank" style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #ddd;">
+    <p class="blank-hint" style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem;">Вариант для печати — бланк счёта от ИП (по правилам: реквизиты получателя, счёт № и дата, поставщик/покупатель, таблица работ/услуг, итого, НДС, подпись).</p>
+    <table class="blank-table" style="width: 100%; max-width: 684px; border-collapse: collapse; border: 1.5px solid #000; font-size: 10pt; font-family: Calibri, sans-serif;">
+      <tr>
+        <td style="border: 1px solid #000; padding: 4px 6px; width: 40%;" colspan="2"></td>
+        <td style="border: 1px solid #000; padding: 4px 6px; text-align: center;">БИК</td>
+        <td style="border: 1px solid #000; padding: 4px 6px;">${escapeHtml(legal.bik ?? '')}</td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #000; padding: 4px 6px;" colspan="2" rowspan="2"></td>
+        <td style="border: 1px solid #000; padding: 4px 6px; text-align: center;">Сч. №</td>
+        <td style="border: 1px solid #000; padding: 4px 6px;">${escapeHtml(legal.rs ?? '')}</td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #000; padding: 4px 6px; text-align: center;">Банк получателя</td>
+        <td style="border: 1px solid #000; padding: 4px 6px;">${escapeHtml(legal.bankName ?? '')}</td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #000; padding: 4px 6px;">ИНН</td>
+        <td style="border: 1px solid #000; padding: 4px 6px;">КПП</td>
+        <td style="border: 1px solid #000; padding: 4px 6px;" colspan="2" rowspan="3"></td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #000; padding: 4px 6px;">${escapeHtml(legal.inn ?? '')}</td>
+        <td style="border: 1px solid #000; padding: 4px 6px;">${escapeHtml(legal.kpp ?? '')}</td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #000; padding: 4px 6px;" colspan="2">Получатель</td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #000; padding: 4px 6px;" colspan="4">${escapeHtml(legal.name ?? '')}</td>
+      </tr>
+    </table>
+
+    <p style="margin: 1rem 0 0.5rem; font-size: 16px; font-weight: bold;">Счет № <span id="invNumTitleBlank">${escapeHtml(uniqueNum)}</span> от ${invoiceDateRu} г.</p>
+
+    <table style="width: 100%; max-width: 681px; border-collapse: collapse; font-size: 12pt; margin: 0.5rem 0 1rem;">
+      <tr><td style="padding: 4px 0; width: 85px;">Поставщик:</td><td style="padding: 4px 0;"><b>${escapeHtml(legal.name ?? '')}</b></td></tr>
+      <tr><td style="padding: 4px 0;">Покупатель:</td><td style="padding: 4px 0;"><b>${escapeHtml(client.name || client.legalEntityName ?? '')}</b></td></tr>
+    </table>
+
+    <table class="blank-table" style="width: 100%; max-width: 684px; border-collapse: collapse; border: 1.5px solid #000; font-size: 10pt;">
+      <tr style="background: #f5f5f5;">
+        <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 30px;">№</th>
+        <th style="border: 1px solid #000; padding: 6px; text-align: center;">Наименование работ, услуг</th>
+        <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 50px;">Кол-во</th>
+        <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 45px;">Ед</th>
+        <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 70px;">Цена</th>
+        <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 75px;">Сумма</th>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #000; padding: 6px; text-align: center;">1</td>
+        <td style="border: 1px solid #000; padding: 6px;" id="serviceDispBlank">${escapeHtml(productName)}</td>
+        <td style="border: 1px solid #000; padding: 6px; text-align: right;">1</td>
+        <td style="border: 1px solid #000; padding: 6px; text-align: center;">усл.</td>
+        <td style="border: 1px solid #000; padding: 6px; text-align: right;">${amountRub}</td>
+        <td style="border: 1px solid #000; padding: 6px; text-align: right;">${amountRub}</td>
+      </tr>
+    </table>
+
+    <table style="width: 100%; max-width: 684px; border-collapse: collapse; font-size: 12pt; margin-top: 0;">
+      <tr><td style="padding: 4px 0; text-align: right;"><b>Итого:</b></td><td style="padding: 4px 0; text-align: right; width: 120px;">${amountRub}</td></tr>
+      ${showVat ? `<tr><td style="padding: 4px 0; text-align: right;"><b>В том числе НДС:</b></td><td style="padding: 4px 0; text-align: right;">${vatRub}</td></tr>` : '<tr><td style="padding: 4px 0; text-align: right;"><b>В том числе НДС:</b></td><td style="padding: 4px 0; text-align: right;">Без НДС</td></tr>'}
+      <tr><td style="padding: 4px 0; text-align: right;"><b>Всего к оплате:</b></td><td style="padding: 4px 0; text-align: right;">${showVat ? totalWithVatRub : amountRub}</td></tr>
+      <tr><td style="padding: 8px 0 0;" colspan="2">Всего наименований 1, на сумму ${showVat ? totalWithVatRub : amountRub} руб.</td></tr>
+      <tr><td style="padding: 16px 0 0;" colspan="2">___________________________________________________</td></tr>
+    </table>
+
+    <table style="width: 100%; max-width: 520px; margin-top: 1rem; font-size: 12pt; border-collapse: collapse;">
+      <tr>
+        <td style="padding: 4px 0; width: 150px;">Руководитель</td>
+        <td style="padding: 4px 0; border-bottom: 1px solid #000; width: 160px;"></td>
+        <td style="padding: 4px 0;">__________________</td>
+      </tr>
+      <tr>
+        <td style="padding: 4px 0;">Бухгалтер</td>
+        <td style="padding: 4px 0; border-bottom: 1px solid #000;"></td>
+        <td style="padding: 4px 0;">__________________</td>
+      </tr>
+    </table>
+  </div>
+
   <script>
     function updatePrintView() {
       var num = document.getElementById('invNum').value.trim() || '—';
       var svc = document.getElementById('serviceName').value.trim() || '—';
       document.getElementById('invNumDisp').textContent = num;
       document.getElementById('serviceDisp').textContent = svc;
+      var blankTitle = document.getElementById('invNumTitleBlank');
+      var blankSvc = document.getElementById('serviceDispBlank');
+      if (blankTitle) blankTitle.textContent = num;
+      if (blankSvc) blankSvc.textContent = svc;
     }
     document.getElementById('invNum').addEventListener('input', updatePrintView);
     document.getElementById('invNum').addEventListener('change', updatePrintView);
