@@ -128,11 +128,21 @@ export async function GET(
     ].filter((s) => s !== '—');
 
     let fontPath: string | null = null;
-    try {
-      const p = path.join(process.cwd(), 'public', 'fonts', 'DejaVuSans.ttf');
-      if (fs.existsSync(p)) fontPath = p;
-    } catch {
-      // ignore
+    const cwd = process.cwd();
+    const candidates = [
+      path.join(cwd, 'public', 'fonts', 'DejaVuSans.ttf'),
+      path.join(cwd, '..', 'public', 'fonts', 'DejaVuSans.ttf'),
+      path.join(cwd, '..', '..', 'public', 'fonts', 'DejaVuSans.ttf'),
+    ];
+    for (const p of candidates) {
+      try {
+        if (fs.existsSync(p)) {
+          fontPath = p;
+          break;
+        }
+      } catch {
+        // ignore
+      }
     }
 
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
@@ -187,7 +197,12 @@ export async function GET(
     }
 
     doc.end();
-    const pdfBuffer = await done;
+    const pdfBuffer = await Promise.race([
+      done,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('PDF generation timeout (15s)')), 15000)
+      ),
+    ]);
 
     const safeName = uniqueNum.replace(/[^\w\-.\s]/gi, '-').replace(/\s+/g, '_');
     const filename = `${safeName}.pdf`;
@@ -200,7 +215,12 @@ export async function GET(
       },
     });
   } catch (e: any) {
+    const errMsg = e?.message ?? String(e);
+    const errStack = e?.stack ? String(e.stack).split('\n').slice(0, 3).join(' ') : '';
     console.error('GET invoices/[id]/pdf', e);
-    return NextResponse.json({ error: 'Internal server error', details: e?.message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error', details: errMsg + (errStack ? ' | ' + errStack : '') },
+      { status: 500 }
+    );
   }
 }

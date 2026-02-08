@@ -210,7 +210,8 @@ export async function GET(
               var msg = 'Ошибка загрузки (' + r.status + ')';
               try {
                 var d = JSON.parse(t);
-                if (d.error || d.details) msg = d.error || d.details;
+                if (d.error) msg = d.details ? d.error + ': ' + d.details : d.error;
+                else if (d.details) msg = d.details;
               } catch (_) {}
               throw new Error(msg);
             });
