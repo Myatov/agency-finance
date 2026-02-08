@@ -280,16 +280,11 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
       )}
 
       <ul className="space-y-4">
-        {period.invoices.map((inv) => {
-          const paid = inv.payments.reduce((s, p) => s + Number(p.amount), 0);
-          return (
+        {period.invoices.map((inv) => (
             <li key={inv.id} className="border rounded p-4">
               <div className="flex justify-between items-center flex-wrap gap-2">
                 <span>Счёт {inv.invoiceNumber || inv.id.slice(0, 8)} — {inv.legalEntity.name}: {formatAmount(inv.amount)}</span>
-                <span className="flex items-center gap-2">
-                  <a href={`/api/invoices/${inv.id}/download`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm">Скачать счёт</a>
-                  <span className="text-gray-500">По счёту: {formatAmount(String(paid))}</span>
-                </span>
+                <a href={`/api/invoices/${inv.id}/download`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm">Скачать счёт</a>
               </div>
               {inv.payments.length > 0 && (
                 <ul className="mt-2 text-sm text-gray-600">
@@ -303,8 +298,7 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
               )}
               <p className="mt-1 text-xs text-gray-500">Доходы вносятся через раздел «Доходы»</p>
             </li>
-          );
-        })}
+        ))}
       </ul>
 
       <div className="mt-6 mb-4">
