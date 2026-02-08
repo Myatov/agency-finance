@@ -450,6 +450,7 @@ model Income {
   service         Service      @relation(fields: [serviceId], references: [id])
   workPeriod      WorkPeriod?  @relation(fields: [workPeriodId], references: [id], onDelete: SetNull)
   updater         User?        @relation("IncomeUpdater", fields: [updatedByUserId], references: [id])
+  expensesFromIncome Expense[] @relation("ExpenseFromIncome")
 
   @@index([serviceId])
   @@index([workPeriodId])
@@ -528,6 +529,7 @@ model Expense {
   paymentAt        DateTime     @default(now())
   updatedAt        DateTime?
   updatedByUserId  String?
+  sourceIncomeId   String?      @unique
   costItem         CostItem     @relation(fields: [costItemId], references: [id])
   creator          User         @relation("ExpenseCreator", fields: [createdByUserId], references: [id])
   employee         User?        @relation("ExpenseEmployee", fields: [employeeId], references: [id])
@@ -535,6 +537,7 @@ model Expense {
   site             Site?        @relation(fields: [siteId], references: [id])
   legalEntity      LegalEntity? @relation(fields: [legalEntityId], references: [id])
   updater          User?        @relation("ExpenseUpdater", fields: [updatedByUserId], references: [id])
+  sourceIncome     Income?      @relation("ExpenseFromIncome", fields: [sourceIncomeId], references: [id], onDelete: SetNull)
 
   @@index([costItemId])
   @@index([employeeId])
@@ -544,6 +547,7 @@ model Expense {
   @@index([createdByUserId])
   @@index([paymentAt])
   @@index([createdAt])
+  @@index([sourceIncomeId])
   @@index([createdByUserId, paymentAt])
 }
 

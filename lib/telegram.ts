@@ -128,3 +128,25 @@ export async function notifyExpense(
     console.error('[Telegram] notifyExpense: не удалось отправить в группу', groupId);
   }
 }
+
+/**
+ * Одно уведомление о массовом формировании налоговых расходов (в группу «Расходы»).
+ */
+export async function notifyBulkTaxExpenses(
+  createdCount: number,
+  totalAmountRub: string,
+  legalEntityName: string,
+  creatorName: string
+): Promise<void> {
+  if (!process.env.TELEGRAM_BOT_TOKEN?.trim()) return;
+  const groupId = getExpensesChatId();
+  if (!groupId) return;
+  const text = [
+    'Массовое формирование расходов (налоги с доходов)',
+    `Кто: ${creatorName}`,
+    `Юрлицо: ${legalEntityName}`,
+    `Создано расходов: ${createdCount}`,
+    `Сумма всего: ${totalAmountRub} ₽`,
+  ].join('\n');
+  await sendTelegramMessage(groupId, text);
+}

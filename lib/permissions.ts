@@ -232,6 +232,11 @@ export async function canChangePassword(user: SessionUser, targetUserId?: string
   return targetUserId === user.id;
 }
 
+/** Массовое формирование расходов по налогам с доходов — только владелец и CEO */
+export function canAccessBulkTaxExpenses(user: SessionUser): boolean {
+  return user.roleCode === 'OWNER' || user.roleCode === 'CEO';
+}
+
 export async function getDefaultRoute(user: SessionUser): Promise<string> {
   if (user.roleCode === 'OWNER' || user.roleCode === 'CEO') {
     return '/expenses';
