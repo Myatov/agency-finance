@@ -73,8 +73,9 @@ export default function ReportsList() {
       } else if (activeTab === 'servicesWithoutPeriods') {
         const res = await fetch('/api/reports/services-without-periods');
         if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.error || 'Ошибка загрузки отчета');
+          const errorData = await res.json().catch(() => ({}));
+          const msg = errorData.details || errorData.error || 'Ошибка загрузки отчета';
+          throw new Error(msg);
         }
         const data = await res.json();
         if (!data || !Array.isArray(data.services)) {

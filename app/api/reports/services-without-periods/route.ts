@@ -51,20 +51,18 @@ export async function GET() {
         },
         product: { select: { id: true, name: true } },
       },
-      orderBy: [
-        { site: { title: 'asc' } },
-        { product: { name: 'asc' } },
-      ],
+      orderBy: { site: { title: 'asc' } },
     });
 
     return NextResponse.json({
       services,
       count: services.length,
     });
-  } catch (error) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error fetching services without periods:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: message },
       { status: 500 }
     );
   }
