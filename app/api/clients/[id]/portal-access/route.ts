@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { canEditClient } from '@/lib/permissions';
+import { getPublicOrigin } from '@/lib/utils';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
@@ -31,7 +32,7 @@ export async function GET(
       select: { accessToken: true, createdAt: true, createdBy: { select: { fullName: true } } },
     });
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    const baseUrl = getPublicOrigin(request) || request.nextUrl.origin;
     const portalLink = access
       ? `${baseUrl}/cabinet/enter/${access.accessToken}`
       : null;
@@ -76,7 +77,7 @@ export async function POST(
     if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 });
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    const baseUrl = getPublicOrigin(request) || request.nextUrl.origin;
 
     const existing = await prisma.clientPortalAccess.findUnique({
       where: { clientId },
