@@ -613,16 +613,16 @@ export default function ExpensesList() {
                     {formatAmount(expense.amount)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {expense.costItem.costCategory?.name ?? '-'}
+                    {expense.costItem?.costCategory?.name ?? '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {expense.costItem.title}
+                    {expense.costItem?.title ?? '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {expense.employee?.fullName || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {expense.employee?.department.name || '-'}
+                    {expense.employee?.department?.name || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {expense.site?.title || '-'}
@@ -631,16 +631,16 @@ export default function ExpensesList() {
                     {expense.legalEntity?.name ?? '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {expense.service?.product.name || '-'}
+                    {expense.service?.product?.name || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {expense.site?.client.name || '-'}
+                    {expense.site?.client?.name || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {expense.creator.fullName}
+                    {expense.creator?.fullName ?? '-'}
                     {expense.updatedAt && expense.updater && (
                       <div className="text-xs text-gray-400">
-                        Изменено: {expense.updater.fullName}
+                        Изменено: {expense.updater?.fullName ?? '-'}
                       </div>
                     )}
                   </td>
@@ -648,7 +648,7 @@ export default function ExpensesList() {
                     {expense.comment || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {(user && (user.id === expense.creator.id || user.roleCode === 'OWNER' || user.roleCode === 'CEO')) && (
+                    {(user && (user.id === expense.creator?.id || user.roleCode === 'OWNER' || user.roleCode === 'CEO')) && (
                       <>
                         {(user.roleCode === 'OWNER' || user.roleCode === 'CEO') && (
                           <button

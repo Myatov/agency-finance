@@ -48,12 +48,6 @@ export function getExpensesChatId(): string | null {
   return process.env.TELEGRAM_EXPENSES_CHAT_ID?.trim() || null;
 }
 
-/** Личный чат для дублирования уведомлений о расходах (по умолчанию 135962813). */
-export function getPersonalChatId(): string | null {
-  const id = process.env.TELEGRAM_PERSONAL_CHAT_ID?.trim();
-  if (id) return id;
-  return '135962813'; // дублировать лично по умолчанию
-}
 
 /** Данные расхода для уведомления (поля из prisma include). */
 export type ExpenseNotifyPayload = {
@@ -116,7 +110,7 @@ export function formatExpenseNotification(
 }
 
 /**
- * Отправляет уведомление о расходе в группу «Расходы» и дублирует в личный чат.
+ * Отправляет уведомление о расходе только в группу «Расходы».
  */
 export async function notifyExpense(
   payload: ExpenseNotifyPayload,
@@ -126,20 +120,11 @@ export async function notifyExpense(
     console.warn('[Telegram] notifyExpense: TELEGRAM_BOT_TOKEN не задан, пропуск');
     return;
   }
-  const text = formatExpenseNotification(payload, isCorrection);
   const groupId = getExpensesChatId();
-  const personalId = getPersonalChatId();
-  const results: { chatId: string; ok: boolean }[] = [];
-  if (groupId) {
-    const ok = await sendTelegramMessage(groupId, text);
-    results.push({ chatId: `group:${groupId}`, ok });
-  }
-  if (personalId) {
-    const ok = await sendTelegramMessage(personalId, text);
-    results.push({ chatId: `personal:${personalId}`, ok });
-  }
-  const failed = results.filter((r) => !r.ok);
-  if (failed.length > 0) {
-    console.error('[Telegram] notifyExpense: не удалось отправить:', failed);
+  if (!groupId) return;
+  const text = formatExpenseNotification(payload, isCorrection);
+  const ok = await sendTelegramMessage(groupId, text);
+  if (!ok) {
+    console.error('[Telegram] notifyExpense: не удалось отправить в группу', groupId);
   }
 }
