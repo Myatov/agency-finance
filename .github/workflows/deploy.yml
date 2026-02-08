@@ -17,14 +17,14 @@ jobs:
     steps:
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@master
+        env:
+          ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_CONTENT }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           envs: ENV_FILE_CONTENT
-        env:
-          ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_CONTENT }}
-        script: |
+          script: |
             cd /var/www/agency-finance
             if [ -n "$ENV_FILE_CONTENT" ]; then
               echo "$ENV_FILE_CONTENT" | base64 -d > .env
