@@ -2,9 +2,9 @@
 const path = require('path');
 
 const nextConfig = {
-  // Не бандлить pdfkit: в бандле __dirname = папка route, и PDFKit не находит data/Helvetica.afm
-  serverExternalPackages: ['pdfkit'],
   experimental: {
+    // Next 14: не бандлить pdfkit, иначе в бандле __dirname = папка route и нет data/Helvetica.afm
+    serverComponentsExternalPackages: ['pdfkit'],
     serverActions: {
       bodySizeLimit: '100mb',
     },

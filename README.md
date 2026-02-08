@@ -35,6 +35,23 @@ npm run db:push-periods
 npm run db:seed
 ```
 
+**После деплоя (push в main):**  
+Деплой идёт автоматически через GitHub Actions: на VPS выполняется `git pull`, `npm ci`, `npm run db:generate`, **полная пересборка** (`rm -rf .next` и `npm run build`) и перезапуск PM2. Отдельно что-то делать не нужно.
+
+**Если после деплоя осталась ошибка (например PDF: «Helvetica.afm» или что-то ещё):**  
+Зайти на сервер по SSH и один раз принудительно пересобрать и перезапустить (из директории проекта, обычно `/var/www/agency-finance`):
+
+```bash
+cd /var/www/agency-finance
+git pull origin main
+rm -rf .next && npm run build
+pm2 restart agency-finance --update-env
+```
+
+Я (бот) не имею доступа к вашему серверу — эти команды нужно выполнить вам по SSH.
+
+---
+
 **Обновление БД на сервере** (если в таблице `CostItem` уже есть данные со старым полем `category`):  
 сначала выполните миграцию, затем примените схему и при необходимости сид:
 
