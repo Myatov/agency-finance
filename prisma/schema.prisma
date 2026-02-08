@@ -82,6 +82,7 @@ model User {
   periodReports       WorkPeriodReport[]   @relation("PeriodReportAM")
   createdInvoices     Invoice[]            @relation("InvoiceCreator")
   createdPayments     Payment[]             @relation("PaymentCreator")
+  createdClientPortals ClientPortalAccess[] @relation("ClientPortalCreator")
 
   @@index([departmentId])
   @@index([roleId])
@@ -192,11 +193,27 @@ model Client {
   closeoutPackages  CloseoutPackage[]
   closeoutDocuments CloseoutDocument[]
   clientContacts    ClientContact[]
+  portalAccess      ClientPortalAccess?
 
   @@index([sellerEmployeeId])
   @@index([legalEntityId])
   @@index([agentId])
   @@index([sellerEmployeeId, isSystem])
+}
+
+model ClientPortalAccess {
+  id              String   @id @default(uuid())
+  clientId        String   @unique
+  passwordHash    String
+  accessToken     String   @unique
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdBy       User     @relation("ClientPortalCreator", fields: [createdByUserId], references: [id])
+
+  @@index([accessToken])
+  @@index([clientId])
 }
 
 enum ContactRoleAtClient {

@@ -99,3 +99,48 @@ export async function clearSession() {
   const cookieStore = await cookies();
   cookieStore.delete('session');
 }
+
+// ——— Client portal (link + password) ———
+const CLIENT_PORTAL_COOKIE = 'clientPortal';
+
+export async function getClientPortalSession(): Promise<{ clientId: string } | null> {
+  const cookieStore = await cookies();
+  const clientId = cookieStore.get(CLIENT_PORTAL_COOKIE)?.value;
+  if (!clientId) return null;
+  const exists = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { id: true },
+  });
+  return exists ? { clientId: exists.id } : null;
+}
+
+export async function setClientPortalSession(clientId: string) {
+  const cookieStore = await cookies();
+  const useSecure =
+    process.env.SECURE_COOKIES === 'true' ||
+    (process.env.NODE_ENV === 'production' && process.env.SECURE_COOKIES !== 'false');
+  cookieStore.set(CLIENT_PORTAL_COOKIE, clientId, {
+    httpOnly: true,
+    secure: useSecure,
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 7,
+  });
+}
+
+export async function clearClientPortalSession() {
+  const cookieStore = await cookies();
+  cookieStore.delete(CLIENT_PORTAL_COOKIE);
+}
+
+export async function loginClientPortal(
+  accessToken: string,
+  password: string
+): Promise<{ clientId: string } | null> {
+  const access = await prisma.clientPortalAccess.findUnique({
+    where: { accessToken: accessToken.trim() },
+    select: { clientId: true, passwordHash: true },
+  });
+  if (!access) return null;
+  const valid = await verifyPassword(password, access.passwordHash);
+  return valid ? { clientId: access.clientId } : null;
+}

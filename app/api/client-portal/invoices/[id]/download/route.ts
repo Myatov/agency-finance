@@ -1,0 +1,221 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getClientPortalSession } from '@/lib/auth';
+import { prisma } from '@/lib/db';
+
+function toRuDate(d: Date): string {
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}.${month}.${year}`;
+}
+
+function escapeHtml(s: string): string {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function line(s: string | null | undefined): string {
+  return s != null && s !== '' ? escapeHtml(s) : '—';
+}
+
+function rublesInWords(amountRub: string): string {
+  const num = parseFloat(amountRub.replace(',', '.'));
+  if (!Number.isFinite(num) || num < 0) return 'Ноль рублей 00 копеек';
+  const intPart = Math.floor(num);
+  const kopecks = Math.round((num - intPart) * 100) % 100;
+  const kStr = String(kopecks).padStart(2, '0');
+  const ones = ['', 'один', 'два', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять'];
+  const teens = ['десять', 'одиннадцать', 'двенадцать', 'тринадцать', 'четырнадцать', 'пятнадцать', 'шестнадцать', 'семнадцать', 'восемнадцать', 'девятнадцать'];
+  const tens = ['', '', 'двадцать', 'тридцать', 'сорок', 'пятьдесят', 'шестьдесят', 'семьдесят', 'восемьдесят', 'девяносто'];
+  const hundreds = ['', 'сто', 'двести', 'триста', 'четыреста', 'пятьсот', 'шестьсот', 'семьсот', 'восемьсот', 'девятьсот'];
+  const plural = (n: number, one: string, few: string, many: string) => {
+    const mod10 = n % 10, mod100 = n % 100;
+    if (mod100 >= 11 && mod100 <= 19) return many;
+    if (mod10 === 1) return one;
+    if (mod10 >= 2 && mod10 <= 4) return few;
+    return many;
+  };
+  const toWords = (n: number, female = false): string => {
+    if (n === 0) return 'ноль';
+    const o = female ? ['', 'одна', 'две', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять'] : ones;
+    let s = '';
+    const h = Math.floor(n / 100) % 10, t = Math.floor(n / 10) % 10, d = n % 10;
+    if (h > 0) s += hundreds[h] + ' ';
+    if (t === 1) return (s + teens[d]).trim();
+    if (t > 0) s += tens[t] + ' ';
+    s += (female && (d === 1 || d === 2) ? o[d] : ones[d]);
+    return s.trim();
+  };
+  let rubPart = '';
+  if (intPart >= 1000000) {
+    const m = Math.floor(intPart / 1000000);
+    rubPart += toWords(m) + ' ' + plural(m, 'миллион', 'миллиона', 'миллионов') + ' ';
+  }
+  const rest = intPart % 1000000;
+  if (rest >= 1000) {
+    const th = Math.floor(rest / 1000);
+    const thWords = th % 100 >= 10 && th % 100 < 20 ? toWords(th) : toWords(th, true);
+    rubPart += thWords + ' ' + plural(th, 'тысяча', 'тысячи', 'тысяч') + ' ';
+  }
+  const low = intPart % 1000;
+  if (low > 0 || rubPart === '') rubPart += toWords(low);
+  rubPart = rubPart.trim();
+  const rubWord = plural(intPart, 'рубль', 'рубля', 'рублей');
+  return (rubPart ? rubPart.charAt(0).toUpperCase() + rubPart.slice(1) : 'Ноль') + ' ' + rubWord + ' ' + kStr + ' копеек';
+}
+
+const invoiceInclude = {
+  workPeriod: {
+    include: {
+      service: {
+        include: {
+          site: {
+            include: {
+              client: {
+                select: {
+                  name: true,
+                  legalEntityName: true,
+                  legalAddress: true,
+                  inn: true,
+                  kpp: true,
+                  ogrn: true,
+                  rs: true,
+                  bankName: true,
+                  bik: true,
+                  ks: true,
+                  paymentRequisites: true,
+                  contacts: true,
+                },
+              },
+            },
+          },
+          product: { select: { name: true } },
+        },
+      },
+    },
+  },
+  legalEntity: true,
+} as const;
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getClientPortalSession();
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { id } = await params;
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        id,
+        workPeriod: { service: { site: { clientId: session.clientId } } },
+      },
+      include: invoiceInclude,
+    });
+    if (!invoice) return NextResponse.json({ error: 'Счёт не найден' }, { status: 404 });
+
+    const amountBase = Number(invoice.amount) / 100;
+    const amountRub = amountBase.toFixed(2);
+    const legal = invoice.legalEntity;
+    const vatPercent = legal.vatPercent != null ? Number(legal.vatPercent) : 0;
+    const showVat = vatPercent > 0;
+    const vatAmount = showVat ? amountBase * (vatPercent / 100) : 0;
+    const totalWithVat = showVat ? amountBase + vatAmount : 0;
+    const vatRub = vatAmount.toFixed(2);
+    const totalWithVatRub = totalWithVat.toFixed(2);
+    const dateFrom = invoice.workPeriod.dateFrom;
+    const dateTo = invoice.workPeriod.dateTo;
+    const periodRu = `${toRuDate(dateFrom)} — ${toRuDate(dateTo)}`;
+    const client = invoice.workPeriod.service.site.client;
+    const siteTitle = invoice.workPeriod.service.site.title;
+    const productName = invoice.workPeriod.service.product.name;
+    const uniqueNum = invoice.invoiceNumber?.trim() || `INV-${dateFrom.toISOString().slice(0, 10).replace(/-/g, '')}-${id.slice(-6)}`;
+    const invoiceDateRu = toRuDate(invoice.createdAt);
+    const totalForWords = showVat ? totalWithVatRub : amountRub;
+    const amountWords = rublesInWords(totalForWords);
+
+    const payerLines = [
+      line(client.name || client.legalEntityName),
+      line(client.legalAddress),
+      [client.inn, client.kpp].filter(Boolean).join(', ') || '—',
+      client.ogrn ? `ОГРН ${client.ogrn}` : '—',
+      client.rs ? `Р/с ${client.rs}` : '—',
+      line(client.bankName),
+      [client.bik, client.ks].filter(Boolean).join(', ') || '—',
+      line(client.paymentRequisites),
+      line(client.contacts),
+    ].filter((s) => s !== '—');
+    const recipientLines = [
+      line(legal.name),
+      line(legal.legalAddress),
+      [legal.inn, legal.kpp].filter(Boolean).join(', ') || '—',
+      legal.ogrn ? `ОГРН ${legal.ogrn}` : '—',
+      legal.rs ? `Р/с ${legal.rs}` : '—',
+      line(legal.bankName),
+      [legal.bik, legal.ks].filter(Boolean).join(', ') || '—',
+      line(legal.paymentInfo),
+      line(legal.generalDirector),
+      line(legal.activityBasis),
+    ].filter((s) => s !== '—');
+    const payerBlock = payerLines.length ? payerLines.map((s) => `<div>${s}</div>`).join('') : '<div>—</div>';
+    const recipientBlock = recipientLines.length ? recipientLines.map((s) => `<div>${s}</div>`).join('') : '<div>—</div>';
+
+    const html = `<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Счёт</title>
+<style>
+body{font-family:sans-serif;max-width:700px;margin:1rem auto;padding:1rem;}
+.no-print{margin-bottom:1rem;padding:1rem;background:#f5f5f5;border-radius:8px;}
+@media print{.no-print{display:none!important;}}
+</style></head>
+<body>
+<div class="no-print">
+  <p style="color:#555;font-size:0.875rem;">Нажмите кнопку для печати или сохранения в PDF.</p>
+  <button type="button" id="btnPdf" style="padding:0.5rem 1rem;background:#0d9488;color:white;border:none;border-radius:6px;cursor:pointer;">Печать счёта</button>
+</div>
+<div id="printAreaBlank">
+  <p style="margin:1rem 0 0.5rem;font-size:16px;font-weight:bold;">Счет № ${escapeHtml(uniqueNum)} от ${escapeHtml(invoiceDateRu)} г.</p>
+  <table style="width:100%;max-width:681px;border-collapse:collapse;font-size:12pt;margin:0.5rem 0 1rem;">
+    <tr><td style="padding:4px 0;width:85px;">Поставщик:</td><td><b>${escapeHtml((legal.fullName ?? legal.name) ?? '')}</b></td></tr>
+    <tr><td style="padding:4px 0;">Покупатель:</td><td><b>${escapeHtml(client.legalEntityName ?? '')}</b></td></tr>
+  </table>
+  <table style="width:100%;max-width:684px;border-collapse:collapse;border:1.5px solid #000;font-size:10pt;">
+    <tr style="background:#f5f5f5;">
+      <th style="border:1px solid #000;padding:6px;text-align:center;width:30px;">№</th>
+      <th style="border:1px solid #000;padding:6px;">Наименование</th>
+      <th style="border:1px solid #000;padding:6px;text-align:center;width:50px;">Кол-во</th>
+      <th style="border:1px solid #000;padding:6px;text-align:center;width:45px;">Ед</th>
+      <th style="border:1px solid #000;padding:6px;text-align:center;width:70px;">Цена</th>
+      <th style="border:1px solid #000;padding:6px;text-align:center;width:75px;">Сумма</th>
+    </tr>
+    <tr>
+      <td style="border:1px solid #000;padding:6px;text-align:center;">1</td>
+      <td style="border:1px solid #000;padding:6px;">${escapeHtml(productName + ' ' + siteTitle)}</td>
+      <td style="border:1px solid #000;padding:6px;text-align:right;">1</td>
+      <td style="border:1px solid #000;padding:6px;text-align:center;">усл.</td>
+      <td style="border:1px solid #000;padding:6px;text-align:right;">${amountRub}</td>
+      <td style="border:1px solid #000;padding:6px;text-align:right;">${amountRub}</td>
+    </tr>
+  </table>
+  <table style="width:100%;max-width:684px;border-collapse:collapse;font-size:12pt;margin-top:0;">
+    <tr><td style="padding:4px 0;text-align:right;"><b>Итого:</b></td><td style="padding:4px 0;text-align:right;width:120px;">${amountRub}</td></tr>
+    ${showVat ? `<tr><td style="padding:4px 0;text-align:right;"><b>В т.ч. НДС:</b></td><td style="padding:4px 0;text-align:right;">${vatRub}</td></tr>` : ''}
+    <tr><td style="padding:4px 0;text-align:right;"><b>Всего к оплате:</b></td><td style="padding:4px 0;text-align:right;">${showVat ? totalWithVatRub : amountRub}</td></tr>
+    <tr><td style="padding:8px 0 0;" colspan="2"><span>${escapeHtml(amountWords)}</span></td></tr>
+  </table>
+</div>
+<script>document.getElementById('btnPdf').onclick=function(){window.print();};</script>
+</body>
+</html>`;
+
+    return new NextResponse(html, {
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Disposition': `inline; filename="invoice-${uniqueNum}.html"`,
+      },
+    });
+  } catch (e: unknown) {
+    console.error('GET client-portal invoices/[id]/download', e);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import ClientModal from './ClientModal';
 import ClientDocumentsModal from './ClientDocumentsModal';
+import ClientPortalModal from './ClientPortalModal';
 
 interface Client {
   id: string;
@@ -56,6 +57,7 @@ export default function ClientsList() {
   const [showModal, setShowModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [documentsClient, setDocumentsClient] = useState<Client | null>(null);
+  const [portalClient, setPortalClient] = useState<Client | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [canAdd, setCanAdd] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
@@ -278,6 +280,14 @@ export default function ClientsList() {
                       </button>
                       {canEdit && (
                         <button
+                          onClick={() => setPortalClient(client)}
+                          className="text-teal-600 hover:text-teal-900 mr-4"
+                        >
+                          Личный кабинет
+                        </button>
+                      )}
+                      {canEdit && (
+                        <button
                           onClick={() => handleEdit(client)}
                           className="text-blue-600 hover:text-blue-900 mr-4"
                         >
@@ -309,6 +319,14 @@ export default function ClientsList() {
           clientId={documentsClient.id}
           clientName={documentsClient.name}
           onClose={() => setDocumentsClient(null)}
+        />
+      )}
+
+      {portalClient && (
+        <ClientPortalModal
+          clientId={portalClient.id}
+          clientName={portalClient.name}
+          onClose={() => setPortalClient(null)}
         />
       )}
 
