@@ -157,7 +157,7 @@ export async function GET(
     </p>
     <div class="instruction-block" style="margin-top: 1rem; padding: 0.75rem; background: #fefce8; border: 1px solid #e7e5e4; border-radius: 6px; font-size: 0.8rem; color: #444; max-width: 700px;">
       <strong>Внутренняя инструкция по формированию счёта</strong> (можно править в docs/INVOICE_FORM_RULES.md):<br/>
-      Структура PDF: заголовок «Счёт № …»; реквизиты плательщика (из карточки Клиента); реквизиты получателя (из справочника Юрлица); Сайт, Услуга (из полей выше), Период (ДД.ММ.ГГГГ), Сумма (руб); при НДС юрлица &gt; 0 — НДС (руб) и Сумма с НДС (руб). Имя файла при скачивании: № счета.pdf.
+      PDF строится по бланку <code>public/templates/schet-na-oplatu-blank-dlya-ip.pdf</code>: на него наносятся номер счёта, дата, плательщик, получатель, сайт, услуга, период, сумма (и при НДС — НДС и сумма с НДС). Координаты текста можно подстроить в <code>app/api/invoices/[id]/pdf/route.ts</code> (объект LAYOUT). Имя файла при скачивании: № счета.pdf.
     </div>
   </div>
 

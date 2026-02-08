@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { canAccessServiceForPeriods } from '@/lib/permissions';
-import PDFDocument from 'pdfkit';
+import { PDFDocument, rgb } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
 import path from 'path';
 import fs from 'fs';
 
 export const runtime = 'nodejs';
 
-/** Пути к public/fonts/DejaVuSans.ttf (cwd и от __dirname для бандла .next/server/...). */
+/** Пути к public/fonts/DejaVuSans.ttf */
 function getFontCandidates(): string[] {
   const cwd = process.cwd();
   const out: string[] = [
@@ -24,6 +25,23 @@ function getFontCandidates(): string[] {
   return out;
 }
 
+/** Пути к public/templates/schet-na-oplatu-blank-dlya-ip.pdf */
+function getTemplateCandidates(): string[] {
+  const cwd = process.cwd();
+  const name = 'schet-na-oplatu-blank-dlya-ip.pdf';
+  const out: string[] = [
+    path.join(cwd, 'public', 'templates', name),
+    path.join(cwd, '..', 'public', 'templates', name),
+    path.join(cwd, '..', '..', 'public', 'templates', name),
+  ];
+  if (typeof __dirname !== 'undefined') {
+    const dir = __dirname;
+    out.push(path.join(dir, '..', '..', '..', '..', '..', '..', '..', 'public', 'templates', name));
+    out.push(path.join(dir, '..', '..', '..', '..', '..', '..', '..', '..', 'public', 'templates', name));
+  }
+  return out;
+}
+
 function toRuDate(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -35,10 +53,27 @@ function line(s: string | null | undefined): string {
   return s != null && s !== '' ? String(s) : '—';
 }
 
-/** Строка, безопасная для стандартного шрифта PDF (без кириллицы): заменяем символы вне Latin-1 на "?". */
-function safeForDefaultFont(s: string): string {
-  return String(s).replace(/[^\x00-\xFF]/g, '?');
-}
+/** Координаты для наложения текста на шаблон 612×792. Y — от нижнего края страницы (в pdf-lib ось Y вверх). При необходимости подстройте под ваш бланк. */
+const LAYOUT = {
+  fontSize: { title: 11, body: 9 },
+  lineHeight: 13,
+  left: 50,
+  rightNum: 420,
+  y: {
+    number: 755,
+    date: 740,
+    payerTitle: 705,
+    payerLines: 690,
+    recipientTitle: 560,
+    recipientLines: 545,
+    site: 380,
+    service: 365,
+    period: 350,
+    amount: 335,
+    vat: 320,
+    totalWithVat: 305,
+  },
+};
 
 export async function GET(
   request: NextRequest,
@@ -117,6 +152,7 @@ export async function GET(
       overrideNumber ||
       invoice.invoiceNumber?.trim() ||
       `INV-${dateFrom.toISOString().slice(0, 10).replace(/-/g, '')}-${id.slice(-6)}`;
+    const dateStr = toRuDate(new Date());
 
     const payerLines = [
       line(client.name || client.legalEntityName),
@@ -154,66 +190,82 @@ export async function GET(
         // ignore
       }
     }
-
     if (!fontPath) {
       const tried = getFontCandidates().join(', ');
       return NextResponse.json(
-        { error: 'Шрифт не найден', details: `DejaVuSans.ttf не найден. Проверенные пути: ${tried}. CWD: ${process.cwd()}` },
+        { error: 'Шрифт не найден', details: `DejaVuSans.ttf не найден. Пути: ${tried}. CWD: ${process.cwd()}` },
         { status: 500 }
       );
     }
 
-    const doc = new PDFDocument({ margin: 50, size: 'A4' });
-    const chunks: Buffer[] = [];
-    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-    const done = new Promise<Buffer>((resolve, reject) => {
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-      doc.on('error', (err) => reject(err));
-    });
-
-    doc.registerFont('Main', fontPath);
-    doc.font('Main');
-    const useUnicodeFont = true;
-
-    const pdfText = (str: string) => {
-      doc.text(useUnicodeFont ? str : safeForDefaultFont(str), { lineBreak: true });
-    };
-    const pdfTextInline = (label: string, value: string) => {
-      doc.text(useUnicodeFont ? label : safeForDefaultFont(label), { continued: true });
-      doc.text(' ' + (useUnicodeFont ? value : safeForDefaultFont(value)));
-    };
-
-    doc.fontSize(16);
-    pdfText(`Счёт № ${uniqueNum}`);
-    doc.moveDown(0.5);
-
-    doc.fontSize(10).text(useUnicodeFont ? 'Реквизиты плательщика (клиент)' : 'Rekvizity platelshchika (klient)', { underline: true });
-    doc.moveDown(0.3);
-    payerLines.forEach((s) => doc.fontSize(9).text(useUnicodeFont ? s : safeForDefaultFont(s), { lineBreak: true }));
-    doc.moveDown(0.5);
-
-    doc.fontSize(10).text(useUnicodeFont ? 'Реквизиты получателя (юрлицо)' : 'Rekvizity poluchatelya (yurlitso)', { underline: true });
-    doc.moveDown(0.3);
-    recipientLines.forEach((s) => doc.fontSize(9).text(useUnicodeFont ? s : safeForDefaultFont(s), { lineBreak: true }));
-    doc.moveDown(0.5);
-
-    doc.fontSize(10);
-    pdfTextInline('Сайт:', siteTitle);
-    pdfTextInline('Услуга:', productName);
-    pdfTextInline('Период:', periodRu);
-    pdfTextInline('Сумма (руб):', amountRub);
-    if (showVat) {
-      pdfTextInline(useUnicodeFont ? 'НДС (руб):' : 'NDS (rub):', vatRub);
-      pdfTextInline(useUnicodeFont ? 'Сумма с НДС (руб):' : 'Summa s NDS (rub):', totalWithVatRub);
+    let templatePath: string | null = null;
+    for (const p of getTemplateCandidates()) {
+      try {
+        if (fs.existsSync(p)) {
+          templatePath = p;
+          break;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    if (!templatePath) {
+      const tried = getTemplateCandidates().join(', ');
+      return NextResponse.json(
+        { error: 'Шаблон счёта не найден', details: `Файл schet-na-oplatu-blank-dlya-ip.pdf не найден. Пути: ${tried}. CWD: ${process.cwd()}` },
+        { status: 500 }
+      );
     }
 
-    doc.end();
-    const pdfBuffer = await Promise.race([
-      done,
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('PDF generation timeout (15s)')), 15000)
-      ),
-    ]);
+    const templateBytes = fs.readFileSync(templatePath);
+    const pdfDoc = await PDFDocument.load(templateBytes);
+    pdfDoc.registerFontkit(fontkit);
+    const fontBytes = new Uint8Array(fs.readFileSync(fontPath));
+    const font = await pdfDoc.embedFont(fontBytes);
+    const pages = pdfDoc.getPages();
+    const page = pages[0];
+    const black = rgb(0, 0, 0);
+    const fsBody = LAYOUT.fontSize.body;
+    const fsTitle = LAYOUT.fontSize.title;
+    const lh = LAYOUT.lineHeight;
+    const left = LAYOUT.left;
+    const rightNum = LAYOUT.rightNum;
+
+    const draw = (text: string, x: number, y: number, size: number = fsBody) => {
+      page.drawText(text, { x, y, size, font, color: black });
+    };
+
+    // Номер и дата (справа вверху). Y в pdf-lib — от нижнего края.
+    draw(`Счёт № ${uniqueNum}`, rightNum, LAYOUT.y.number, fsTitle);
+    draw(`от ${dateStr}`, rightNum, LAYOUT.y.date);
+
+    // Плательщик
+    draw('Плательщик:', left, LAYOUT.y.payerTitle, fsTitle);
+    let y = LAYOUT.y.payerLines;
+    for (const s of payerLines) {
+      draw(s, left, y);
+      y -= lh;
+    }
+
+    // Получатель
+    draw('Получатель:', left, LAYOUT.y.recipientTitle, fsTitle);
+    y = LAYOUT.y.recipientLines;
+    for (const s of recipientLines) {
+      draw(s, left, y);
+      y -= lh;
+    }
+
+    // Услуга, период, сумма
+    draw(`Сайт: ${siteTitle}`, left, LAYOUT.y.site);
+    draw(`Услуга: ${productName}`, left, LAYOUT.y.service);
+    draw(`Период: ${periodRu}`, left, LAYOUT.y.period);
+    draw(`Сумма (руб): ${amountRub}`, left, LAYOUT.y.amount);
+    if (showVat) {
+      draw(`НДС (руб): ${vatRub}`, left, LAYOUT.y.vat);
+      draw(`Сумма с НДС (руб): ${totalWithVatRub}`, left, LAYOUT.y.totalWithVat);
+    }
+
+    const pdfBuffer = await pdfDoc.save();
 
     const safeName = uniqueNum.replace(/[^\w\-.\s]/gi, '-').replace(/\s+/g, '_');
     const filename = `${safeName}.pdf`;
@@ -225,9 +277,10 @@ export async function GET(
         'Content-Length': String(pdfBuffer.length),
       },
     });
-  } catch (e: any) {
-    const errMsg = e?.message ?? String(e);
-    const errStack = e?.stack ? String(e.stack).split('\n').slice(0, 3).join(' ') : '';
+  } catch (e: unknown) {
+    const err = e as Error;
+    const errMsg = err?.message ?? String(e);
+    const errStack = err?.stack ? String(err.stack).split('\n').slice(0, 3).join(' ') : '';
     console.error('GET invoices/[id]/pdf', e);
     return NextResponse.json(
       { error: 'Internal server error', details: errMsg + (errStack ? ' | ' + errStack : '') },
