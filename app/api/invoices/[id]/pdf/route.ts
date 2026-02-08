@@ -19,6 +19,11 @@ function line(s: string | null | undefined): string {
   return s != null && s !== '' ? String(s) : '—';
 }
 
+/** Строка, безопасная для стандартного шрифта PDF (без кириллицы): заменяем символы вне Latin-1 на "?". */
+function safeForDefaultFont(s: string): string {
+  return String(s).replace(/[^\x00-\xFF]/g, '?');
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -133,45 +138,52 @@ export async function GET(
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-    const done = new Promise<Buffer>((resolve) => {
+    const done = new Promise<Buffer>((resolve, reject) => {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', (err) => reject(err));
     });
 
+    let useUnicodeFont = false;
     if (fontPath) {
       try {
         doc.registerFont('Main', fontPath);
         doc.font('Main');
+        useUnicodeFont = true;
       } catch (fontErr) {
         console.warn('PDF font registration failed, using default:', fontErr);
       }
     }
 
-    doc.fontSize(16).text(`Счёт № ${uniqueNum}`, { continued: false });
+    const pdfText = (str: string) => {
+      doc.text(useUnicodeFont ? str : safeForDefaultFont(str), { lineBreak: true });
+    };
+    const pdfTextInline = (label: string, value: string) => {
+      doc.text(useUnicodeFont ? label : safeForDefaultFont(label), { continued: true });
+      doc.text(' ' + (useUnicodeFont ? value : safeForDefaultFont(value)));
+    };
+
+    doc.fontSize(16);
+    pdfText(`Счёт № ${uniqueNum}`);
     doc.moveDown(0.5);
 
-    doc.fontSize(10).text('Реквизиты плательщика (клиент)', { underline: true });
+    doc.fontSize(10).text(useUnicodeFont ? 'Реквизиты плательщика (клиент)' : 'Rekvizity platelshchika (klient)', { underline: true });
     doc.moveDown(0.3);
-    payerLines.forEach((s) => doc.fontSize(9).text(s, { lineBreak: true }));
+    payerLines.forEach((s) => doc.fontSize(9).text(useUnicodeFont ? s : safeForDefaultFont(s), { lineBreak: true }));
     doc.moveDown(0.5);
 
-    doc.fontSize(10).text('Реквизиты получателя (юрлицо)', { underline: true });
+    doc.fontSize(10).text(useUnicodeFont ? 'Реквизиты получателя (юрлицо)' : 'Rekvizity poluchatelya (yurlitso)', { underline: true });
     doc.moveDown(0.3);
-    recipientLines.forEach((s) => doc.fontSize(9).text(s, { lineBreak: true }));
+    recipientLines.forEach((s) => doc.fontSize(9).text(useUnicodeFont ? s : safeForDefaultFont(s), { lineBreak: true }));
     doc.moveDown(0.5);
 
-    doc.fontSize(10).text('Сайт:', { continued: true });
-    doc.text(` ${siteTitle}`);
-    doc.text('Услуга:', { continued: true });
-    doc.text(` ${productName}`);
-    doc.text('Период:', { continued: true });
-    doc.text(` ${periodRu}`);
-    doc.text('Сумма (руб):', { continued: true });
-    doc.text(` ${amountRub}`);
+    doc.fontSize(10);
+    pdfTextInline('Сайт:', siteTitle);
+    pdfTextInline('Услуга:', productName);
+    pdfTextInline('Период:', periodRu);
+    pdfTextInline('Сумма (руб):', amountRub);
     if (showVat) {
-      doc.text('НДС (руб):', { continued: true });
-      doc.text(` ${vatRub}`);
-      doc.text('Сумма с НДС (руб):', { continued: true });
-      doc.text(` ${totalWithVatRub}`);
+      pdfTextInline(useUnicodeFont ? 'НДС (руб):' : 'NDS (rub):', vatRub);
+      pdfTextInline(useUnicodeFont ? 'Сумма с НДС (руб):' : 'Summa s NDS (rub):', totalWithVatRub);
     }
 
     doc.end();
