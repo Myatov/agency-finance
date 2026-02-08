@@ -46,6 +46,25 @@ bY6qbP9U9Rs5NBi6fQLPAAAAFWRlcGxveUBhZ2VuY3ktZmluYW5jZQ==
 
 **Важно:** копируй весь ключ, включая строки `-----BEGIN` и `-----END`.
 
+**ENV_FILE_CONTENT (файл .env на сервере):**  
+Чтобы при деплое на сервер автоматически подставлялся ваш `.env` (БД, Telegram, секреты), один раз закодируй его в base64 и добавь как секрет:
+
+1. **На Mac** — в терминале в папке проекта выполни:
+   ```bash
+   base64 -i .env | tr -d '\n' | pbcopy
+   ```
+   (результат скопируется в буфер обмена)
+
+2. **На Windows (PowerShell)** — в папке проекта:
+   ```powershell
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes(".env")) | Set-Clipboard
+   ```
+
+3. В GitHub: **Settings** → **Secrets and variables** → **Actions** → **New repository secret**  
+   Имя: `ENV_FILE_CONTENT`, значение: вставь из буфера (то, что скопировал выше).
+
+После этого при каждом деплое на сервер будет записываться актуальный `.env`. Если секрет не задан — существующий `.env` на сервере не трогаем.
+
 ### Шаг 2: Проверка
 
 После добавления секретов при следующем `git push` GitHub Actions автоматически запустится и задеплоит изменения на VPS.
