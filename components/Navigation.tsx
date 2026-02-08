@@ -157,10 +157,7 @@ export default function Navigation() {
     { href: '/payments', label: 'Оплаты' },
     { href: '/reports', label: 'Отчеты' },
   ];
-  const navItems =
-    user.roleCode === 'OWNER' || user.roleCode === 'CEO'
-      ? [...baseNavItems, { href: '/expenses/bulk-tax', label: 'Массовые расходы (налоги)' }]
-      : baseNavItems;
+  const navItems = baseNavItems;
 
   // Add Settings to nav items if there are visible settings items
   if (visibleSettingsItems.length > 0) {

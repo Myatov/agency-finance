@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { formatAmount, formatDate, formatDateTime } from '@/lib/utils';
 import ExpenseModal from './ExpenseModal';
 
@@ -307,14 +308,24 @@ export default function ExpensesList() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Расходы</h1>
-        {canAdd && (
-          <button
-            onClick={() => document.getElementById('quick-add-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg font-medium"
-          >
-            + Добавить расход
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {user && (user.roleCode === 'OWNER' || user.roleCode === 'CEO') && (
+            <Link
+              href="/expenses/bulk-tax"
+              className="px-5 py-3 border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50 text-lg font-medium"
+            >
+              Массовые расходы (налоги)
+            </Link>
+          )}
+          {canAdd && (
+            <button
+              onClick={() => document.getElementById('quick-add-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg font-medium"
+            >
+              + Добавить расход
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Quick Add Form */}

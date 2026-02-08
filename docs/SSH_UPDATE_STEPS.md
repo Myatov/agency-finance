@@ -37,10 +37,10 @@ pwd
 
 ```bash
 cd /var/www/agency-finance
-# Подставьте ЛОГИН, ПАРОЛЬ, ИМЯ_БД из .env
-export PGPASSWORD='ПАРОЛЬ'
-psql -h localhost -U ЛОГИН -d ИМЯ_БД -f prisma/add-expense-source-income-id.sql
-unset PGPASSWORD
+export $(grep -v '^#' .env | xargs)
+# psql не понимает ?schema=public — убираем query-часть из URL
+export DATABASE_URL_PSQL="${DATABASE_URL%%\?*}"
+psql "$DATABASE_URL_PSQL" -f prisma/add-expense-source-income-id.sql
 ```
 
 **Личный кабинет клиента:** если таблица `ClientPortalAccess` ещё не создана:
