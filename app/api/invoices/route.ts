@@ -135,16 +135,32 @@ export async function POST(request: NextRequest) {
 
     // Создание счёта из раздела «Счета» с несколькими периодами (строками)
     if (Array.isArray(linesBody) && linesBody.length > 0) {
-      if (!legalEntity.generateClosingDocs) {
-        return NextResponse.json(
-          { error: 'Для создания счёта из раздела «Счета» выберите юрлицо с галочкой «Формировать закрывающие документы».' },
-          { status: 400 }
-        );
-      }
       const first = linesBody[0];
       const workPeriodIdFirst = first.workPeriodId;
       if (!workPeriodIdFirst) {
         return NextResponse.json({ error: 'У каждой строки должен быть workPeriodId' }, { status: 400 });
+      }
+      const firstPeriod = await prisma.workPeriod.findUnique({
+        where: { id: workPeriodIdFirst },
+        include: { service: { include: { site: { include: { client: { select: { legalEntityId: true } } } } } } },
+      });
+      if (!firstPeriod) return NextResponse.json({ error: 'Период не найден' }, { status: 404 });
+      const clientLegalEntityId = firstPeriod.service.site.client.legalEntityId;
+      if (!clientLegalEntityId) {
+        return NextResponse.json(
+          { error: 'У клиента не указано юрлицо. Укажите юрлицо в карточке клиента.' },
+          { status: 400 }
+        );
+      }
+      const legalEntityFromClient = await prisma.legalEntity.findUnique({
+        where: { id: clientLegalEntityId },
+      });
+      if (!legalEntityFromClient) return NextResponse.json({ error: 'Юрлицо клиента не найдено' }, { status: 404 });
+      if (!legalEntityFromClient.generateClosingDocs) {
+        return NextResponse.json(
+          { error: 'У выбранного юрлица клиента отключено «Формировать закрывающие документы». Включите в разделе Юрлица или выберите другое юрлицо у клиента.' },
+          { status: 400 }
+        );
       }
       let totalAmount = BigInt(0);
       const lineCreates: { workPeriodId: string; amount: bigint; sortOrder: number; serviceNameOverride?: string | null; siteNameOverride?: string | null }[] = [];
@@ -175,6 +191,24 @@ export async function POST(request: NextRequest) {
           siteNameOverride: row.siteNameOverride && String(row.siteNameOverride).trim() ? String(row.siteNameOverride).trim() : null,
         });
       }
+      // Номер счёта: 5–7 знаков, уникальный
+      let nextNumber: string;
+      if (invoiceNumber && String(invoiceNumber).trim()) {
+        nextNumber = String(invoiceNumber).trim();
+      } else {
+        const withNum = await prisma.invoice.findMany({
+          where: { invoiceNumber: { not: null } },
+          select: { invoiceNumber: true },
+          orderBy: { createdAt: 'desc' },
+          take: 500,
+        });
+        const numeric = withNum
+          .map((i) => i.invoiceNumber)
+          .filter((n): n is string => n != null && /^\d{5,7}$/.test(String(n)))
+          .map((n) => parseInt(n, 10));
+        const max = numeric.length ? Math.max(...numeric) : 99999;
+        nextNumber = String(max + 1);
+      }
       const { randomUUID } = await import('crypto');
       const invoiceDate = invoiceDateBody ? new Date(invoiceDateBody) : new Date();
       const invoice = await prisma.invoice.create({
@@ -183,11 +217,11 @@ export async function POST(request: NextRequest) {
           amount: totalAmount,
           coverageFrom: null,
           coverageTo: null,
-          invoiceNumber: invoiceNumber && String(invoiceNumber).trim() ? String(invoiceNumber).trim() : null,
+          invoiceNumber: nextNumber,
           invoiceDate,
-          legalEntityId,
-          generateClosingDocsAtInvoice: legalEntity.generateClosingDocs,
-          closingDocPerInvoiceAtInvoice: legalEntity.closingDocPerInvoice,
+          legalEntityId: clientLegalEntityId,
+          generateClosingDocsAtInvoice: legalEntityFromClient.generateClosingDocs,
+          closingDocPerInvoiceAtInvoice: legalEntityFromClient.closingDocPerInvoice,
           invoiceNotRequired: Boolean(invoiceNotRequired),
           publicToken: randomUUID(),
           createdByUserId: user.id,

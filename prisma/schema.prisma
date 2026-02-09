@@ -428,6 +428,7 @@ model Invoice {
   closingDocPerInvoiceAtInvoice Boolean?
   invoiceNotRequired          Boolean   @default(false)
   publicToken                 String?   @unique
+  pdfGeneratedAt              DateTime? // Когда сформирован и сохранён PDF файл счёта
   createdAt                   DateTime  @default(now())
   createdByUserId             String?
   updatedAt                   DateTime  @updatedAt

@@ -22,6 +22,7 @@ interface Invoice {
   invoiceNumber: string | null;
   invoiceDate: string | null;
   publicToken: string | null;
+  pdfGeneratedAt?: string | null;
   legalEntity: { id: string; name: string };
   payments: Array<{ id: string; amount: string; paidAt: string }>;
   lines?: InvoiceLine[];
@@ -55,12 +56,9 @@ export default function InvoicesList() {
   const [mounted, setMounted] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
   const [newForm, setNewForm] = useState<{
-    legalEntityId: string;
-    invoiceNumber: string;
     invoiceDate: string;
     lines: NewFormLine[];
-  }>({ legalEntityId: '', invoiceNumber: '', invoiceDate: new Date().toISOString().slice(0, 10), lines: [] });
-  const [legalEntities, setLegalEntities] = useState<Array<{ id: string; name: string }>>([]);
+  }>({ invoiceDate: new Date().toISOString().slice(0, 10), lines: [] });
   const [services, setServices] = useState<Array<{ id: string; site: { client: { name: string }; title: string }; product: { name: string }; price: string | null }>>([]);
   const [showAddPeriod, setShowAddPeriod] = useState(false);
   const [addPeriodServiceId, setAddPeriodServiceId] = useState('');
@@ -80,12 +78,6 @@ export default function InvoicesList() {
 
   useEffect(() => {
     load();
-  }, []);
-
-  useEffect(() => {
-    fetch('/api/legal-entities')
-      .then((r) => r.json())
-      .then((d) => setLegalEntities(d.legalEntities ?? []));
   }, []);
 
   const openViewOrPrint = (id: string) => {
@@ -177,8 +169,6 @@ export default function InvoicesList() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          legalEntityId: newForm.legalEntityId,
-          invoiceNumber: newForm.invoiceNumber.trim() || null,
           invoiceDate: newForm.invoiceDate || null,
           lines: newForm.lines.map((l) => ({
             workPeriodId: l.workPeriodId,
@@ -194,7 +184,7 @@ export default function InvoicesList() {
         return;
       }
       setShowNewForm(false);
-      setNewForm({ legalEntityId: '', invoiceNumber: '', invoiceDate: new Date().toISOString().slice(0, 10), lines: [] });
+      setNewForm({ invoiceDate: new Date().toISOString().slice(0, 10), lines: [] });
       load();
       if (data.invoice?.id) openViewOrPrint(data.invoice.id);
     } finally {
@@ -233,6 +223,43 @@ export default function InvoicesList() {
     load();
   };
 
+  const handleRemoveLineFromInvoice = async (lineId: string) => {
+    if (!editingInvoice) return;
+    const isOnly = (editingInvoice.lines?.length ?? 0) <= 1;
+    if (isOnly && !confirm('В счёте один период. Счёт будет удалён. Продолжить?')) return;
+    const res = await fetch(`/api/invoices/${editingInvoice.id}/lines/${lineId}`, { method: 'DELETE' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(data.error || 'Ошибка удаления');
+      return;
+    }
+    if (data.deletedInvoice) {
+      setEditingInvoice(null);
+      setEditForm(null);
+      load();
+      return;
+    }
+    const fullRes = await fetch(`/api/invoices/${editingInvoice.id}`);
+    const fullData = await fullRes.json();
+    if (fullRes.ok && fullData.invoice) {
+      const full = fullData.invoice as Invoice & { invoiceDate?: string; lines?: InvoiceLine[] };
+      setEditingInvoice(full);
+      setEditForm({
+        invoiceNumber: full.invoiceNumber ?? '',
+        invoiceDate: full.invoiceDate ? String(full.invoiceDate).slice(0, 10) : '',
+        lines: (full.lines ?? []).map((l) => ({
+          id: l.id,
+          serviceNameOverride: l.serviceNameOverride ?? '',
+          siteNameOverride: l.siteNameOverride ?? '',
+        })),
+      });
+    } else {
+      load();
+      setEditingInvoice(null);
+      setEditForm(null);
+    }
+  };
+
   const clientName = (inv: Invoice) =>
     inv.workPeriod?.service?.site?.client?.name ?? inv.lines?.[0]?.workPeriod?.service?.site?.client?.name ?? '—';
 
@@ -252,7 +279,7 @@ export default function InvoicesList() {
           onClick={() => {
             setShowNewForm(true);
             loadServices();
-            setNewForm((prev) => ({ ...prev, invoiceDate: new Date().toISOString().slice(0, 10) }));
+            setNewForm((prev) => ({ ...prev, invoiceDate: new Date().toISOString().slice(0, 10), lines: [] }));
           }}
           className="px-4 py-2 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
         >
@@ -291,21 +318,14 @@ export default function InvoicesList() {
                   >
                     Просмотр счёта
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => openPrint(inv.id)}
-                    className="px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
-                  >
-                    Печать счёта
-                  </button>
-                  {inv.publicToken && baseUrl && (
-                    <span className="inline-flex items-center gap-1" title="QR для скачивания счёта">
-                      <img
-                        src={`/api/qr?url=${encodeURIComponent(`${baseUrl}/api/invoices/public/${inv.publicToken}/pdf`)}`}
-                        alt="QR счёт"
-                        className="w-9 h-9 border border-gray-200 rounded"
-                      />
-                    </span>
+                  {inv.pdfGeneratedAt && (
+                    <button
+                      type="button"
+                      onClick={() => window.open(`/api/invoices/${inv.id}/pdf`, '_blank')}
+                      className="px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
+                    >
+                      Счет в PDF
+                    </button>
                   )}
                 </div>
               </li>
@@ -353,12 +373,21 @@ export default function InvoicesList() {
                     const line = editingInvoice.lines?.[idx];
                     return (
                       <div key={row.id} className="p-3 border rounded bg-gray-50 space-y-2">
-                        {line?.workPeriod && (
-                          <p className="text-xs text-gray-500">
-                            Период: {formatDate(line.workPeriod.dateFrom)} — {formatDate(line.workPeriod.dateTo)} ·{' '}
-                            {line.workPeriod.service?.product?.name ?? ''} · {line.workPeriod.service?.site?.title ?? ''}
-                          </p>
-                        )}
+                        <div className="flex justify-between items-start gap-2">
+                          {line?.workPeriod && (
+                            <p className="text-xs text-gray-500 flex-1">
+                              Период: {formatDate(line.workPeriod.dateFrom)} — {formatDate(line.workPeriod.dateTo)} ·{' '}
+                              {line.workPeriod.service?.product?.name ?? ''} · {line.workPeriod.service?.site?.title ?? ''}
+                            </p>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLineFromInvoice(row.id)}
+                            className="text-red-600 hover:underline text-xs shrink-0"
+                          >
+                            Удалить период
+                          </button>
+                        </div>
                         <input
                           type="text"
                           placeholder="Название услуги в счёте"
@@ -426,39 +455,15 @@ export default function InvoicesList() {
           >
             <h3 className="text-lg font-semibold mb-4">Скачать счёт (новый)</h3>
             <form onSubmit={handleSaveNewInvoice} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Юрлицо *</label>
-                  <select
-                    required
-                    className="border rounded px-2 py-1 w-full"
-                    value={newForm.legalEntityId}
-                    onChange={(e) => setNewForm({ ...newForm, legalEntityId: e.target.value })}
-                  >
-                    <option value="">Выберите</option>
-                    {legalEntities.map((le) => (
-                      <option key={le.id} value={le.id}>{le.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Номер счёта</label>
-                  <input
-                    type="text"
-                    className="border rounded px-2 py-1 w-full"
-                    value={newForm.invoiceNumber}
-                    onChange={(e) => setNewForm({ ...newForm, invoiceNumber: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Дата счёта</label>
-                  <input
-                    type="date"
-                    className="border rounded px-2 py-1 w-full"
-                    value={newForm.invoiceDate}
-                    onChange={(e) => setNewForm({ ...newForm, invoiceDate: e.target.value })}
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Дата счёта</label>
+                <input
+                  type="date"
+                  className="border rounded px-2 py-1 w-full max-w-[200px]"
+                  value={newForm.invoiceDate}
+                  onChange={(e) => setNewForm({ ...newForm, invoiceDate: e.target.value })}
+                />
+                <p className="text-xs text-gray-500 mt-1">Юрлицо подтягивается из карточки клиента. Номер счёта генерируется автоматически (5–7 знаков).</p>
               </div>
               <div>
                 <div className="flex items-center justify-between mb-2">

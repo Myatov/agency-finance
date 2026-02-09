@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { canAccessServiceForPeriods } from '@/lib/permissions';
+import { getPublicOrigin } from '@/lib/utils';
 
 function toRuDate(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0');
@@ -91,20 +92,8 @@ export async function GET(
                 site: {
                   include: {
                     client: {
-                      select: {
-                        name: true,
-                        sellerEmployeeId: true,
-                        legalEntityName: true,
-                        legalAddress: true,
-                        inn: true,
-                        kpp: true,
-                        ogrn: true,
-                        rs: true,
-                        bankName: true,
-                        bik: true,
-                        ks: true,
-                        paymentRequisites: true,
-                        contacts: true,
+                      include: {
+                        legalEntity: true,
                       },
                     },
                   },
@@ -123,24 +112,10 @@ export async function GET(
                 service: {
                   include: {
                     site: {
-                      select: {
-                        title: true,
-                        accountManagerId: true,
+                      include: {
                         client: {
-                          select: {
-                            name: true,
-                            legalEntityName: true,
-                            legalAddress: true,
-                            inn: true,
-                            kpp: true,
-                            ogrn: true,
-                            rs: true,
-                            bankName: true,
-                            bik: true,
-                            ks: true,
-                            paymentRequisites: true,
-                            contacts: true,
-                            sellerEmployeeId: true,
+                          include: {
+                            legalEntity: true,
                           },
                         },
                       },
@@ -205,22 +180,43 @@ export async function GET(
     const client = invoice.lines.length > 0
       ? invoice.lines[0].workPeriod.service.site.client
       : invoice.workPeriod.service.site.client;
+    const payerEntity = client.legalEntity;
+    const payerLines = payerEntity
+      ? [
+          line(payerEntity.fullName ?? payerEntity.name),
+          line(payerEntity.legalAddress),
+          [payerEntity.inn, payerEntity.kpp].filter(Boolean).join(', ') || '—',
+          payerEntity.ogrn ? `ОГРН ${payerEntity.ogrn}` : '—',
+          payerEntity.rs ? `Р/с ${payerEntity.rs}` : '—',
+          line(payerEntity.bankName),
+          [payerEntity.bik, payerEntity.ks].filter(Boolean).join(', ') || '—',
+          line(payerEntity.paymentInfo),
+          line(payerEntity.contactInfo ?? (client as { contacts?: string }).contacts),
+        ].filter((s) => s !== '—')
+      : [
+          line(client.name || (client as { legalEntityName?: string }).legalEntityName),
+          line((client as { legalAddress?: string }).legalAddress),
+          [client.inn, client.kpp].filter(Boolean).join(', ') || '—',
+          client.ogrn ? `ОГРН ${client.ogrn}` : '—',
+          client.rs ? `Р/с ${client.rs}` : '—',
+          line(client.bankName),
+          [client.bik, client.ks].filter(Boolean).join(', ') || '—',
+          line((client as { paymentRequisites?: string }).paymentRequisites),
+          line((client as { contacts?: string }).contacts),
+        ].filter((s) => s !== '—');
+    const payerName = payerEntity
+      ? (payerEntity.fullName ?? payerEntity.name)
+      : ((client as { legalEntityName?: string }).legalEntityName ?? client.name ?? '');
     const uniqueNum = invoice.invoiceNumber?.trim() || `INV-${invoice.workPeriod.dateFrom.toISOString().slice(0, 10).replace(/-/g, '')}-${id.slice(-6)}`;
     const invoiceDateRu = invoice.invoiceDate ? toRuDate(invoice.invoiceDate) : toRuDate(invoice.createdAt);
     const totalForWords = showVat ? totalWithVatRub : amountRub;
     const amountWords = rublesInWords(totalForWords);
-
-    const payerLines = [
-      line(client.name || (client as { legalEntityName?: string }).legalEntityName),
-      line((client as { legalAddress?: string }).legalAddress),
-      [client.inn, client.kpp].filter(Boolean).join(', ') || '—',
-      client.ogrn ? `ОГРН ${client.ogrn}` : '—',
-      client.rs ? `Р/с ${client.rs}` : '—',
-      line(client.bankName),
-      [client.bik, client.ks].filter(Boolean).join(', ') || '—',
-      line((client as { paymentRequisites?: string }).paymentRequisites),
-      line((client as { contacts?: string }).contacts),
-    ].filter((s) => s !== '—');
+    const totalItemsText = `Всего наименований ${rows.length}, на сумму ${showVat ? totalWithVatRub : amountRub} руб.`;
+    const hasPdf = !!invoice.pdfGeneratedAt;
+    const baseUrl = getPublicOrigin(request as Request & { nextUrl?: URL }) || process.env.NEXT_PUBLIC_APP_URL || '';
+    const pdfUrl = baseUrl ? `${baseUrl}/api/invoices/${id}/pdf` : '';
+    const qrDownloadUrl = invoice.publicToken && baseUrl ? `${baseUrl}/api/invoices/public/${invoice.publicToken}/pdf` : '';
+    const qrImageUrl = qrDownloadUrl ? `${baseUrl}/api/qr?url=${encodeURIComponent(qrDownloadUrl)}` : '';
 
     const recipientLines = [
       line(legal.name),
@@ -263,18 +259,23 @@ export async function GET(
     @media print { .no-print { display: none !important; } }
   </style>
 </head>
-<body data-invoice-id="${escapeHtml(id)}">
+<body data-invoice-id="${escapeHtml(id)}" data-has-pdf="${hasPdf}" data-pdf-url="${escapeHtml(pdfUrl)}">
   <div class="no-print">
-    <p style="color:#555;font-size:0.875rem;">HTML-форма счёта с подставленными полями из базы. Печать — через кнопку или Ctrl+P.</p>
-    <button type="button" id="btnPrint" style="padding:0.5rem 1rem;background:#0d9488;color:white;border:none;border-radius:6px;cursor:pointer;">Печать счёта</button>
+    <p style="color:#555;font-size:0.875rem;">HTML-форма счёта с подставленными полями из базы.</p>
+    <button type="button" id="btnGeneratePdf" style="padding:0.5rem 1rem;background:#0d9488;color:white;border:none;border-radius:6px;cursor:pointer;margin-right:0.5rem;">Сформировать PDF</button>
+    <span id="pdfLinkSpan" style="display:${hasPdf ? 'inline' : 'none'};">
+      <a id="pdfLink" href="${escapeHtml(pdfUrl)}" target="_blank" rel="noopener" style="padding:0.5rem 1rem;background:#2563eb;color:white;border-radius:6px;text-decoration:none;">Счет в PDF</a>
+    </span>
   </div>
 
   <div id="printArea">
     <p style="margin:1rem 0 0.5rem;font-size:16px;font-weight:bold;">Счет № ${escapeHtml(uniqueNum)} от ${escapeHtml(invoiceDateRu)} г.</p>
     <table style="width:100%;max-width:681px;border-collapse:collapse;font-size:12pt;margin:0.5rem 0 1rem;">
-      <tr><td style="padding:4px 0;width:85px;">Поставщик:</td><td><b>${escapeHtml((legal.fullName ?? legal.name) ?? '')}</b></td></tr>
-      <tr><td style="padding:4px 0;">Покупатель:</td><td><b>${escapeHtml((client as { legalEntityName?: string }).legalEntityName ?? '')}</b></td></tr>
+      <tr><td style="padding:4px 0;width:85px;vertical-align:top;">Поставщик:</td><td><b>${escapeHtml((legal.fullName ?? legal.name) ?? '')}</b></td></tr>
+      <tr><td style="padding:4px 0;vertical-align:top;">Плательщик:</td><td>${payerBlock}</td></tr>
+      <tr><td style="padding:4px 0;vertical-align:top;">Покупатель:</td><td><b>${escapeHtml(payerName)}</b></td></tr>
     </table>
+    ${qrImageUrl ? `<p style="margin:0.5rem 0;"><img src="${escapeHtml(qrImageUrl)}" alt="QR код счёта" width="80" height="80" /> <span style="font-size:0.875rem;color:#555;">Скачать счёт по QR-коду</span></p>` : ''}
     <table style="width:100%;max-width:684px;border-collapse:collapse;border:1.5px solid #000;font-size:10pt;">
       <tr style="background:#f5f5f5;">
         <th style="border:1px solid #000;padding:6px;text-align:center;width:30px;">№</th>
@@ -290,10 +291,39 @@ export async function GET(
       <tr><td style="padding:4px 0;text-align:right;"><b>Итого:</b></td><td style="padding:4px 0;text-align:right;width:120px;">${amountRub}</td></tr>
       ${showVat ? `<tr><td style="padding:4px 0;text-align:right;"><b>В т.ч. НДС:</b></td><td style="padding:4px 0;text-align:right;">${vatRub}</td></tr>` : ''}
       <tr><td style="padding:4px 0;text-align:right;"><b>Всего к оплате:</b></td><td style="padding:4px 0;text-align:right;">${showVat ? totalWithVatRub : amountRub}</td></tr>
+      <tr><td style="padding:4px 0 0;" colspan="2">${escapeHtml(totalItemsText)}</td></tr>
       <tr><td style="padding:8px 0 0;" colspan="2">${escapeHtml(amountWords)}</td></tr>
     </table>
+    <table style="width:100%;max-width:520px;margin-top:1rem;font-size:12pt;border-collapse:collapse;">
+      <tr><td style="padding:4px 0;width:150px;">Руководитель</td><td style="padding:4px 0;">__________________</td></tr>
+      <tr><td style="padding:4px 0;">Бухгалтер</td><td style="padding:4px 0;">__________________</td></tr>
+    </table>
   </div>
-  <script>document.getElementById('btnPrint').onclick=function(){window.print();};</script>
+  <script>
+    (function(){
+      var btn = document.getElementById('btnGeneratePdf');
+      var span = document.getElementById('pdfLinkSpan');
+      var link = document.getElementById('pdfLink');
+      var body = document.body;
+      if (btn) btn.onclick = function(){
+        btn.disabled = true;
+        btn.textContent = 'Формирование…';
+        fetch('/api/invoices/${escapeHtml(id)}/generate-pdf', { method: 'POST' })
+          .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+          .then(function(res){
+            if (res.ok && res.data && res.data.pdfUrl) {
+              if (link) { link.href = res.data.pdfUrl; }
+              if (span) span.style.display = 'inline';
+              body.setAttribute('data-has-pdf', 'true');
+              btn.style.display = 'none';
+            } else { alert(res.data && res.data.error ? res.data.error : 'Ошибка формирования PDF'); }
+          })
+          .catch(function(){ alert('Ошибка сети'); })
+          .finally(function(){ btn.disabled = false; btn.textContent = 'Сформировать PDF'; });
+      };
+      if (body.getAttribute('data-has-pdf') === 'true' && span) span.style.display = 'inline';
+    })();
+  </script>
 </body>
 </html>`;
 

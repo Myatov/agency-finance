@@ -75,12 +75,37 @@ const LAYOUT = {
   },
 };
 
+function getPdfDir(): string {
+  const env = process.env.INVOICE_PDF_DIR;
+  if (env?.trim()) return env;
+  return path.join(process.cwd(), 'invoices-pdf');
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const invoiceMeta = await prisma.invoice.findUnique({
+      where: { id },
+      select: { id: true, pdfGeneratedAt: true, invoiceNumber: true },
+    });
+    if (invoiceMeta?.pdfGeneratedAt) {
+      const dir = getPdfDir();
+      const filePath = path.join(dir, `${id}.pdf`);
+      if (fs.existsSync(filePath)) {
+        const buf = fs.readFileSync(filePath);
+        const safeName = invoiceMeta.invoiceNumber || id;
+        return new NextResponse(buf, {
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `inline; filename="${encodeURIComponent(safeName + '.pdf')}"`,
+            'Content-Length': String(buf.length),
+          },
+        });
+      }
+    }
     const token = request.nextUrl.searchParams.get('token');
     const invoice = await prisma.invoice.findUnique({
       where: { id },
