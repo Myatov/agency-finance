@@ -91,6 +91,8 @@ export async function GET(request: NextRequest) {
             legalEntity: { select: { id: true, name: true } },
           },
         },
+        invoiceLines: { select: { id: true } },
+        periodInvoiceNotes: { select: { id: true } },
         periodReport: true,
         closeoutDocuments: { take: 1, select: { id: true } },
       },
@@ -136,7 +138,10 @@ export async function GET(request: NextRequest) {
       const totalInvoiced = invoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
       const balance = expected - paid;
       const hasReport = hasReportIds.has(p.id);
-      const hasInvoice = invoices.length > 0;
+      const hasInvoice =
+        invoices.length > 0 ||
+        (p.invoiceLines?.length ?? 0) > 0 ||
+        (p.periodInvoiceNotes?.length ?? 0) > 0;
       const hasCloseoutDoc = hasCloseoutDocIds.has(p.id);
       const prepay = isPrepay(p.service?.prepaymentType ?? 'POSTPAY');
       const paymentDueDate = prepay ? new Date(p.dateFrom) : new Date(p.dateTo);

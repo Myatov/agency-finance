@@ -12,6 +12,7 @@ interface WorkPeriod {
   invoiceNotRequired: boolean;
   expectedAmount?: string | null;
   incomeSum?: number;
+  hasAttachedInvoice?: boolean;
   invoices: Array<{
     id: string;
     amount: string;
@@ -129,7 +130,7 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
             const totalInvoiced = p.invoices.reduce((s, i) => s + Number(i.amount), 0);
             const balance = expected - paidFromIncomes;
             const isFullyPaid = expected > 0 && paidFromIncomes >= expected;
-            const hasInvoice = p.invoices.length > 0;
+            const hasInvoice = p.hasAttachedInvoice ?? p.invoices.length > 0;
             const closeoutStatus = !clientGenerateClosingDocs
               ? 'не требуются'
               : (p.closeoutDocuments?.length ?? 0) > 0
@@ -145,6 +146,9 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
                     <span className="ml-2 text-sm text-gray-500">
                       {PERIOD_TYPES[p.periodType] || p.periodType}
                       {p.invoiceNotRequired && ' · Счёт не требуется'}
+                      {hasInvoice && (
+                        <span className="ml-2 text-xs font-medium text-teal-600 bg-teal-50 px-2 py-0.5 rounded">вложенный счёт</span>
+                      )}
                     </span>
                     {isFullyPaid && (
                       <span className="ml-2 text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded">оплачено полностью</span>

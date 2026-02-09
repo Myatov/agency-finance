@@ -22,7 +22,7 @@ export async function GET(
               include: {
                 client: {
                   include: {
-                    legalEntity: { select: { id: true, name: true } },
+                    legalEntity: { select: { id: true, name: true, generateClosingDocs: true } },
                   },
                 },
               },

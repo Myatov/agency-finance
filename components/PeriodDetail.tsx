@@ -24,7 +24,7 @@ interface Invoice {
   publicToken: string | null;
   legalEntity: { id: string; name: string };
   payments: Array<{ id: string; amount: string; paidAt: string }>;
-  lines?: InvoiceLine[];
+  lines?: Array<{ id: string; workPeriodId: string } & InvoiceLine>;
 }
 
 interface IncomeRow {
@@ -49,7 +49,7 @@ interface WorkPeriodFull {
         id: string;
         name: string;
         legalEntityId: string | null;
-        legalEntity?: { id: string; name: string } | null;
+        legalEntity?: { id: string; name: string; generateClosingDocs?: boolean } | null;
       };
     };
     product: { name: string };
@@ -80,10 +80,6 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
   const [editingExpected, setEditingExpected] = useState(false);
   const [expectedInput, setExpectedInput] = useState('');
   const [mounted, setMounted] = useState(false);
-  const [showAddToInvoice, setShowAddToInvoice] = useState(false);
-  const [availableInvoices, setAvailableInvoices] = useState<Array<{ id: string; invoiceNumber: string | null; amount: string; legalEntity: { name: string } }>>([]);
-  const [addToInvoiceId, setAddToInvoiceId] = useState('');
-  const [addToInvoiceAmount, setAddToInvoiceAmount] = useState('');
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [editForm, setEditForm] = useState<{ invoiceNumber: string; invoiceDate: string; lines: { id: string; serviceNameOverride: string; siteNameOverride: string }[] } | null>(null);
 
@@ -129,30 +125,19 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
     }
   };
 
-  const loadAvailableInvoices = async () => {
-    const res = await fetch(`/api/work-periods/${periodId}/available-invoices`);
-    const data = await res.json();
-    if (res.ok) setAvailableInvoices(data.invoices ?? []);
-    else setAvailableInvoices([]);
+  const openViewOrPrint = (invoiceId: string) => {
+    window.open(`/api/invoices/${invoiceId}/download`, '_blank');
   };
 
-  const handleAddToInvoice = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!addToInvoiceId || !addToInvoiceAmount) return;
-    const res = await fetch(`/api/invoices/${addToInvoiceId}/lines`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workPeriodId: periodId, amount: parseFloat(addToInvoiceAmount) }),
-    });
-    if (res.ok) {
-      setShowAddToInvoice(false);
-      setAddToInvoiceId('');
-      setAddToInvoiceAmount('');
-      load();
-    } else {
-      const err = await res.json();
-      alert(err.error || 'Ошибка');
-    }
+  const handleRemoveFromInvoice = async (inv: Invoice) => {
+    const lineForPeriod = inv.lines?.find((l) => l.workPeriodId === periodId);
+    if (!lineForPeriod) return;
+    const isOnlyLine = (inv.lines?.length ?? 0) <= 1;
+    if (isOnlyLine && !confirm('В счёте одна услуга. Счёт будет удалён. Продолжить?')) return;
+    const res = await fetch(`/api/invoices/${inv.id}/lines/${lineForPeriod.id}`, { method: 'DELETE' });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) load();
+    else alert(data.error || 'Ошибка удаления');
   };
 
   const openEditInvoice = async (inv: Invoice) => {
@@ -278,10 +263,13 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
         : 0;
   const expectedRub = expected / 100;
   const totalIncomes = incomes.reduce((s, i) => s + Number(i.amount), 0);
-  const paymentDone = !period.invoiceNotRequired && period.invoices.length > 0;
+  const hasAttachedInvoice = period.invoices.length > 0 || (period.periodInvoiceNotes?.length ?? 0) > 0;
+  const paymentDone = !period.invoiceNotRequired && hasAttachedInvoice;
   const reportDone = !!period.periodReport;
   const incomesDone = expected <= 0 || totalIncomes >= expected;
   const clientLegalEntityId = period.service?.site?.client?.legalEntityId ?? null;
+  const clientLegalEntity = period.service?.site?.client?.legalEntity;
+  const showAddInvoiceNote = clientLegalEntity && clientLegalEntity.generateClosingDocs === false;
 
   return (
     <div>
@@ -430,59 +418,15 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
 
       <div className="mb-4 flex justify-between items-center flex-wrap gap-2">
         <h2 className="text-lg font-semibold">Счета</h2>
-        {!showInvoiceForm && !showAddToInvoice && (
-          <>
-            <button onClick={() => setShowInvoiceForm(true)} className="px-3 py-1 bg-blue-600 text-white rounded text-sm">+ Счёт</button>
-            <button
-              onClick={() => {
-                setShowAddToInvoice(true);
-                loadAvailableInvoices();
-                setAddToInvoiceAmount(expectedRub > 0 ? expectedRub.toFixed(2) : '');
-              }}
-              className="px-3 py-1 bg-slate-600 text-white rounded text-sm"
-            >
-              Добавить в счёт
-            </button>
-          </>
+        {showAddInvoiceNote && !showInvoiceForm && (
+          <button onClick={() => setShowInvoiceForm(true)} className="px-3 py-1 bg-slate-600 text-white rounded text-sm">
+            Добавить счёт
+          </button>
         )}
       </div>
-      {showAddToInvoice && (
-        <form onSubmit={handleAddToInvoice} className="mb-4 p-4 border rounded flex flex-wrap gap-2 items-end bg-slate-50">
-          <div>
-            <label className="block text-xs text-gray-500">Счёт</label>
-            <select
-              name="invoiceId"
-              required
-              className="border rounded px-2 py-1 min-w-[200px]"
-              value={addToInvoiceId}
-              onChange={(e) => setAddToInvoiceId(e.target.value)}
-            >
-              <option value="">Выберите счёт</option>
-              {availableInvoices.map((inv) => (
-                <option key={inv.id} value={inv.id}>
-                  № {inv.invoiceNumber || inv.id.slice(0, 8)} — {inv.legalEntity.name} ({formatAmount(inv.amount)})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500">Сумма (руб)</label>
-            <input
-              type="number"
-              name="amount"
-              step="0.01"
-              required
-              className="border rounded px-2 py-1 w-28"
-              value={addToInvoiceAmount}
-              onChange={(e) => setAddToInvoiceAmount(e.target.value)}
-            />
-          </div>
-          <button type="submit" className="px-3 py-1 bg-slate-600 text-white rounded text-sm">Добавить</button>
-          <button type="button" onClick={() => { setShowAddToInvoice(false); setAddToInvoiceId(''); }} className="px-3 py-1 border rounded text-sm">Отмена</button>
-        </form>
-      )}
-      {showInvoiceForm && (
-        <form onSubmit={handleCreateInvoice} className="mb-4 p-4 border rounded flex flex-wrap gap-2 items-end" key={`inv-${period.id}-${expectedRub}-${clientLegalEntityId ?? ''}`}>
+      {showAddInvoiceNote && showInvoiceForm && (
+        <form onSubmit={handleCreateInvoice} className="mb-4 p-4 border rounded flex flex-wrap gap-2 items-end bg-slate-50" key={`inv-note-${period.id}-${expectedRub}-${clientLegalEntityId ?? ''}`}>
+          <p className="text-xs text-gray-500 w-full">Пометка «Счёт выставлен» (юрлицо без закрывающих документов — счёт не создаётся в разделе «Счета»)</p>
           <div>
             <label className="block text-xs text-gray-500">Сумма (руб)</label>
             <input type="number" name="amount" step="0.01" required className="border rounded px-2 py-1 w-32" defaultValue={expectedRub > 0 ? expectedRub.toFixed(2) : ''} />
@@ -496,7 +440,7 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
               ))}
             </select>
           </div>
-          <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded text-sm">Создать</button>
+          <button type="submit" className="px-3 py-1 bg-slate-600 text-white rounded text-sm">Создать пометку</button>
           <button type="button" onClick={() => setShowInvoiceForm(false)} className="px-3 py-1 border rounded text-sm">Отмена</button>
         </form>
       )}
@@ -517,32 +461,31 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
       )}
       <ul className="space-y-4">
         {period.invoices.map((inv) => (
-            <li key={inv.id} className="border rounded p-4">
-              <div className="flex justify-between items-center flex-wrap gap-2">
-                <span>Счёт {inv.invoiceNumber || inv.id.slice(0, 8)} — {inv.legalEntity.name}: {formatAmount(inv.amount)}</span>
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => openEditInvoice(inv)} className="text-slate-600 hover:underline text-sm">Редактировать</button>
-                  <button
-                    type="button"
-                    onClick={() => window.open(`/api/invoices/${inv.id}/pdf`, '_blank')}
-                    className="text-blue-600 hover:underline text-sm"
-                  >
-                    Печать счёта
-                  </button>
-                </div>
+          <li key={inv.id} className="border rounded p-4">
+            <div className="flex justify-between items-center flex-wrap gap-2">
+              <span>
+                <span className="text-xs font-medium text-teal-600 bg-teal-50 px-2 py-0.5 rounded mr-2">Вложенный счёт</span>
+                Счёт {inv.invoiceNumber || inv.id.slice(0, 8)} — {inv.legalEntity.name}: {formatAmount(inv.amount)}
+              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button type="button" onClick={() => openEditInvoice(inv)} className="text-slate-600 hover:underline text-sm">Редактировать</button>
+                <button type="button" onClick={() => openViewOrPrint(inv.id)} className="text-blue-600 hover:underline text-sm">Просмотр счёта</button>
+                <button type="button" onClick={() => openViewOrPrint(inv.id)} className="text-blue-600 hover:underline text-sm">Печать</button>
+                <button type="button" onClick={() => handleRemoveFromInvoice(inv)} className="text-red-600 hover:underline text-sm">Удалить</button>
               </div>
-              {inv.payments.length > 0 && (
-                <ul className="mt-2 text-sm text-gray-600">
-                  {inv.payments.map((p) => (
-                    <li key={p.id} className="flex items-center gap-2">
-                      {formatAmount(p.amount)} — {formatDate(p.paidAt)}
-                      <button type="button" onClick={() => handleDeletePayment(p.id)} className="text-red-600 hover:underline text-xs">Удалить</button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <p className="mt-1 text-xs text-gray-500">Доходы вносятся через раздел «Доходы»</p>
-            </li>
+            </div>
+            {inv.payments.length > 0 && (
+              <ul className="mt-2 text-sm text-gray-600">
+                {inv.payments.map((p) => (
+                  <li key={p.id} className="flex items-center gap-2">
+                    {formatAmount(p.amount)} — {formatDate(p.paidAt)}
+                    <button type="button" onClick={() => handleDeletePayment(p.id)} className="text-red-600 hover:underline text-xs">Удалить</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-1 text-xs text-gray-500">Доходы вносятся через раздел «Доходы»</p>
+          </li>
         ))}
       </ul>
 

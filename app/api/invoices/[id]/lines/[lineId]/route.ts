@@ -47,6 +47,51 @@ async function canAccessInvoiceLine(user: SessionUser, invoiceId: string): Promi
 }
 
 /**
+ * DELETE /api/invoices/[id]/lines/[lineId] — удалить строку из счёта. Если строка была единственной — удаляется весь счёт.
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; lineId: string }> }
+) {
+  try {
+    const user = await getSession();
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { id: invoiceId, lineId } = await params;
+    const line = await prisma.invoiceLine.findFirst({ where: { id: lineId, invoiceId } });
+    if (!line) return NextResponse.json({ error: 'Строка счёта не найдена' }, { status: 404 });
+
+    const allowed = await canAccessInvoiceLine(user, invoiceId);
+    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: { lines: { select: { id: true } } },
+    });
+    if (!invoice) return NextResponse.json({ error: 'Счёт не найден' }, { status: 404 });
+
+    const lineCount = invoice.lines.length;
+    if (lineCount <= 1) {
+      await prisma.invoice.delete({ where: { id: invoiceId } });
+      return NextResponse.json({ deletedLine: true, deletedInvoice: true });
+    }
+    await prisma.invoiceLine.delete({ where: { id: lineId } });
+    const newTotal = await prisma.invoiceLine.aggregate({
+      where: { invoiceId },
+      _sum: { amount: true },
+    });
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { amount: newTotal._sum.amount ?? BigInt(0) },
+    });
+    return NextResponse.json({ deletedLine: true, deletedInvoice: false });
+  } catch (e: any) {
+    console.error('DELETE invoices/[id]/lines/[lineId]', e);
+    return NextResponse.json({ error: 'Internal server error', details: e?.message }, { status: 500 });
+  }
+}
+
+/**
  * PATCH /api/invoices/[id]/lines/[lineId] — изменить название услуги/сайта в строке счёта.
  */
 export async function PATCH(

@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
             legalEntity: { select: { id: true, name: true } },
           },
         },
+        invoiceLines: { select: { id: true } },
+        periodInvoiceNotes: { select: { id: true } },
         periodReport: {
           include: { accountManager: { select: { id: true, fullName: true } } },
         },
@@ -90,6 +92,8 @@ export async function GET(request: NextRequest) {
                 legalEntity: { select: { id: true, name: true } },
               },
             },
+            invoiceLines: { select: { id: true } },
+            periodInvoiceNotes: { select: { id: true } },
             periodReport: {
               include: { accountManager: { select: { id: true, fullName: true } } },
             },
@@ -131,6 +135,10 @@ export async function GET(request: NextRequest) {
     const serialized = periods.map((p) => {
       const row = JSON.parse(JSON.stringify(p, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
       (row as any).incomeSum = incomeByPeriod.get(p.id) ?? 0;
+      (row as any).hasAttachedInvoice =
+        (p.invoices?.length ?? 0) > 0 ||
+        (p.invoiceLines?.length ?? 0) > 0 ||
+        (p.periodInvoiceNotes?.length ?? 0) > 0;
       return row;
     });
     return NextResponse.json({
