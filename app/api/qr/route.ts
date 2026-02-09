@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid or missing url' }, { status: 400 });
     }
     const buffer = await QRCode.toBuffer(text, { type: 'png', width: 256, margin: 2 });
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'image/png',
         'Cache-Control': 'public, max-age=3600',
