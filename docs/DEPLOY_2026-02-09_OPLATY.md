@@ -56,35 +56,62 @@ git pull origin main
 
 Добавляется колонка `expectedAmount` в таблицу `WorkPeriod`. Без этого шага приложение может падать при обращении к новому полю.
 
-**Вариант А — если в `.env` есть `DATABASE_URL` (один URL без лишних параметров для приложения):**
+**Вариант А — через переменные из `.env` (рекомендуется):**
+
+Сначала загрузите `.env` и проверьте, что URL подхватился:
 
 ```bash
 cd /var/www/agency-finance
-export $(grep -v '^#' .env | xargs)
-# Убираем ?schema=... и прочее из URL для psql
+set -a
+source .env
+set +a
+# Убираем ?schema=... и прочее из URL
 export DATABASE_URL_PSQL="${DATABASE_URL%%\?*}"
+echo "Подключение: ${DATABASE_URL_PSQL%%@*}@..."   # покажет user@host, без пароля
+```
+
+Если вывод пустой — в `.env` нет `DATABASE_URL` или он с комментарием. Иначе запускайте миграцию:
+
+```bash
 psql "$DATABASE_URL_PSQL" -f prisma/add-work-period-expected-amount.sql
 ```
 
-Ожидаемый вывод — что-то вроде `ALTER TABLE` без ошибок. Если колонка уже есть — скрипт не упадёт (используется `ADD COLUMN IF NOT EXISTS`).
+Если появляется ошибка **`role "root" does not exist`** — `psql` игнорирует URL и подключается под текущим пользователем ОС. Используйте **вариант Б**.
 
-**Вариант Б — подключение к PostgreSQL вручную (логин/пароль/база из `.env`):**
+**Вариант Б — явное подключение (решает ошибку `role "root" does not exist`):**
+
+`psql` на сервере может не принять URL из переменной и подключиться по сокету под пользователем `root`. Тогда подключайтесь явно: логин, пароль и база из `.env`.
 
 ```bash
 cd /var/www/agency-finance
-# Посмотреть строку подключения
 grep DATABASE_URL .env
 ```
 
-Из строки вида `DATABASE_URL="postgresql://ЛОГИН:ПАРОЛЬ@localhost:5432/ИМЯ_БД?..."` возьмите логин, пароль и имя базы. Затем:
+В строке вида `DATABASE_URL="postgresql://ЛОГИН:ПАРОЛЬ@localhost:5432/ИМЯ_БД?..."` возьмите **ЛОГИН**, **ПАРОЛЬ** и **ИМЯ_БД**. Подставьте их в команду:
 
 ```bash
 export PGPASSWORD='ПАРОЛЬ'
-psql -h localhost -U ЛОГИН -d ИМЯ_БД -f prisma/add-work-period-expected-amount.sql
+psql -h localhost -U ЛОГИН -d ИМЯ_БД -f /var/www/agency-finance/prisma/add-work-period-expected-amount.sql
 unset PGPASSWORD
 ```
 
-Замените `ЛОГИН`, `ПАРОЛЬ`, `ИМЯ_БД` на свои значения.
+Пример: если в `.env` указано `postgresql://agency_finance:SecretPass@localhost:5432/agency_finance`, то:
+
+```bash
+export PGPASSWORD='SecretPass'
+psql -h localhost -U agency_finance -d agency_finance -f /var/www/agency-finance/prisma/add-work-period-expected-amount.sql
+unset PGPASSWORD
+```
+
+**Вариант В — от пользователя `postgres` (если знаете только имя базы):**
+
+Если логин/пароль из URL использовать не хотите, а пользователь `postgres` в системе есть:
+
+```bash
+sudo -u postgres psql -d ИМЯ_БД -f /var/www/agency-finance/prisma/add-work-period-expected-amount.sql
+```
+
+Замените `ИМЯ_БД` на имя базы из `DATABASE_URL` (например `agency_finance`).
 
 ---
 

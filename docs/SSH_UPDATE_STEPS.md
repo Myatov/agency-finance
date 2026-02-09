@@ -65,7 +65,9 @@ unset PGPASSWORD
 
 Подробнее: **docs/CLIENT_PORTAL_DB_MIGRATION.md**
 
-**Оплаты — ожидаемая сумма по периодам (2026-02-09):** при обновлении до коммита с `WorkPeriod.expectedAmount` обязательно применить миграцию:
+**Оплаты — ожидаемая сумма по периодам (2026-02-09):** при обновлении до коммита с `WorkPeriod.expectedAmount`:
+
+1) Добавить колонку (один раз):
 
 ```bash
 cd /var/www/agency-finance
@@ -74,7 +76,19 @@ export DATABASE_URL_PSQL="${DATABASE_URL%%\?*}"
 psql "$DATABASE_URL_PSQL" -f prisma/add-work-period-expected-amount.sql
 ```
 
-Колонка `expectedAmount` в таблице `WorkPeriod` добавляется один раз; повторный запуск скрипта безопасен (`IF NOT EXISTS`).
+2) **Обязательно** заполнить цены у существующих периодов (чтобы при смене цены услуги старые периоды не менялись):
+
+```bash
+psql "$DATABASE_URL_PSQL" -f prisma/backfill-work-period-expected-amount.sql
+```
+
+3) После удаления дубликатов периодов в интерфейсе (Услуги → Периоды → удалить лишние, без доходов и счетов) — защита от повторного появления дубликатов:
+
+```bash
+psql "$DATABASE_URL_PSQL" -f prisma/add-work-period-unique-dates.sql
+```
+
+Если скрипт п.3 выдаёт ошибку из‑за оставшихся дубликатов — удалите лишние периоды и запустите его снова.
 
 ---
 

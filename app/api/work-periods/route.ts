@@ -59,12 +59,14 @@ export async function GET(request: NextRequest) {
       let anyCreated = false;
       for (const ep of expected) {
         if (existingKeys.has(`${ep.dateFrom}:${ep.dateTo}`)) continue;
+        const dateFrom = new Date(ep.dateFrom + 'T00:00:00.000Z');
+        const dateTo = new Date(ep.dateTo + 'T00:00:00.000Z');
         try {
           await prisma.workPeriod.create({
             data: {
               serviceId,
-              dateFrom: new Date(ep.dateFrom),
-              dateTo: new Date(ep.dateTo),
+              dateFrom,
+              dateTo,
               periodType: 'STANDARD',
               invoiceNotRequired: false,
               expectedAmount: serviceForExpected.price ?? undefined,
@@ -72,8 +74,10 @@ export async function GET(request: NextRequest) {
           });
           existingKeys.add(`${ep.dateFrom}:${ep.dateTo}`);
           anyCreated = true;
-        } catch {
-          // ignore duplicate or constraint
+        } catch (e: any) {
+          if (e?.code === 'P2002') {
+            existingKeys.add(`${ep.dateFrom}:${ep.dateTo}`);
+          }
         }
       }
       if (anyCreated) {
@@ -172,11 +176,12 @@ export async function POST(request: NextRequest) {
         ? BigInt(Math.round(parseFloat(expectedAmount) * 100))
         : service.price ?? undefined;
 
+    const norm = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(String(d).slice(0, 10)) ? new Date(String(d).slice(0, 10) + 'T00:00:00.000Z') : new Date(d);
     const period = await prisma.workPeriod.create({
       data: {
         serviceId,
-        dateFrom: new Date(dateFrom),
-        dateTo: new Date(dateTo),
+        dateFrom: norm(dateFrom),
+        dateTo: norm(dateTo),
         periodType: type,
         invoiceNotRequired: Boolean(invoiceNotRequired),
         expectedAmount: expectedAmountBigInt,

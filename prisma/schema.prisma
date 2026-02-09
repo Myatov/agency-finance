@@ -366,6 +366,7 @@ model WorkPeriod {
   periodReport        WorkPeriodReport?
   closeoutDocuments   CloseoutDocument[]
 
+  @@unique([serviceId, dateFrom, dateTo])
   @@index([serviceId])
   @@index([dateFrom, dateTo])
   @@map("WorkPeriod")

@@ -142,23 +142,19 @@ export async function DELETE(
     );
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    const incomesCount = await prisma.income.count({
-      where: { workPeriodId: id },
-    });
+    const [incomesCount, invoicesCount] = await Promise.all([
+      prisma.income.count({ where: { workPeriodId: id } }),
+      prisma.invoice.count({ where: { workPeriodId: id } }),
+    ]);
     if (incomesCount > 0) {
       return NextResponse.json(
         { error: 'Удаление невозможно: к этому периоду привязаны доходы в разделе «Доходы». Сначала отвяжите или удалите их.' },
         { status: 400 }
       );
     }
-
-    const today = new Date();
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const periodEnd = new Date(period.dateTo);
-    const periodEndDate = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), periodEnd.getDate());
-    if (periodEndDate.getTime() <= todayStart.getTime()) {
+    if (invoicesCount > 0) {
       return NextResponse.json(
-        { error: 'Нельзя удалить прошлый период или период, в который входит сегодняшняя дата. Удалять можно только будущие периоды без доходов.' },
+        { error: 'Удаление невозможно: к этому периоду привязаны счета. Удаление периода приведёт к удалению счетов.' },
         { status: 400 }
       );
     }

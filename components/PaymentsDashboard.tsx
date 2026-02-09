@@ -300,7 +300,7 @@ export default function PaymentsDashboard() {
                 {data.periods.map((row) => (
                   <tr
                     key={row.id}
-                    className={row.risk ? 'bg-amber-50' : ''}
+                    className={row.isPaymentOverdue ? 'bg-amber-50' : ''}
                   >
                     <td className="px-4 py-2 text-sm">{row.client.name}</td>
                     <td className="px-4 py-2 text-sm">
@@ -309,7 +309,7 @@ export default function PaymentsDashboard() {
                     <td className="px-4 py-2 text-sm">{row.accountManager?.fullName ?? '—'}</td>
                     <td className="px-4 py-2 text-sm">
                       {row.dateFrom} — {row.dateTo}
-                      {row.isOverdue && <span className="ml-1 text-red-600 text-xs">просрочка</span>}
+                      {row.isPaymentOverdue && <span className="ml-1 text-red-600 text-xs">просрочка по оплате</span>}
                     </td>
                     {tab !== 'overdue' && (
                       <>
