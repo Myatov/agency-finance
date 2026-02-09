@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { formatDate } from '@/lib/utils';
 
 interface Doc {
   id: string;
@@ -21,10 +22,6 @@ const docTypeLabel: Record<string, string> = {
   REPORT: 'Отчёт',
   OTHER: 'Прочее',
 };
-
-function formatDate(s: string) {
-  return new Date(s).toLocaleDateString('ru-RU');
-}
 
 export default function CabinetCloseoutPage() {
   const [documents, setDocuments] = useState<Doc[]>([]);

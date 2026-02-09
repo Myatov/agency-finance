@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { formatAmount } from '@/lib/utils';
+import { formatAmount, formatDate } from '@/lib/utils';
 
 interface PeriodDetailProps {
   periodId: string;
@@ -183,7 +183,7 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
         </button>
       </div>
       <h1 className="text-2xl font-bold mb-2">
-        Период {period.dateFrom} — {period.dateTo}
+        Период {formatDate(period.dateFrom)} — {formatDate(period.dateTo)}
       </h1>
       <p className="text-gray-600 mb-4">
         {period.service.site.client.name} · {period.service.site.title} · {period.service.product.name}
@@ -276,7 +276,7 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
           <ul className="space-y-1 text-sm">
             {incomes.map((i) => (
               <li key={i.id}>
-                {formatAmount(i.amount)} — внесён {i.incomeDate ? String(i.incomeDate).slice(0, 10) : '—'}
+                {formatAmount(i.amount)} — внесён {i.incomeDate ? formatDate(i.incomeDate) : '—'}
               </li>
             ))}
             <li className="font-medium mt-2">
@@ -357,7 +357,7 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
                 <ul className="mt-2 text-sm text-gray-600">
                   {inv.payments.map((p) => (
                     <li key={p.id} className="flex items-center gap-2">
-                      {formatAmount(p.amount)} — {p.paidAt.slice(0, 10)}
+                      {formatAmount(p.amount)} — {formatDate(p.paidAt)}
                       <button type="button" onClick={() => handleDeletePayment(p.id)} className="text-red-600 hover:underline text-xs">Удалить</button>
                     </li>
                   ))}
@@ -378,7 +378,7 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
                   {doc.originalName}
                 </a>
                 <span className="text-gray-500">({doc.docType})</span>
-                <span className="text-gray-400">{doc.uploadedAt?.slice(0, 10)}</span>
+                <span className="text-gray-400">{doc.uploadedAt ? formatDate(doc.uploadedAt) : '—'}</span>
               </li>
             ))}
           </ul>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { formatDate } from '@/lib/utils';
 
 interface Service {
   id: string;
@@ -26,10 +27,6 @@ const billingLabel: Record<string, string> = {
   QUARTERLY: 'Ежеквартально',
   YEARLY: 'Ежегодно',
 };
-
-function formatDate(s: string) {
-  return new Date(s).toLocaleDateString('ru-RU');
-}
 
 export default function CabinetServicesPage() {
   const [services, setServices] = useState<Service[]>([]);

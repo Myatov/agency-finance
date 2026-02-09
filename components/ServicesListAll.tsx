@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import ServiceModal from './ServiceModal';
 import Link from 'next/link';
+import { formatDate } from '@/lib/utils';
 
 interface Service {
   id: string;
@@ -124,11 +125,6 @@ export default function ServicesListAll() {
       currency: 'RUB',
       minimumFractionDigits: 0,
     }).format(num / 100);
-  };
-
-  const formatDate = (date: Date | string | null) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('ru-RU');
   };
 
   const getStatusLabel = (status: string) => {
@@ -293,7 +289,7 @@ export default function ServicesListAll() {
                     {formatDate(service.startDate)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(service.endDate)}
+                    {service.endDate ? formatDate(service.endDate) : '—'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {getBillingTypeLabel(service.billingType)}

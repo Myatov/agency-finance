@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { formatAmount, formatDate, formatDateTime } from '@/lib/utils';
+import { formatAmount, formatDate } from '@/lib/utils';
 import ExpenseModal from './ExpenseModal';
 
 interface Expense {
@@ -618,7 +618,7 @@ export default function ExpensesList() {
               {expenses.map((expense) => (
                 <tr key={expense.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDateTime(expense.paymentAt)}
+                    {formatDate(expense.paymentAt)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {formatAmount(expense.amount)}

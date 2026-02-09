@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { formatAmount } from '@/lib/utils';
+import { formatAmount, formatDate } from '@/lib/utils';
 
 interface PeriodRow {
   id: string;
@@ -308,7 +308,7 @@ export default function PaymentsDashboard() {
                     </td>
                     <td className="px-4 py-2 text-sm">{row.accountManager?.fullName ?? '—'}</td>
                     <td className="px-4 py-2 text-sm">
-                      {row.dateFrom} — {row.dateTo}
+                      {formatDate(row.dateFrom)} — {formatDate(row.dateTo)}
                       {row.isPaymentOverdue && <span className="ml-1 text-red-600 text-xs">просрочка по оплате</span>}
                     </td>
                     {tab !== 'overdue' && (

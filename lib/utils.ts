@@ -27,7 +27,9 @@ export function parseAmount(amount: string): bigint {
   return BigInt(Math.round(rubles * 100));
 }
 
-export function formatDate(date: Date | string): string {
+/** Дата в формате ДД.ММ.ГГГГ (без времени), для отображения по всему проекту. */
+export function formatDate(date: Date | string | null | undefined): string {
+  if (date == null) return '';
   return new Date(date).toLocaleDateString('ru-RU');
 }
 

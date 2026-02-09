@@ -146,10 +146,6 @@ export default function ClientsList() {
     }
   };
 
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString('ru-RU');
-  };
-
   if (loading) {
     return <div className="text-center py-8">Загрузка...</div>;
   }

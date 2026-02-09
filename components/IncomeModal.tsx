@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { formatAmount } from '@/lib/utils';
+import { formatAmount, formatDate } from '@/lib/utils';
 
 interface ExpectedPeriodOption {
   dateFrom: string;
@@ -472,7 +472,7 @@ export default function IncomeModal({
                     .map((i) => (
                       <li key={i.id}>
                         {formatAmount(i.amount)}
-                        {i.incomeDate ? ` — ${String(i.incomeDate).slice(0, 10)}` : ''}
+                        {i.incomeDate ? ` — ${formatDate(i.incomeDate)}` : ''}
                       </li>
                     ))}
                 </ul>

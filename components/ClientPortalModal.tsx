@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { formatDate } from '@/lib/utils';
 
 interface ClientPortalModalProps {
   clientId: string;
@@ -115,7 +116,7 @@ export default function ClientPortalModal({ clientId, clientName, onClose }: Cli
                 </p>
                 {createdAt && (
                   <p className="text-xs text-gray-500 mt-1">
-                    Создано: {new Date(createdAt).toLocaleString('ru-RU')}
+                    Создано: {formatDate(createdAt)}
                   </p>
                 )}
               </div>

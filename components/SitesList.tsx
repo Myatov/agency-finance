@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import SiteModal from './SiteModal';
 import ServicesList from './ServicesList';
+import { formatDate } from '@/lib/utils';
 
 interface Site {
   id: string;
@@ -140,10 +141,6 @@ export default function SitesList() {
       currency: 'RUB',
       minimumFractionDigits: 0,
     }).format(num / 100);
-  };
-
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString('ru-RU');
   };
 
   if (loading) {

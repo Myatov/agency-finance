@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { formatDate } from '@/lib/utils';
 
 interface ContractSection {
   id: string;
@@ -431,11 +432,11 @@ export default function ContractCard({ contractId }: { contractId: string }) {
         ) : (
           <div className="border-t pt-4 text-sm text-gray-600">
             {contract.docNumber && <p><span className="text-gray-500">Номер:</span> {contract.docNumber}</p>}
-            {contract.docDate && <p><span className="text-gray-500">Дата документа:</span> {new Date(contract.docDate).toLocaleDateString('ru')}</p>}
-            {contract.endDate && <p><span className="text-gray-500">Окончание договора:</span> {new Date(contract.endDate).toLocaleDateString('ru')}</p>}
+            {contract.docDate && <p><span className="text-gray-500">Дата документа:</span> {formatDate(contract.docDate)}</p>}
+            {contract.endDate && <p><span className="text-gray-500">Окончание договора:</span> {formatDate(contract.endDate)}</p>}
             {contract.comment && <p><span className="text-gray-500">Комментарий:</span> {contract.comment}</p>}
             {contract.tags && <p><span className="text-gray-500">Теги:</span> {contract.tags}</p>}
-            <p><span className="text-gray-500">Загрузил:</span> {contract.uploader?.fullName ?? '—'} · {contract.uploadedAt ? new Date(contract.uploadedAt).toLocaleString('ru') : '—'}</p>
+            <p><span className="text-gray-500">Загрузил:</span> {contract.uploader?.fullName ?? '—'} · {contract.uploadedAt ? formatDate(contract.uploadedAt) : '—'}</p>
           </div>
         )}
 

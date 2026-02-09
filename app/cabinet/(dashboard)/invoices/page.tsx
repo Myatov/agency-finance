@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { formatDate } from '@/lib/utils';
 
 interface Invoice {
   id: string;
@@ -14,10 +15,6 @@ interface Invoice {
   periodTo: string;
   productName: string;
   siteTitle: string;
-}
-
-function formatDate(s: string) {
-  return new Date(s).toLocaleDateString('ru-RU');
 }
 
 export default function CabinetInvoicesPage() {

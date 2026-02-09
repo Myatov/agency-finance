@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { formatAmount } from '@/lib/utils';
+import { formatAmount, formatDate } from '@/lib/utils';
 
 interface WorkPeriod {
   id: string;
@@ -119,14 +119,14 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
           <p className="text-gray-500">Периодов пока нет. Нажмите «Добавить период».</p>
         ) : (
           periods.map((p) => {
-            const totalInvoiced = p.invoices.reduce((s, i) => s + Number(i.amount), 0);
-            const paidFromIncomes = p.incomeSum ?? 0;
             const expected =
               p.expectedAmount != null && p.expectedAmount !== ''
                 ? Number(p.expectedAmount)
                 : service?.price
                   ? Number(service.price)
                   : 0;
+            const paidFromIncomes = p.incomeSum ?? 0;
+            const totalInvoiced = p.invoices.reduce((s, i) => s + Number(i.amount), 0);
             const balance = expected - paidFromIncomes;
             const isFullyPaid = expected > 0 && paidFromIncomes >= expected;
             const hasInvoice = p.invoices.length > 0;
@@ -140,7 +140,7 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
                 <div className="flex justify-between items-start">
                   <div>
                     <span className="font-medium">
-                      {p.dateFrom} — {p.dateTo}
+                      {formatDate(p.dateFrom)} — {formatDate(p.dateTo)}
                     </span>
                     <span className="ml-2 text-sm text-gray-500">
                       {PERIOD_TYPES[p.periodType] || p.periodType}
@@ -151,7 +151,8 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
                     )}
                   </div>
                   <div className="text-sm text-right">
-                    <span className="text-gray-500">Выставлено: </span>{formatAmount(String(totalInvoiced))}
+                    <span className="text-gray-500">Ожидаемо: </span>{formatAmount(String(expected))}
+                    <span className="text-gray-500 ml-2">Выставлено: </span>{formatAmount(String(totalInvoiced))}
                     <span className="text-gray-500 ml-2">Оплачено: </span>{formatAmount(String(paidFromIncomes))}
                     <span className="ml-2">Остаток: {formatAmount(String(balance))}</span>
                   </div>

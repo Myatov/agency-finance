@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import ContactModal, { type Contact } from './ContactModal';
+import { formatDate } from '@/lib/utils';
 
 interface ContactWithCount extends Contact {
   _count?: { clientLinks: number };
@@ -55,9 +56,6 @@ export default function ContactsList() {
       alert(data.error || 'Ошибка удаления');
     }
   };
-
-  const formatDate = (d: string | null | undefined) =>
-    d ? new Date(d).toLocaleDateString('ru-RU') : '';
 
   return (
     <div>
