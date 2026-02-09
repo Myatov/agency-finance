@@ -65,6 +65,17 @@ unset PGPASSWORD
 
 Подробнее: **docs/CLIENT_PORTAL_DB_MIGRATION.md**
 
+**Оплаты — ожидаемая сумма по периодам (2026-02-09):** при обновлении до коммита с `WorkPeriod.expectedAmount` обязательно применить миграцию:
+
+```bash
+cd /var/www/agency-finance
+export $(grep -v '^#' .env | xargs)
+export DATABASE_URL_PSQL="${DATABASE_URL%%\?*}"
+psql "$DATABASE_URL_PSQL" -f prisma/add-work-period-expected-amount.sql
+```
+
+Колонка `expectedAmount` в таблице `WorkPeriod` добавляется один раз; повторный запуск скрипта безопасен (`IF NOT EXISTS`).
+
 ---
 
 ## Шаг 4. Обновить код из Git
