@@ -123,10 +123,14 @@ NEXT_PUBLIC_APP_URL=https://a.seo-performance.ru
 
 ## Шаг 6. Установить зависимости и перегенерировать Prisma
 
+На сервере часто задан `NODE_ENV=production`, из‑за чего `npm ci` не ставит dev-зависимости (в т.ч. tailwindcss), и сборка падает. Установите **вместе с dev**:
+
 ```bash
-npm ci
-npm run db:generate
+npm ci --include=dev
+npx prisma generate
 ```
+
+(Если команда не поддерживается: `NODE_ENV=development npm ci`, затем `npx prisma generate`.)
 
 ---
 
@@ -181,8 +185,8 @@ git pull origin main
 # Добавить в .env: NEXT_PUBLIC_APP_URL=https://a.seo-performance.ru
 nano .env
 
-npm ci
-npm run db:generate
+npm ci --include=dev
+npx prisma generate
 rm -rf .next && npm run build
 pm2 restart agency-finance --update-env
 pm2 logs agency-finance --lines 20
