@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { canAccessServiceForPeriods } from '@/lib/permissions';
 import path from 'path';
 import fs from 'fs';
+import puppeteer from 'puppeteer';
 
 export const runtime = 'nodejs';
 
@@ -86,33 +87,51 @@ export async function POST(
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const origin = getOrigin(request);
-    const pdfRes = await fetch(`${origin}/api/invoices/${id}/pdf`, {
+    const downloadUrl = `${origin}/api/invoices/${id}/download?forPdf=1`;
+    const htmlRes = await fetch(downloadUrl, {
       headers: {
         cookie: request.headers.get('cookie') || '',
       },
     });
-    if (!pdfRes.ok) {
-      const err = await pdfRes.json().catch(() => ({}));
+    if (!htmlRes.ok) {
+      const err = await htmlRes.json().catch(() => ({}));
       return NextResponse.json(
-        { error: err?.error || 'Ошибка формирования PDF', details: err?.details },
-        { status: pdfRes.status }
+        { error: err?.error || 'Не удалось получить HTML счёта', details: err?.details },
+        { status: htmlRes.status }
       );
     }
-    const buf = await pdfRes.arrayBuffer();
+    const html = await htmlRes.text();
 
-    const dir = getPdfDir();
+    let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
     try {
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    } catch (e) {
-      console.error('mkdir invoices-pdf', e);
-      return NextResponse.json({ error: 'Не удалось создать каталог для PDF' }, { status: 500 });
-    }
-    const filePath = path.join(dir, `${id}.pdf`);
-    try {
-      fs.writeFileSync(filePath, Buffer.from(buf));
-    } catch (e) {
-      console.error('write invoice pdf', e);
-      return NextResponse.json({ error: 'Не удалось сохранить PDF' }, { status: 500 });
+      browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+      const page = await browser.newPage();
+      await page.setContent(html, {
+        waitUntil: 'networkidle0',
+        timeout: 15000,
+      });
+      const pdfBuffer = await page.pdf({
+        printBackground: true,
+        format: 'A4',
+        margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
+      });
+      await browser.close();
+      browser = null;
+
+      const dir = getPdfDir();
+      try {
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      } catch (e) {
+        console.error('mkdir invoices-pdf', e);
+        return NextResponse.json({ error: 'Не удалось создать каталог для PDF' }, { status: 500 });
+      }
+      const filePath = path.join(dir, `${id}.pdf`);
+      fs.writeFileSync(filePath, Buffer.from(pdfBuffer));
+    } finally {
+      if (browser) await browser.close();
     }
 
     await prisma.invoice.update({

@@ -65,6 +65,8 @@ export default function InvoicesList() {
   const [addPeriodList, setAddPeriodList] = useState<Array<{ id: string; dateFrom: string; dateTo: string; expectedAmount: string | null }>>([]);
   const [addPeriodSelectedId, setAddPeriodSelectedId] = useState('');
   const [savingNew, setSavingNew] = useState(false);
+  const [showAddPeriodForEdit, setShowAddPeriodForEdit] = useState(false);
+  const [addingPeriodToInvoiceId, setAddingPeriodToInvoiceId] = useState<string | null>(null);
 
   useEffect(() => setMounted(true), []);
 
@@ -151,6 +153,49 @@ export default function InvoicesList() {
     setAddPeriodServiceId('');
     setAddPeriodList([]);
     setAddPeriodSelectedId('');
+  };
+
+  const handleAddPeriodToEditInvoice = async () => {
+    if (!addPeriodSelectedId || !addingPeriodToInvoiceId) return;
+    const period = addPeriodList.find((p) => p.id === addPeriodSelectedId);
+    const svc = services.find((s) => s.id === addPeriodServiceId);
+    if (!period || !svc) return;
+    const amountRub = period.expectedAmount != null ? Number(period.expectedAmount) / 100 : (svc.price ? Number(svc.price) / 100 : 0);
+    const res = await fetch(`/api/invoices/${addingPeriodToInvoiceId}/lines`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workPeriodId: period.id,
+        amount: amountRub,
+        serviceNameOverride: svc.product.name,
+        siteNameOverride: svc.site.title,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(data.error || 'Ошибка добавления периода');
+      return;
+    }
+    setShowAddPeriodForEdit(false);
+    setAddingPeriodToInvoiceId(null);
+    setAddPeriodServiceId('');
+    setAddPeriodList([]);
+    setAddPeriodSelectedId('');
+    const fullRes = await fetch(`/api/invoices/${addingPeriodToInvoiceId}`);
+    const fullData = await fullRes.json();
+    if (fullRes.ok && fullData.invoice && editingInvoice) {
+      const full = fullData.invoice as Invoice & { invoiceDate?: string; lines?: InvoiceLine[] };
+      setEditingInvoice(full);
+      setEditForm({
+        invoiceNumber: full.invoiceNumber ?? '',
+        invoiceDate: full.invoiceDate ? String(full.invoiceDate).slice(0, 10) : '',
+        lines: (full.lines ?? []).map((l) => ({
+          id: l.id,
+          serviceNameOverride: l.serviceNameOverride ?? '',
+          siteNameOverride: l.siteNameOverride ?? '',
+        })),
+      });
+    }
   };
 
   const handleSaveNewInvoice = async (e: React.FormEvent) => {
@@ -363,7 +408,23 @@ export default function InvoicesList() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Строки счёта (название услуги / сайта в счёте)</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Строки счёта (название услуги / сайта в счёте)</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddingPeriodToInvoiceId(editingInvoice.id);
+                      setShowAddPeriodForEdit(true);
+                      loadServices();
+                      setAddPeriodServiceId('');
+                      setAddPeriodList([]);
+                      setAddPeriodSelectedId('');
+                    }}
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    + Добавить период
+                  </button>
+                </div>
                 <div className="space-y-3">
                   {editForm.lines.map((row, idx) => {
                     const line = editingInvoice.lines?.[idx];
@@ -555,13 +616,17 @@ export default function InvoicesList() {
         </div>
       )}
 
-      {showAddPeriod && (
+      {(showAddPeriod || showAddPeriodForEdit) && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowAddPeriod(false)}
+          onClick={() => {
+            setShowAddPeriod(false);
+            setShowAddPeriodForEdit(false);
+            setAddingPeriodToInvoiceId(null);
+          }}
         >
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
-            <h4 className="font-semibold mb-3">Добавить период</h4>
+            <h4 className="font-semibold mb-3">{showAddPeriodForEdit ? 'Добавить период в счёт' : 'Добавить период'}</h4>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Услуга</label>
@@ -602,13 +667,21 @@ export default function InvoicesList() {
             <div className="flex gap-2 mt-4">
               <button
                 type="button"
-                onClick={handleAddPeriodToNewForm}
+                onClick={showAddPeriodForEdit ? handleAddPeriodToEditInvoice : handleAddPeriodToNewForm}
                 disabled={!addPeriodSelectedId}
                 className="px-3 py-1 bg-teal-600 text-white rounded text-sm disabled:opacity-50"
               >
                 Добавить
               </button>
-              <button type="button" onClick={() => setShowAddPeriod(false)} className="px-3 py-1 border rounded text-sm">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddPeriod(false);
+                  setShowAddPeriodForEdit(false);
+                  setAddingPeriodToInvoiceId(null);
+                }}
+                className="px-3 py-1 border rounded text-sm"
+              >
                 Отмена
               </button>
             </div>

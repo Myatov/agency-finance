@@ -204,19 +204,24 @@ export async function GET(
           line((client as { paymentRequisites?: string }).paymentRequisites),
           line((client as { contacts?: string }).contacts),
         ].filter((s) => s !== '—');
-    const payerName = payerEntity
-      ? (payerEntity.fullName ?? payerEntity.name)
-      : ((client as { legalEntityName?: string }).legalEntityName ?? client.name ?? '');
+    const buyerName =
+      (client.legalEntity?.name ?? (client as { legalEntityName?: string }).legalEntityName ?? client.name ?? '') || '—';
     const uniqueNum = invoice.invoiceNumber?.trim() || `INV-${invoice.workPeriod.dateFrom.toISOString().slice(0, 10).replace(/-/g, '')}-${id.slice(-6)}`;
     const invoiceDateRu = invoice.invoiceDate ? toRuDate(invoice.invoiceDate) : toRuDate(invoice.createdAt);
     const totalForWords = showVat ? totalWithVatRub : amountRub;
     const amountWords = rublesInWords(totalForWords);
     const totalItemsText = `Всего наименований ${rows.length}, на сумму ${showVat ? totalWithVatRub : amountRub} руб.`;
     const hasPdf = !!invoice.pdfGeneratedAt;
+    const forPdf = request.nextUrl?.searchParams?.get('forPdf') === '1';
     const baseUrl = getPublicOrigin(request as Request & { nextUrl?: URL }) || process.env.NEXT_PUBLIC_APP_URL || '';
     const pdfUrl = baseUrl ? `${baseUrl}/api/invoices/${id}/pdf` : '';
-    const qrDownloadUrl = invoice.publicToken && baseUrl ? `${baseUrl}/api/invoices/public/${invoice.publicToken}/pdf` : '';
-    const qrImageUrl = qrDownloadUrl ? `${baseUrl}/api/qr?url=${encodeURIComponent(qrDownloadUrl)}` : '';
+    const publicPdfUrl = invoice.publicToken && baseUrl ? `${baseUrl}/api/invoices/public/${invoice.publicToken}/pdf` : '';
+    const qrTargetUrl = forPdf
+      ? (publicPdfUrl || pdfUrl)
+      : hasPdf
+        ? (publicPdfUrl || pdfUrl)
+        : '';
+    const qrImageUrl = qrTargetUrl && baseUrl ? `${baseUrl}/api/qr?url=${encodeURIComponent(qrTargetUrl)}` : '';
 
     const recipientLines = [
       line(legal.name),
@@ -271,9 +276,8 @@ export async function GET(
   <div id="printArea">
     <p style="margin:1rem 0 0.5rem;font-size:16px;font-weight:bold;">Счет № ${escapeHtml(uniqueNum)} от ${escapeHtml(invoiceDateRu)} г.</p>
     <table style="width:100%;max-width:681px;border-collapse:collapse;font-size:12pt;margin:0.5rem 0 1rem;">
-      <tr><td style="padding:4px 0;width:85px;vertical-align:top;">Поставщик:</td><td><b>${escapeHtml((legal.fullName ?? legal.name) ?? '')}</b></td></tr>
-      <tr><td style="padding:4px 0;vertical-align:top;">Плательщик:</td><td>${payerBlock}</td></tr>
-      <tr><td style="padding:4px 0;vertical-align:top;">Покупатель:</td><td><b>${escapeHtml(payerName)}</b></td></tr>
+      <tr><td style="padding:4px 0;width:85px;vertical-align:top;">Поставщик:</td><td>${payerBlock}</td></tr>
+      <tr><td style="padding:4px 0;vertical-align:top;">Покупатель:</td><td><b>${escapeHtml(buyerName)}</b></td></tr>
     </table>
     ${qrImageUrl ? `<p style="margin:0.5rem 0;"><img src="${escapeHtml(qrImageUrl)}" alt="QR код счёта" width="80" height="80" /> <span style="font-size:0.875rem;color:#555;">Скачать счёт по QR-коду</span></p>` : ''}
     <table style="width:100%;max-width:684px;border-collapse:collapse;border:1.5px solid #000;font-size:10pt;">
