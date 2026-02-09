@@ -45,8 +45,17 @@ interface WorkPeriodFull {
     product: { name: string };
   };
   invoices: Invoice[];
+  periodInvoiceNotes?: PeriodInvoiceNote[];
   periodReport: { id: string; originalName: string; paymentType: string } | null;
   closeoutDocuments?: Array<{ id: string; originalName: string; docType: string; uploadedAt: string }>;
+}
+
+interface PeriodInvoiceNote {
+  id: string;
+  amount: string;
+  invoiceNumber: string | null;
+  issuedAt: string | null;
+  legalEntity: { id: string; name: string };
 }
 
 export default function PeriodDetail({ periodId }: PeriodDetailProps) {
@@ -97,7 +106,7 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
     });
     if (res.ok) {
       setShowInvoiceForm(false);
-      load();
+      load(); // при создании счёта или пометки — перезагружаем период
     } else {
       const err = await res.json();
       alert(err.error || 'Ошибка');
@@ -352,6 +361,20 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
         </form>
       )}
 
+      {(period.periodInvoiceNotes?.length ?? 0) > 0 && (
+        <ul className="space-y-2 mb-4 text-sm text-gray-600">
+          {period.periodInvoiceNotes?.map((note) => (
+            <li key={note.id} className="border-l-2 border-amber-400 pl-3 py-1">
+              Счёт выставлен на {formatAmount(note.amount)}
+              {note.invoiceNumber && `, № ${note.invoiceNumber}`}
+              {note.issuedAt && `, ${formatDate(note.issuedAt)}`}
+              {' — '}
+              {note.legalEntity.name}
+              <span className="text-gray-400 ml-1">(без формирования счёта — ЮЛ без галочки «Формировать закрывающие документы»)</span>
+            </li>
+          ))}
+        </ul>
+      )}
       <ul className="space-y-4">
         {period.invoices.map((inv) => (
             <li key={inv.id} className="border rounded p-4">

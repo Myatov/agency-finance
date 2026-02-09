@@ -72,6 +72,12 @@ jobs:
             npx prisma db execute --file prisma/backfill-work-period-expected-amount.sql || true
             echo "🔄 Applying unique index on WorkPeriod (serviceId, dateFrom, dateTo) if possible..."
             npx prisma db execute --file prisma/add-work-period-unique-dates.sql || true
+            echo "🔄 Applying DB migration (Client.workStartDate) if needed..."
+            npx prisma db execute --file prisma/add-client-work-start-date.sql || true
+            echo "🔄 Applying DB migration (Invoice.publicToken) if needed..."
+            npx prisma db execute --file prisma/add-invoice-public-token.sql || true
+            echo "🔄 Applying DB migration (PeriodInvoiceNote, InvoiceLine, Invoice.invoiceDate) if needed..."
+            npx prisma db execute --file prisma/add-period-invoice-note-and-invoice-line.sql || true
             echo "🔄 Running safe deploy script..."
             if bash scripts/safe-deploy.sh; then
               echo "✅ Safe deploy completed successfully"

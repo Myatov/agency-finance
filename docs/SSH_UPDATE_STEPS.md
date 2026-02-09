@@ -90,6 +90,28 @@ psql "$DATABASE_URL_PSQL" -f prisma/add-work-period-unique-dates.sql
 
 Если скрипт п.3 выдаёт ошибку из‑за оставшихся дубликатов — удалите лишние периоды и запустите его снова.
 
+**Обновление 2026-02-09 (дата старта клиента, QR личного кабинета, публичная ссылка и QR для счёта):**  
+Сначала выполните **Шаг 4** (git pull), чтобы на сервере появились файлы миграций, затем выполните миграции:
+
+```bash
+cd /var/www/agency-finance
+export $(grep -v '^#' .env | xargs)
+export DATABASE_URL_PSQL="${DATABASE_URL%%\?*}"
+psql "$DATABASE_URL_PSQL" -f prisma/add-client-work-start-date.sql
+psql "$DATABASE_URL_PSQL" -f prisma/add-invoice-public-token.sql
+```
+
+Если `psql` выдаёт ошибку вида `role "root" does not exist`, подключитесь явно (подставьте ЛОГИН, ПАРОЛЬ и ИМЯ_БД из `grep DATABASE_URL .env`):
+
+```bash
+export PGPASSWORD='ПАРОЛЬ'
+psql -h localhost -U ЛОГИН -d ИМЯ_БД -f /var/www/agency-finance/prisma/add-client-work-start-date.sql
+psql -h localhost -U ЛОГИН -d ИМЯ_БД -f /var/www/agency-finance/prisma/add-invoice-public-token.sql
+unset PGPASSWORD
+```
+
+После этого переходите к шагам 6–8 (npm ci, prisma generate, build, pm2 restart).
+
 ---
 
 ## Шаг 4. Обновить код из Git

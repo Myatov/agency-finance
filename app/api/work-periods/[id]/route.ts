@@ -33,8 +33,12 @@ export async function GET(
         invoices: {
           include: {
             payments: true,
+            lines: true,
             legalEntity: { select: { id: true, name: true } },
           },
+        },
+        periodInvoiceNotes: {
+          include: { legalEntity: { select: { id: true, name: true } } },
         },
         periodReport: {
           include: { accountManager: { select: { id: true, fullName: true } } },
@@ -54,7 +58,30 @@ export async function GET(
     );
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    const out = JSON.parse(JSON.stringify(period, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
+    // Счета по строкам: счёт может быть привязан к периоду через InvoiceLine (несколько услуг в одном счёте)
+    const invoicesViaLines = await prisma.invoice.findMany({
+      where: { lines: { some: { workPeriodId: id } } },
+      include: {
+        payments: true,
+        lines: true,
+        legalEntity: { select: { id: true, name: true } },
+      },
+    });
+    const periodInvoiceIds = new Set(period.invoices.map((i) => i.id));
+    const mergedInvoices = [...period.invoices];
+    for (const inv of invoicesViaLines) {
+      if (!periodInvoiceIds.has(inv.id)) {
+        mergedInvoices.push(inv);
+        periodInvoiceIds.add(inv.id);
+      }
+    }
+
+    const out = JSON.parse(
+      JSON.stringify(
+        { ...period, invoices: mergedInvoices, periodInvoiceNotes: period.periodInvoiceNotes },
+        (_, v) => (typeof v === 'bigint' ? v.toString() : v)
+      )
+    );
     return NextResponse.json({ workPeriod: out });
   } catch (e: any) {
     console.error('GET work-periods/[id]', e);
@@ -107,7 +134,11 @@ export async function PUT(
     const updated = await prisma.workPeriod.update({
       where: { id },
       data: updateData,
-      include: { invoices: true, periodReport: true },
+      include: {
+        invoices: { include: { payments: true, lines: true, legalEntity: { select: { id: true, name: true } } } },
+        periodReport: true,
+        periodInvoiceNotes: { include: { legalEntity: { select: { id: true, name: true } } } },
+      },
     });
 
     const out = JSON.parse(JSON.stringify(updated, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));

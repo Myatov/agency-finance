@@ -116,6 +116,7 @@ export async function GET(
           },
         },
         legalEntity: true,
+        lines: { include: { workPeriod: { include: { service: { include: { product: { select: { name: true } }, site: { select: { title: true } } } } } } } },
       },
     });
     if (!invoice) return NextResponse.json({ error: 'Счёт не найден' }, { status: 404 });
@@ -155,7 +156,7 @@ export async function GET(
       overrideNumber ||
       invoice.invoiceNumber?.trim() ||
       `INV-${dateFrom.toISOString().slice(0, 10).replace(/-/g, '')}-${id.slice(-6)}`;
-    const dateStr = toRuDate(new Date());
+    const dateStr = toRuDate(invoice.invoiceDate ?? new Date());
 
     const payerLines = [
       line(client.name || client.legalEntityName),

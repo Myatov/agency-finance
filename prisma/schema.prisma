@@ -80,9 +80,10 @@ model User {
   uploadedContracts   ContractDocument[]   @relation("ContractUploader")
   uploadedCloseoutDocs CloseoutDocument[]   @relation("CloseoutDocUploader")
   periodReports       WorkPeriodReport[]   @relation("PeriodReportAM")
-  createdInvoices     Invoice[]            @relation("InvoiceCreator")
-  createdPayments     Payment[]             @relation("PaymentCreator")
-  createdClientPortals ClientPortalAccess[] @relation("ClientPortalCreator")
+  createdInvoices         Invoice[]            @relation("InvoiceCreator")
+  createdPayments         Payment[]            @relation("PaymentCreator")
+  createdClientPortals    ClientPortalAccess[]  @relation("ClientPortalCreator")
+  createdPeriodInvoiceNotes PeriodInvoiceNote[] @relation("PeriodInvoiceNoteCreator")
 
   @@index([departmentId])
   @@index([roleId])
@@ -116,6 +117,7 @@ model LegalEntity {
   incomes               Income[]
   expenses              Expense[]
   invoices              Invoice[]
+  periodInvoiceNotes    PeriodInvoiceNote[]
 
   @@index([isActive])
   @@map("LegalEntity")
@@ -363,9 +365,11 @@ model WorkPeriod {
   updatedAt           DateTime         @updatedAt
   service             Service          @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   invoices            Invoice[]
+  invoiceLines        InvoiceLine[]    // Строки счетов по этому периоду (1 счёт = несколько услуг)
   incomes             Income[]
   periodReport        WorkPeriodReport?
   closeoutDocuments   CloseoutDocument[]
+  periodInvoiceNotes  PeriodInvoiceNote[] // Пометки «Счёт выставлен на X» без формирования счёта (ЮЛ без галочки)
 
   @@unique([serviceId, dateFrom, dateTo])
   @@index([serviceId])
@@ -393,18 +397,37 @@ model WorkPeriodReport {
   @@map("WorkPeriodReport")
 }
 
+model PeriodInvoiceNote {
+  id              String       @id @default(uuid())
+  workPeriodId    String
+  amount          BigInt
+  legalEntityId   String
+  invoiceNumber   String?
+  issuedAt        DateTime?
+  createdAt       DateTime     @default(now())
+  createdByUserId String?
+  workPeriod      WorkPeriod   @relation(fields: [workPeriodId], references: [id], onDelete: Cascade)
+  legalEntity     LegalEntity  @relation(fields: [legalEntityId], references: [id])
+  creator         User?        @relation("PeriodInvoiceNoteCreator", fields: [createdByUserId], references: [id])
+
+  @@index([workPeriodId])
+  @@index([legalEntityId])
+  @@map("PeriodInvoiceNote")
+}
+
 model Invoice {
   id                          String    @id @default(uuid())
-  workPeriodId                String
+  workPeriodId                String    // «Главный» период (для обратной совместимости; при нескольких строках — первый период)
   amount                      BigInt
   coverageFrom                DateTime?
   coverageTo                  DateTime?
   invoiceNumber               String?
+  invoiceDate                 DateTime? // Дата счёта (для отображения и PDF)
   legalEntityId               String
   generateClosingDocsAtInvoice Boolean  @default(false)
   closingDocPerInvoiceAtInvoice Boolean?
   invoiceNotRequired          Boolean   @default(false)
-  publicToken                 String?   @unique // Для публичной ссылки и QR: скачать PDF без авторизации
+  publicToken                 String?   @unique
   createdAt                   DateTime  @default(now())
   createdByUserId             String?
   updatedAt                   DateTime  @updatedAt
@@ -413,12 +436,31 @@ model Invoice {
   creator                     User?     @relation("InvoiceCreator", fields: [createdByUserId], references: [id])
   payments                    Payment[]
   closeoutDocuments           CloseoutDocument[]
+  lines                       InvoiceLine[]
 
   @@index([workPeriodId])
   @@index([legalEntityId])
   @@index([createdByUserId])
   @@index([publicToken])
   @@map("Invoice")
+}
+
+model InvoiceLine {
+  id                 String    @id @default(uuid())
+  invoiceId          String
+  workPeriodId       String
+  amount             BigInt
+  sortOrder          Int       @default(0)
+  serviceNameOverride String?  // Название услуги в счёте (если не из периода)
+  siteNameOverride   String?   // Название/адрес сайта в счёте
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  invoice            Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  workPeriod         WorkPeriod @relation(fields: [workPeriodId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([workPeriodId])
+  @@map("InvoiceLine")
 }
 
 model Payment {
