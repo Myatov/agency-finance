@@ -9,7 +9,11 @@ interface InvoiceLine {
   amount: string;
   serviceNameOverride: string | null;
   siteNameOverride: string | null;
-  workPeriod?: { dateFrom: string; dateTo: string; service: { product: { name: string }; site: { title: string } } };
+  workPeriod?: {
+    dateFrom: string;
+    dateTo: string;
+    service: { product: { name: string }; site: { title: string; client?: { name: string } } };
+  };
 }
 
 interface Invoice {

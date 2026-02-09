@@ -123,7 +123,9 @@ export async function GET(
                 service: {
                   include: {
                     site: {
-                      include: {
+                      select: {
+                        title: true,
+                        accountManagerId: true,
                         client: {
                           select: {
                             name: true,
@@ -138,9 +140,9 @@ export async function GET(
                             ks: true,
                             paymentRequisites: true,
                             contacts: true,
+                            sellerEmployeeId: true,
                           },
                         },
-                        title: true,
                       },
                     },
                     product: { select: { name: true } },
