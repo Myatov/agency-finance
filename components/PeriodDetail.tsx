@@ -28,6 +28,7 @@ interface WorkPeriodFull {
   dateTo: string;
   periodType: string;
   invoiceNotRequired: boolean;
+  expectedAmount: string | null;
   service: {
     id: string;
     price: string | null;
@@ -56,6 +57,8 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
   const [showReportForm, setShowReportForm] = useState(false);
   const [showCloseoutForm, setShowCloseoutForm] = useState(false);
   const [closeoutUploading, setCloseoutUploading] = useState(false);
+  const [editingExpected, setEditingExpected] = useState(false);
+  const [expectedInput, setExpectedInput] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -159,7 +162,12 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
     return <div className="py-8 text-center">{loading ? 'Загрузка...' : 'Период не найден'}</div>;
   }
 
-  const expected = period.service.price ? Number(period.service.price) : 0;
+  const expected =
+    period.expectedAmount != null && period.expectedAmount !== ''
+      ? Number(period.expectedAmount)
+      : period.service.price
+        ? Number(period.service.price)
+        : 0;
   const expectedRub = expected / 100;
   const totalIncomes = incomes.reduce((s, i) => s + Number(i.amount), 0);
   const paymentDone = !period.invoiceNotRequired && period.invoices.length > 0;
@@ -198,7 +206,66 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
 
       <div className="mb-6">
         <p className="text-sm text-gray-500">Ожидаемо за период</p>
-        <p className="text-lg font-semibold">{formatAmount(String(expected))}</p>
+        {!editingExpected ? (
+          <div className="flex items-center gap-2">
+            <p className="text-lg font-semibold">{formatAmount(String(expected))}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setExpectedInput(expectedRub > 0 ? expectedRub.toFixed(2) : '');
+                setEditingExpected(true);
+              }}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              Изменить
+            </button>
+          </div>
+        ) : (
+          <form
+            className="flex items-center gap-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const v = parseFloat(expectedInput);
+              if (Number.isNaN(v) || v < 0) return;
+              const res = await fetch(`/api/work-periods/${periodId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ expectedAmount: v }),
+              });
+              if (res.ok) {
+                setPeriod((prev) =>
+                  prev
+                    ? { ...prev, expectedAmount: String(Math.round(v * 100)) }
+                    : prev
+                );
+                setEditingExpected(false);
+              } else {
+                const err = await res.json();
+                alert(err.error || 'Ошибка');
+              }
+            }}
+          >
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={expectedInput}
+              onChange={(e) => setExpectedInput(e.target.value)}
+              className="border rounded px-2 py-1 w-32"
+            />
+            <span className="text-sm text-gray-500">руб.</span>
+            <button type="submit" className="px-2 py-1 bg-blue-600 text-white rounded text-sm">
+              Сохранить
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditingExpected(false)}
+              className="px-2 py-1 border rounded text-sm"
+            >
+              Отмена
+            </button>
+          </form>
+        )}
       </div>
 
       <div className="mb-6">

@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
     const serviceForExpected = await prisma.service.findUnique({
       where: { id: serviceId },
-      select: { startDate: true, endDate: true, billingType: true },
+      select: { startDate: true, endDate: true, billingType: true, price: true },
     });
     if (serviceForExpected) {
       const expected = getExpectedPeriods(
@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
               dateTo: new Date(ep.dateTo),
               periodType: 'STANDARD',
               invoiceNotRequired: false,
+              expectedAmount: serviceForExpected.price ?? undefined,
             },
           });
           existingKeys.add(`${ep.dateFrom}:${ep.dateTo}`);
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const { serviceId, dateFrom, dateTo, periodType, invoiceNotRequired } = body;
+    const { serviceId, dateFrom, dateTo, periodType, invoiceNotRequired, expectedAmount } = body;
 
     if (!serviceId || !dateFrom || !dateTo) {
       return NextResponse.json({ error: 'serviceId, dateFrom, dateTo are required' }, { status: 400 });
@@ -166,6 +167,11 @@ export async function POST(request: NextRequest) {
     const validTypes: WorkPeriodType[] = ['STANDARD', 'EXTENDED', 'BONUS', 'COMPENSATION'];
     const type = validTypes.includes(periodType) ? periodType : 'STANDARD';
 
+    const expectedAmountBigInt =
+      expectedAmount != null && expectedAmount !== ''
+        ? BigInt(Math.round(parseFloat(expectedAmount) * 100))
+        : service.price ?? undefined;
+
     const period = await prisma.workPeriod.create({
       data: {
         serviceId,
@@ -173,6 +179,7 @@ export async function POST(request: NextRequest) {
         dateTo: new Date(dateTo),
         periodType: type,
         invoiceNotRequired: Boolean(invoiceNotRequired),
+        expectedAmount: expectedAmountBigInt,
       },
       include: {
         invoices: true,

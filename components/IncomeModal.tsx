@@ -7,6 +7,7 @@ interface ExpectedPeriodOption {
   dateFrom: string;
   dateTo: string;
   workPeriodId: string | null;
+  expectedAmountKopecks?: string | null;
 }
 
 interface WorkPeriodOption {
@@ -177,6 +178,7 @@ export default function IncomeModal({
       dateFrom: p.dateFrom?.slice(0, 10) || '',
       dateTo: p.dateTo?.slice(0, 10) || '',
       workPeriodId: p.workPeriodId || null,
+      expectedAmountKopecks: p.expectedAmountKopecks ?? null,
     }));
     setExpectedPeriods(list);
     return list;
@@ -223,12 +225,14 @@ export default function IncomeModal({
       fetchExpectedPeriods(serviceId);
     }
     setFormData({ ...formData, serviceId, workPeriodId: suggestedId });
-    if (service?.price) {
+    const suggestedPeriod = suggestedId ? periods.find((p: ExpectedPeriodOption) => p.workPeriodId === suggestedId) : null;
+    const expectedKopecks = suggestedPeriod?.expectedAmountKopecks ?? service?.price;
+    if (expectedKopecks) {
       if (suggestedId) {
-        await fetchPeriodIncomesAndSuggestAmount(suggestedId, service.price, income?.id);
+        await fetchPeriodIncomesAndSuggestAmount(suggestedId, expectedKopecks, income?.id);
       } else {
         setPeriodIncomes([]);
-        setFormData((prev) => ({ ...prev, amount: (Number(service.price) / 100).toFixed(2) }));
+        setFormData((prev) => ({ ...prev, amount: (Number(expectedKopecks) / 100).toFixed(2) }));
       }
     } else {
       setPeriodIncomes([]);
@@ -271,9 +275,11 @@ export default function IncomeModal({
       if (res.ok && data.workPeriod?.id) {
         const newId = data.workPeriod.id;
         setFormData({ ...formData, workPeriodId: newId });
-        fetchExpectedPeriods(formData.serviceId);
-        if (selectedService?.price) {
-          await fetchPeriodIncomesAndSuggestAmount(newId, selectedService.price, income?.id);
+        const freshPeriods = await fetchExpectedPeriods(formData.serviceId);
+        const periodOpt = freshPeriods.find((p: ExpectedPeriodOption) => p.workPeriodId === newId);
+        const expectedKopecks = periodOpt?.expectedAmountKopecks ?? selectedService?.price;
+        if (expectedKopecks) {
+          await fetchPeriodIncomesAndSuggestAmount(newId, expectedKopecks, income?.id);
         } else {
           setPeriodIncomes([]);
         }
@@ -281,8 +287,10 @@ export default function IncomeModal({
       return;
     }
     setFormData({ ...formData, workPeriodId: value });
-    if (selectedService?.price) {
-      await fetchPeriodIncomesAndSuggestAmount(value, selectedService.price, income?.id);
+    const periodOpt = expectedPeriods.find((p) => p.workPeriodId === value);
+    const expectedKopecks = periodOpt?.expectedAmountKopecks ?? selectedService?.price;
+    if (expectedKopecks) {
+      await fetchPeriodIncomesAndSuggestAmount(value, expectedKopecks, income?.id);
     } else {
       setPeriodIncomes([]);
     }

@@ -46,8 +46,10 @@ export async function GET(
       id: p.id,
       dateFrom: p.dateFrom.toISOString().slice(0, 10),
       dateTo: p.dateTo.toISOString().slice(0, 10),
+      expectedAmount: p.expectedAmount != null ? String(p.expectedAmount) : null,
     }));
 
+    const defaultExpected = service.price != null ? String(service.price) : null;
     const merged = expected.map((ep) => {
       const found = existing.find(
         (e) => e.dateFrom === ep.dateFrom && e.dateTo === ep.dateTo
@@ -57,6 +59,9 @@ export async function GET(
         dateTo: ep.dateTo,
         isInvoicePeriod: ep.isInvoicePeriod ?? true,
         workPeriodId: found?.id ?? null,
+        expectedAmountKopecks: found
+          ? (found.expectedAmount ?? defaultExpected)
+          : defaultExpected,
       };
     });
 

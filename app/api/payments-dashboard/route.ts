@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     const dateFrom = request.nextUrl.searchParams.get('dateFrom') || undefined;
     const dateTo = request.nextUrl.searchParams.get('dateTo') || undefined;
     const overdueOnly = request.nextUrl.searchParams.get('overdueOnly') === '1';
+    const paymentOverdueOnly = request.nextUrl.searchParams.get('paymentOverdueOnly') === '1';
 
     const andParts: any[] = [];
     if (accountManagerId) andParts.push({ site: { accountManagerId } });
@@ -68,17 +69,6 @@ export async function GET(request: NextRequest) {
 
     const totalIncomesAll = Array.from(incomeByPeriod.values()).reduce((s, v) => s + v, 0);
     const factTotalFromAllPeriods = totalIncomesAll;
-
-    const periodsForPlanTotal = await prisma.workPeriod.findMany({
-      where: wherePeriod,
-      include: {
-        service: { select: { price: true } },
-      },
-    });
-    const planTotalFromAllPeriods = periodsForPlanTotal.reduce(
-      (s, p) => s + Number(p.service.price ?? 0),
-      0
-    );
 
     // Без фильтра по наличию счетов — показываем и периоды без счетов (для таблицы берём больше записей)
     const periods = await prisma.workPeriod.findMany({
@@ -131,9 +121,16 @@ export async function GET(request: NextRequest) {
       periods.map((p) => periodKey(p.serviceId, p.dateFrom.toISOString().slice(0, 10), p.dateTo.toISOString().slice(0, 10)))
     );
 
+    const isPrepay = (pt: string) => pt === 'FULL_PREPAY' || pt === 'PARTIAL_PREPAY';
+
     const rows = periods.map((p) => {
       const invoices = p.invoices ?? [];
-      const expected = p.service?.price ? Number(p.service.price) : 0;
+      const expected =
+        p.expectedAmount != null
+          ? Number(p.expectedAmount)
+          : p.service?.price
+            ? Number(p.service.price)
+            : 0;
       const incomeSum = incomeByPeriod.get(p.id) ?? 0;
       const paid = incomeSum;
       const totalInvoiced = invoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
@@ -141,6 +138,9 @@ export async function GET(request: NextRequest) {
       const hasReport = hasReportIds.has(p.id);
       const hasInvoice = invoices.length > 0;
       const hasCloseoutDoc = hasCloseoutDocIds.has(p.id);
+      const prepay = isPrepay(p.service?.prepaymentType ?? 'POSTPAY');
+      const paymentDueDate = prepay ? new Date(p.dateFrom) : new Date(p.dateTo);
+      const isPaymentOverdue = paymentDueDate < now && balance > 0;
       const isOverdue = !hasReport && p.dateTo < now;
       const risk = isOverdue || (p.dateTo >= now && !hasReport && totalInvoiced > 0);
       return {
@@ -148,6 +148,7 @@ export async function GET(request: NextRequest) {
         serviceId: p.serviceId,
         dateFrom: p.dateFrom.toISOString().slice(0, 10),
         dateTo: p.dateTo.toISOString().slice(0, 10),
+        paymentDueDate: paymentDueDate.toISOString().slice(0, 10),
         periodType: p.periodType,
         invoiceNotRequired: p.invoiceNotRequired,
         client: p.service.site.client,
@@ -162,6 +163,7 @@ export async function GET(request: NextRequest) {
         hasInvoice,
         hasCloseoutDoc,
         isOverdue,
+        isPaymentOverdue,
         risk,
         invoicesCount: invoices.length,
         isVirtual: false,
@@ -193,23 +195,27 @@ export async function GET(request: NextRequest) {
         svc.billingType as BillingType,
         svc.endDate ? new Date(svc.endDate) : undefined
       );
+      const svcPrepay = isPrepay(svc.prepaymentType ?? 'POSTPAY');
       for (const ep of expected) {
         if (existingKeys.has(periodKey(svc.id, ep.dateFrom, ep.dateTo))) continue;
         const from = new Date(ep.dateFrom);
         const to = new Date(ep.dateTo);
-        if (dateFromFilter && to < dateFromFilter) continue;
-        if (dateToFilter && from > dateToFilter) continue;
+        const paymentDueDate = svcPrepay ? from : to;
+        if (dateFromFilter && paymentDueDate < dateFromFilter) continue;
+        if (dateToFilter && paymentDueDate > dateToFilter) continue;
         const expectedAmount = svc.price ? Number(svc.price) : 0;
         const hasReport = false;
         const hasInvoice = false;
         const hasCloseoutDoc = false;
         const isOverdue = to < now;
+        const isPaymentOverdue = paymentDueDate < now && expectedAmount > 0;
         const risk = isOverdue || (!hasReport && to >= now);
         rows.push({
           id: `virtual:${svc.id}:${ep.dateFrom}:${ep.dateTo}`,
           serviceId: svc.id,
           dateFrom: ep.dateFrom,
           dateTo: ep.dateTo,
+          paymentDueDate: paymentDueDate.toISOString().slice(0, 10),
           periodType: 'STANDARD',
           invoiceNotRequired: false,
           client: svc.site.client,
@@ -224,6 +230,7 @@ export async function GET(request: NextRequest) {
           hasInvoice: false,
           hasCloseoutDoc: false,
           isOverdue,
+          isPaymentOverdue,
           risk,
           invoicesCount: 0,
           isVirtual: true,
@@ -231,12 +238,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    rows.sort((a, b) => a.dateTo.localeCompare(b.dateTo));
+    // Фильтр по «месяцу оплаты»: период входит в отчёт только если дата оплаты (по типу «Когда выставлять счёт») попадает в диапазон
+    const filterByPaymentDate = (r: { paymentDueDate: string }) => {
+      if (!dateFrom && !dateTo) return true;
+      const d = r.paymentDueDate;
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo && d > dateTo) return false;
+      return true;
+    };
 
-    const planVirtual = rows.filter((r) => r.isVirtual).reduce((s, r) => s + Number(r.expectedAmount), 0);
-    const planTotal = planTotalFromAllPeriods + planVirtual;
+    let result = rows.filter(filterByPaymentDate);
+    result.sort((a, b) => a.dateTo.localeCompare(b.dateTo));
 
-    let result = rows;
+    const planTotal = result.reduce((s, r) => s + Number(r.expectedAmount), 0);
+    const factTotalFromFiltered = result
+      .filter((r) => !r.isVirtual)
+      .reduce((s, r) => s + (incomeByPeriod.get(r.id) ?? 0), 0);
+
     if (overdueOnly) {
       // Просрочки: периоды, где не заполнен хотя бы один из элементов — Отчёт / Счёт / Акт
       result = result.filter(
@@ -246,13 +264,16 @@ export async function GET(request: NextRequest) {
           !r.hasCloseoutDoc
       );
     }
+    if (paymentOverdueOnly) {
+      result = result.filter((r) => r.isPaymentOverdue);
+    }
 
     return NextResponse.json({
       periods: result,
       summary: {
         planTotal: String(planTotal),
-        factTotal: String(factTotalFromAllPeriods),
-        deviation: String(planTotal - factTotalFromAllPeriods),
+        factTotal: String(factTotalFromFiltered),
+        deviation: String(planTotal - factTotalFromFiltered),
       },
       viewAllPayments,
       currentUserId: user.id,

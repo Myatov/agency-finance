@@ -10,6 +10,7 @@ interface WorkPeriod {
   dateTo: string;
   periodType: string;
   invoiceNotRequired: boolean;
+  expectedAmount?: string | null;
   incomeSum?: number;
   invoices: Array<{
     id: string;
@@ -120,7 +121,12 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
           periods.map((p) => {
             const totalInvoiced = p.invoices.reduce((s, i) => s + Number(i.amount), 0);
             const paidFromIncomes = p.incomeSum ?? 0;
-            const expected = service?.price ? Number(service.price) : 0;
+            const expected =
+              p.expectedAmount != null && p.expectedAmount !== ''
+                ? Number(p.expectedAmount)
+                : service?.price
+                  ? Number(service.price)
+                  : 0;
             const balance = expected - paidFromIncomes;
             const isFullyPaid = expected > 0 && paidFromIncomes >= expected;
             const hasInvoice = p.invoices.length > 0;

@@ -9,6 +9,7 @@ interface PeriodRow {
   serviceId: string;
   dateFrom: string;
   dateTo: string;
+  paymentDueDate?: string;
   periodType: string;
   invoiceNotRequired: boolean;
   client: { id: string; name: string };
@@ -23,6 +24,7 @@ interface PeriodRow {
   hasInvoice?: boolean;
   hasCloseoutDoc?: boolean;
   isOverdue: boolean;
+  isPaymentOverdue?: boolean;
   risk: boolean;
   invoicesCount: number;
   isVirtual?: boolean;
@@ -92,6 +94,7 @@ export default function PaymentsDashboard() {
     if (filters.accountManagerId) params.set('accountManagerId', filters.accountManagerId);
     if (filters.clientId) params.set('clientId', filters.clientId);
     if (tab === 'overdue') params.set('overdueOnly', '1');
+    if (tab === 'all') params.set('paymentOverdueOnly', '1');
     const myId = ++fetchIdRef.current;
     setLoading(true);
     const res = await fetch(`/api/payments-dashboard?${params}`, { cache: 'no-store' });
@@ -156,7 +159,9 @@ export default function PaymentsDashboard() {
             <div className="mt-2 p-4 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-700">
               {tab === 'all' && (
                 <>
-                  <strong>Ближайшие оплаты.</strong> Показаны все периоды работ в выбранном диапазоне дат: и уже созданные в системе, и ожидаемые по активным услугам (считаются от даты старта и типа биллинга — ежемесячно, разово, ежегодно). По каждой строке: клиент, сайт/услуга, аккаунт-менеджер, период, ожидаемая сумма, оплачено, остаток, наличие отчёта. Строки без созданного периода в БД отображают прочерк в колонке «Периоды» — период можно создать в карточке услуги или при добавлении дохода.
+                  <strong>Ближайшие оплаты.</strong> Показаны только просрочки по оплатам: периоды, по которым срок оплаты прошёл и остаток больше нуля.
+                  <br /><br />
+                  <strong>В какой период входит услуга.</strong> У каждой услуги задано поле «Когда выставлять счёт». Если указано «Полная предоплата» или «Частичная предоплата» — оплата ожидается в начале периода работ, и услуга относится к месяцу начала периода (например, период 20 января – 20 февраля входит в январь). Если указано «Постоплата» — оплата ожидается в конце периода, и услуга относится к месяцу окончания периода (тот же период входит в февраль). Фильтр по датам отбирает периоды по этой дате оплаты.
                 </>
               )}
         {tab === 'overdue' && (
@@ -281,9 +286,13 @@ export default function PaymentsDashboard() {
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Оплата</th>
                   )}
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Остаток</th>
-                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Отчёт</th>
-                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Счёт</th>
-                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Акт</th>
+                  {tab !== 'all' && (
+                    <>
+                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Отчёт</th>
+                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Счёт</th>
+                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Акт</th>
+                    </>
+                  )}
                   <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Действия</th>
                 </tr>
               </thead>
@@ -314,15 +323,19 @@ export default function PaymentsDashboard() {
                       </td>
                     )}
                     <td className="px-4 py-2 text-sm text-right">{formatRub(row.balance)}</td>
-                    <td className="px-4 py-2 text-center">
-                      {row.hasReport ? <span className="text-green-600">✓</span> : <span className="text-gray-400">—</span>}
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      {(row.hasInvoice ?? row.invoicesCount > 0) ? <span className="text-green-600">✓</span> : <span className="text-gray-400">—</span>}
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      {(row.hasCloseoutDoc ?? false) ? <span className="text-green-600">✓</span> : <span className="text-gray-400">—</span>}
-                    </td>
+                    {tab !== 'all' && (
+                      <>
+                        <td className="px-4 py-2 text-center">
+                          {row.hasReport ? <span className="text-green-600">✓</span> : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          {(row.hasInvoice ?? row.invoicesCount > 0) ? <span className="text-green-600">✓</span> : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          {(row.hasCloseoutDoc ?? false) ? <span className="text-green-600">✓</span> : <span className="text-gray-400">—</span>}
+                        </td>
+                      </>
+                    )}
                     <td className="px-4 py-2 text-center">
                       {row.isVirtual ? (
                         <span className="text-gray-400 text-sm" title="Период ещё не создан в БД; создайте в карточке услуги → Периоды">—</span>

@@ -357,6 +357,7 @@ model WorkPeriod {
   dateTo              DateTime
   periodType          WorkPeriodType   @default(STANDARD)
   invoiceNotRequired  Boolean          @default(false)
+  expectedAmount      BigInt?          // Ожидаемая сумма за этот период (копейки). Если null — берётся из услуги (price). Позволяет иметь разную цену по периодам.
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
   service             Service          @relation(fields: [serviceId], references: [id], onDelete: Cascade)

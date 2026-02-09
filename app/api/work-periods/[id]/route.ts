@@ -87,7 +87,7 @@ export async function PUT(
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await request.json();
-    const { dateFrom, dateTo, periodType, invoiceNotRequired } = body;
+    const { dateFrom, dateTo, periodType, invoiceNotRequired, expectedAmount } = body;
 
     const updateData: any = {};
     if (dateFrom !== undefined) updateData.dateFrom = new Date(dateFrom);
@@ -97,6 +97,12 @@ export async function PUT(
       updateData.periodType = valid.includes(periodType) ? periodType : period.periodType;
     }
     if (invoiceNotRequired !== undefined) updateData.invoiceNotRequired = Boolean(invoiceNotRequired);
+    if (expectedAmount !== undefined) {
+      updateData.expectedAmount =
+        expectedAmount != null && expectedAmount !== ''
+          ? BigInt(Math.round(parseFloat(String(expectedAmount)) * 100))
+          : null;
+    }
 
     const updated = await prisma.workPeriod.update({
       where: { id },
