@@ -80,10 +80,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getSession();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const { id } = await params;
+    const token = request.nextUrl.searchParams.get('token');
     const invoice = await prisma.invoice.findUnique({
       where: { id },
       include: {
@@ -122,12 +120,17 @@ export async function GET(
     });
     if (!invoice) return NextResponse.json({ error: 'Счёт не найден' }, { status: 404 });
 
-    const canAccess = await canAccessServiceForPeriods(
-      user,
-      invoice.workPeriod.service.site.accountManagerId,
-      invoice.workPeriod.service.site.client.sellerEmployeeId
-    );
-    if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const publicAccess = token && invoice.publicToken && token === invoice.publicToken;
+    if (!publicAccess) {
+      const user = await getSession();
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const canAccess = await canAccessServiceForPeriods(
+        user,
+        invoice.workPeriod.service.site.accountManagerId,
+        invoice.workPeriod.service.site.client.sellerEmployeeId
+      );
+      if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const searchParams = request.nextUrl.searchParams;
     const overrideNumber = searchParams.get('invoiceNumber')?.trim();

@@ -71,7 +71,7 @@ export default function CabinetCloseoutPage() {
                 <div className="font-medium text-slate-800">{d.originalName}</div>
                 <div className="text-sm text-slate-500">
                   {docTypeLabel[d.docType] ?? d.docType}
-                  {d.period && ` · ${d.period}`}
+                  {d.period && ` · ${formatDate(d.period)}`}
                   {d.docDate && ` · ${formatDate(d.docDate)}`}
                   {d.amount != null && ` · ${(d.amount / 100).toLocaleString('ru-RU')} ₽`}
                 </div>

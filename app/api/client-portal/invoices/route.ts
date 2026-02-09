@@ -19,6 +19,7 @@ export async function GET() {
       coverageFrom: true,
       coverageTo: true,
       invoiceNumber: true,
+      publicToken: true,
       createdAt: true,
       legalEntity: { select: { name: true } },
       workPeriod: {
@@ -43,6 +44,7 @@ export async function GET() {
       coverageFrom: inv.coverageFrom,
       coverageTo: inv.coverageTo,
       invoiceNumber: inv.invoiceNumber,
+      publicToken: inv.publicToken,
       createdAt: inv.createdAt,
       legalEntityName: inv.legalEntity.name,
       periodFrom: inv.workPeriod.dateFrom,

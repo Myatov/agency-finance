@@ -3,12 +3,19 @@
 import { useEffect, useState } from 'react';
 import { formatDate } from '@/lib/utils';
 
+function useMounted() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted;
+}
+
 interface Invoice {
   id: string;
   amount: number;
   coverageFrom: string | null;
   coverageTo: string | null;
   invoiceNumber: string | null;
+  publicToken: string | null;
   createdAt: string;
   legalEntityName: string;
   periodFrom: string;
@@ -20,6 +27,7 @@ interface Invoice {
 export default function CabinetInvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const mounted = useMounted();
 
   useEffect(() => {
     fetch('/api/client-portal/invoices', { credentials: 'include' })
@@ -58,13 +66,23 @@ export default function CabinetInvoicesPage() {
                 </div>
                 <div className="text-sm text-slate-500">Получатель: {inv.legalEntityName}</div>
               </div>
-              <button
-                type="button"
-                onClick={() => openDownload(inv.id)}
-                className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700"
-              >
-                Скачать счёт
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openDownload(inv.id)}
+                  className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700"
+                >
+                  Скачать счёт
+                </button>
+                {mounted && inv.publicToken && (
+                  <img
+                    src={`/api/qr?url=${encodeURIComponent(`${window.location.origin}/api/invoices/public/${inv.publicToken}/pdf`)}`}
+                    alt="QR счёт"
+                    className="w-10 h-10 border border-slate-200 rounded"
+                    title="QR для скачивания счёта (можно отправить контрагенту)"
+                  />
+                )}
+              </div>
             </li>
           ))}
         </ul>

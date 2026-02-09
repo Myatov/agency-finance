@@ -183,6 +183,7 @@ model Client {
   keyClientStatusComment    String?
   returningClientStatusComment String?
   isSystem          Boolean         @default(false)
+  workStartDate     DateTime?       // Дата старта работы с клиентом (ни на что не влияет, для справки)
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   legalEntity       LegalEntity?    @relation(fields: [legalEntityId], references: [id])
@@ -403,6 +404,7 @@ model Invoice {
   generateClosingDocsAtInvoice Boolean  @default(false)
   closingDocPerInvoiceAtInvoice Boolean?
   invoiceNotRequired          Boolean   @default(false)
+  publicToken                 String?   @unique // Для публичной ссылки и QR: скачать PDF без авторизации
   createdAt                   DateTime  @default(now())
   createdByUserId             String?
   updatedAt                   DateTime  @updatedAt
@@ -415,6 +417,7 @@ model Invoice {
   @@index([workPeriodId])
   @@index([legalEntityId])
   @@index([createdByUserId])
+  @@index([publicToken])
   @@map("Invoice")
 }
 

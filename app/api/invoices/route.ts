@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
     if (!legalEntity) return NextResponse.json({ error: 'Legal entity not found' }, { status: 404 });
 
     const amountBigInt = BigInt(Math.round(parseFloat(String(amount)) * 100));
+    const { randomUUID } = await import('crypto');
 
     const invoice = await prisma.invoice.create({
       data: {
@@ -97,6 +98,7 @@ export async function POST(request: NextRequest) {
         generateClosingDocsAtInvoice: legalEntity.generateClosingDocs,
         closingDocPerInvoiceAtInvoice: legalEntity.closingDocPerInvoice,
         invoiceNotRequired: Boolean(invoiceNotRequired),
+        publicToken: randomUUID(),
         createdByUserId: user.id,
       },
       include: {

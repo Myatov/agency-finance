@@ -12,6 +12,7 @@ interface Invoice {
   id: string;
   amount: string;
   invoiceNumber: string | null;
+  publicToken: string | null;
   legalEntity: { id: string; name: string };
   payments: Array<{ id: string; amount: string; paidAt: string }>;
 }
@@ -59,6 +60,11 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
   const [closeoutUploading, setCloseoutUploading] = useState(false);
   const [editingExpected, setEditingExpected] = useState(false);
   const [expectedInput, setExpectedInput] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -351,7 +357,18 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
             <li key={inv.id} className="border rounded p-4">
               <div className="flex justify-between items-center flex-wrap gap-2">
                 <span>Счёт {inv.invoiceNumber || inv.id.slice(0, 8)} — {inv.legalEntity.name}: {formatAmount(inv.amount)}</span>
-                <a href={`/api/invoices/${inv.id}/download`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm">Скачать счёт</a>
+                <div className="flex items-center gap-2">
+                  <a href={`/api/invoices/${inv.id}/download`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm">Скачать счёт</a>
+                  {mounted && inv.publicToken && (
+                    <span className="inline-flex items-center gap-1" title="QR для скачивания счёта в PDF (публичная ссылка)">
+                      <img
+                        src={`/api/qr?url=${encodeURIComponent(`${window.location.origin}/api/invoices/public/${inv.publicToken}/pdf`)}`}
+                        alt="QR счёт"
+                        className="w-8 h-8 border border-gray-200 rounded"
+                      />
+                    </span>
+                  )}
+                </div>
               </div>
               {inv.payments.length > 0 && (
                 <ul className="mt-2 text-sm text-gray-600">

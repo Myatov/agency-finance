@@ -114,6 +114,14 @@ export default function ClientPortalModal({ clientId, clientName, onClose }: Cli
                 <p className="text-xs text-gray-500 mt-1">
                   Отправьте клиенту эту ссылку и пароль. Вход только по паролю на этой странице.
                 </p>
+                <div className="mt-2">
+                  <p className="text-xs text-gray-600 mb-1">QR-код для входа в личный кабинет</p>
+                  <img
+                    src={`/api/qr?url=${encodeURIComponent(portalLink)}`}
+                    alt="QR-код входа в личный кабинет"
+                    className="inline-block w-32 h-32 border border-gray-200 rounded"
+                  />
+                </div>
                 {createdAt && (
                   <p className="text-xs text-gray-500 mt-1">
                     Создано: {formatDate(createdAt)}

@@ -42,6 +42,7 @@ interface Client {
   isKeyClient?: boolean;
   keyClientStatusComment?: string | null;
   returningClientStatusComment?: string | null;
+  workStartDate?: string | null;
   clientContacts?: Array<{
     contactId: string;
     role: string | null;
@@ -92,6 +93,7 @@ export default function ClientModal({
     isKeyClient: false,
     keyClientStatusComment: '',
     returningClientStatusComment: '',
+    workStartDate: '',
   });
   const [users, setUsers] = useState<User[]>([]);
   const [legalEntities, setLegalEntities] = useState<LegalEntity[]>([]);
@@ -142,6 +144,7 @@ export default function ClientModal({
         isKeyClient: Boolean(c.isKeyClient),
         keyClientStatusComment: c.keyClientStatusComment ?? '',
         returningClientStatusComment: c.returningClientStatusComment ?? '',
+        workStartDate: (c as { workStartDate?: string | null }).workStartDate ? String((c as { workStartDate: string }).workStartDate).slice(0, 10) : '',
       });
       if (c.clientContacts && Array.isArray(c.clientContacts)) {
         setClientContactsLinks(
@@ -298,6 +301,7 @@ export default function ClientModal({
         isKeyClient: Boolean(latest.isKeyClient),
         keyClientStatusComment: toNull(latest.keyClientStatusComment),
         returningClientStatusComment: toNull(latest.returningClientStatusComment),
+        workStartDate: (latest.workStartDate ?? '').trim() ? (latest.workStartDate ?? '').trim() : null,
         agentId: (latest.agentId ?? '').trim() || null,
         clientContacts: clientContactsLinks.map((l) => ({ contactId: l.contactId, role: l.role, isPrimary: l.isPrimary })),
       };
@@ -494,6 +498,16 @@ export default function ClientModal({
                   />
                 </div>
               )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Дата старта работы с клиентом</label>
+                <input
+                  type="date"
+                  value={formData.workStartDate}
+                  onChange={(e) => updateField('workStartDate', e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md"
+                />
+                <p className="text-xs text-gray-500 mt-1">Справочное поле, ни на что не влияет</p>
+              </div>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
