@@ -110,6 +110,24 @@ psql -h localhost -U ЛОГИН -d ИМЯ_БД -f /var/www/agency-finance/prisma
 unset PGPASSWORD
 ```
 
+**Обновление 2026-02-09 (пометки без счёта, многострочные счета — PeriodInvoiceNote, InvoiceLine):**  
+После `git pull` выполните миграцию (один раз):
+
+```bash
+cd /var/www/agency-finance
+export $(grep -v '^#' .env | xargs)
+export DATABASE_URL_PSQL="${DATABASE_URL%%\?*}"
+psql "$DATABASE_URL_PSQL" -f prisma/add-period-invoice-note-and-invoice-line.sql
+```
+
+При ошибке `role "root" does not exist`:
+
+```bash
+export PGPASSWORD='ПАРОЛЬ'
+psql -h localhost -U ЛОГИН -d ИМЯ_БД -f /var/www/agency-finance/prisma/add-period-invoice-note-and-invoice-line.sql
+unset PGPASSWORD
+```
+
 После этого переходите к шагам 6–8 (npm ci, prisma generate, build, pm2 restart).
 
 ---
