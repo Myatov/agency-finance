@@ -155,10 +155,6 @@ export default function InvoicesList() {
 
   const handleSaveNewInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newForm.legalEntityId.trim()) {
-      alert('Выберите юрлицо');
-      return;
-    }
     if (newForm.lines.length === 0) {
       alert('Добавьте хотя бы один период');
       return;
