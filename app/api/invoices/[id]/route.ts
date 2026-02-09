@@ -14,6 +14,18 @@ async function getInvoiceWithAccess(user: SessionUser, id: string) {
         },
       },
       payments: true,
+      lines: {
+        include: {
+          workPeriod: {
+            include: {
+              service: {
+                include: { product: { select: { name: true } }, site: { select: { title: true } } },
+              },
+            },
+          },
+        },
+        orderBy: { sortOrder: 'asc' },
+      },
       legalEntity: { select: { id: true, name: true } },
     },
   });
@@ -61,19 +73,24 @@ export async function PUT(
     if (invoice === undefined) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await request.json();
-    const { amount, coverageFrom, coverageTo, invoiceNumber, invoiceNotRequired } = body;
+    const { amount, coverageFrom, coverageTo, invoiceNumber, invoiceDate, invoiceNotRequired } = body;
 
     const updateData: any = {};
     if (amount !== undefined) updateData.amount = BigInt(Math.round(parseFloat(String(amount)) * 100));
     if (coverageFrom !== undefined) updateData.coverageFrom = coverageFrom ? new Date(coverageFrom) : null;
     if (coverageTo !== undefined) updateData.coverageTo = coverageTo ? new Date(coverageTo) : null;
     if (invoiceNumber !== undefined) updateData.invoiceNumber = invoiceNumber && String(invoiceNumber).trim() ? String(invoiceNumber).trim() : null;
+    if (invoiceDate !== undefined) updateData.invoiceDate = invoiceDate ? new Date(invoiceDate) : null;
     if (invoiceNotRequired !== undefined) updateData.invoiceNotRequired = Boolean(invoiceNotRequired);
 
     const updated = await prisma.invoice.update({
       where: { id },
       data: updateData,
-      include: { payments: true, legalEntity: { select: { id: true, name: true } } },
+      include: {
+        payments: true,
+        lines: { include: { workPeriod: { include: { service: { include: { product: { select: { name: true } }, site: { select: { title: true } } } } } } }, orderBy: { sortOrder: 'asc' } },
+        legalEntity: { select: { id: true, name: true } },
+      },
     });
 
     const out = JSON.parse(JSON.stringify(updated, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));

@@ -5,10 +5,10 @@ on:
     branches:
       - main
 
-# Предотвращаем параллельные деплои
+# Только последний деплой: при новом пуше отменяем текущий и ставим в очередь новый (не ждём 5–8 мин в Queued)
 concurrency:
   group: deploy
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:

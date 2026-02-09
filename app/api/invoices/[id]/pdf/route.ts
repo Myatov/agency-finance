@@ -116,7 +116,20 @@ export async function GET(
           },
         },
         legalEntity: true,
-        lines: { include: { workPeriod: { include: { service: { include: { product: { select: { name: true } }, site: { select: { title: true } } } } } } } },
+        lines: {
+          include: {
+            workPeriod: {
+              include: {
+                service: {
+                  include: {
+                    product: { select: { name: true } },
+                    site: { include: { client: { select: { sellerEmployeeId: true } } } },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
     if (!invoice) return NextResponse.json({ error: 'Счёт не найден' }, { status: 404 });
@@ -125,17 +138,26 @@ export async function GET(
     if (!publicAccess) {
       const user = await getSession();
       if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      const canAccess = await canAccessServiceForPeriods(
+      let canAccess = await canAccessServiceForPeriods(
         user,
         invoice.workPeriod.service.site.accountManagerId,
         invoice.workPeriod.service.site.client.sellerEmployeeId
       );
+      if (!canAccess && invoice.lines?.length) {
+        for (const l of invoice.lines) {
+          canAccess = await canAccessServiceForPeriods(
+            user,
+            l.workPeriod.service.site.accountManagerId,
+            l.workPeriod.service.site.client.sellerEmployeeId
+          );
+          if (canAccess) break;
+        }
+      }
       if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const searchParams = request.nextUrl.searchParams;
     const overrideNumber = searchParams.get('invoiceNumber')?.trim();
-    const overrideServiceName = searchParams.get('serviceName')?.trim();
 
     const amountBase = Number(invoice.amount) / 100;
     const amountRub = amountBase.toFixed(2);
@@ -146,17 +168,35 @@ export async function GET(
     const totalWithVat = showVat ? amountBase + vatAmount : 0;
     const vatRub = vatAmount.toFixed(2);
     const totalWithVatRub = totalWithVat.toFixed(2);
-    const dateFrom = invoice.workPeriod.dateFrom;
-    const dateTo = invoice.workPeriod.dateTo;
-    const periodRu = `${toRuDate(dateFrom)} — ${toRuDate(dateTo)}`;
-    const client = invoice.workPeriod.service.site.client;
-    const siteTitle = invoice.workPeriod.service.site.title;
-    const productName = overrideServiceName ?? invoice.workPeriod.service.product.name;
+
+    const sortedLines = (invoice.lines ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder);
+    const hasMultipleLines = sortedLines.length > 1;
+    const firstPeriod = invoice.workPeriod;
+    const dateFrom = firstPeriod.dateFrom;
+    const dateTo = firstPeriod.dateTo;
+    const client = firstPeriod.service.site.client;
     const uniqueNum =
       overrideNumber ||
       invoice.invoiceNumber?.trim() ||
       `INV-${dateFrom.toISOString().slice(0, 10).replace(/-/g, '')}-${id.slice(-6)}`;
     const dateStr = toRuDate(invoice.invoiceDate ?? new Date());
+
+    type Position = { serviceName: string; siteName: string; periodRu: string; amountRub: string };
+    const positions: Position[] = hasMultipleLines
+      ? sortedLines.map((l) => ({
+          serviceName: l.serviceNameOverride ?? l.workPeriod.service.product.name,
+          siteName: l.siteNameOverride ?? l.workPeriod.service.site.title,
+          periodRu: `${toRuDate(l.workPeriod.dateFrom)} — ${toRuDate(l.workPeriod.dateTo)}`,
+          amountRub: (Number(l.amount) / 100).toFixed(2),
+        }))
+      : [
+          {
+            serviceName: firstPeriod.service.product.name,
+            siteName: firstPeriod.service.site.title,
+            periodRu: `${toRuDate(dateFrom)} — ${toRuDate(dateTo)}`,
+            amountRub,
+          },
+        ];
 
     const payerLines = [
       line(client.name || client.legalEntityName),
@@ -259,14 +299,35 @@ export async function GET(
       y -= lh;
     }
 
-    // Услуга, период, сумма
-    draw(`Сайт: ${siteTitle}`, left, LAYOUT.y.site);
-    draw(`Услуга: ${productName}`, left, LAYOUT.y.service);
-    draw(`Период: ${periodRu}`, left, LAYOUT.y.period);
-    draw(`Сумма (руб): ${amountRub}`, left, LAYOUT.y.amount);
+    // Позиции (одна или несколько)
+    const yPosStart = LAYOUT.y.site;
+    const lhPos = 11;
+    let yPos = yPosStart;
+    if (positions.length === 1) {
+      draw(`Сайт: ${positions[0].siteName}`, left, yPos);
+      yPos -= lh;
+      draw(`Услуга: ${positions[0].serviceName}`, left, yPos);
+      yPos -= lh;
+      draw(`Период: ${positions[0].periodRu}`, left, yPos);
+      yPos -= lh;
+      draw(`Сумма (руб): ${positions[0].amountRub}`, left, yPos);
+    } else {
+      const fsSmall = 8;
+      for (let i = 0; i < positions.length; i++) {
+        const p = positions[i];
+        draw(`${i + 1}. ${p.serviceName}, ${p.siteName}`, left, yPos, fsSmall);
+        yPos -= lhPos;
+        draw(`   Период: ${p.periodRu} — ${p.amountRub} руб`, left, yPos, fsSmall);
+        yPos -= lhPos;
+      }
+      yPos -= 2;
+      draw(`Итого (руб): ${amountRub}`, left, yPos, LAYOUT.fontSize.body);
+    }
+    yPos -= lh;
     if (showVat) {
-      draw(`НДС (руб): ${vatRub}`, left, LAYOUT.y.vat);
-      draw(`Сумма с НДС (руб): ${totalWithVatRub}`, left, LAYOUT.y.totalWithVat);
+      draw(`НДС (руб): ${vatRub}`, left, yPos);
+      yPos -= lh;
+      draw(`Сумма с НДС (руб): ${totalWithVatRub}`, left, yPos);
     }
 
     const pdfBuffer = await pdfDoc.save();

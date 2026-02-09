@@ -8,13 +8,23 @@ interface PeriodDetailProps {
   periodId: string;
 }
 
+interface InvoiceLine {
+  id: string;
+  amount: string;
+  serviceNameOverride: string | null;
+  siteNameOverride: string | null;
+  workPeriod?: { dateFrom: string; dateTo: string; service: { product: { name: string }; site: { title: string } } };
+}
+
 interface Invoice {
   id: string;
   amount: string;
   invoiceNumber: string | null;
+  invoiceDate: string | null;
   publicToken: string | null;
   legalEntity: { id: string; name: string };
   payments: Array<{ id: string; amount: string; paidAt: string }>;
+  lines?: InvoiceLine[];
 }
 
 interface IncomeRow {
@@ -70,6 +80,12 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
   const [editingExpected, setEditingExpected] = useState(false);
   const [expectedInput, setExpectedInput] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [showAddToInvoice, setShowAddToInvoice] = useState(false);
+  const [availableInvoices, setAvailableInvoices] = useState<Array<{ id: string; invoiceNumber: string | null; amount: string; legalEntity: { name: string } }>>([]);
+  const [addToInvoiceId, setAddToInvoiceId] = useState('');
+  const [addToInvoiceAmount, setAddToInvoiceAmount] = useState('');
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [editForm, setEditForm] = useState<{ invoiceNumber: string; invoiceDate: string; lines: { id: string; serviceNameOverride: string; siteNameOverride: string }[] } | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -106,11 +122,88 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
     });
     if (res.ok) {
       setShowInvoiceForm(false);
-      load(); // при создании счёта или пометки — перезагружаем период
+      load();
     } else {
       const err = await res.json();
       alert(err.error || 'Ошибка');
     }
+  };
+
+  const loadAvailableInvoices = async () => {
+    const res = await fetch(`/api/work-periods/${periodId}/available-invoices`);
+    const data = await res.json();
+    if (res.ok) setAvailableInvoices(data.invoices ?? []);
+    else setAvailableInvoices([]);
+  };
+
+  const handleAddToInvoice = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!addToInvoiceId || !addToInvoiceAmount) return;
+    const res = await fetch(`/api/invoices/${addToInvoiceId}/lines`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workPeriodId: periodId, amount: parseFloat(addToInvoiceAmount) }),
+    });
+    if (res.ok) {
+      setShowAddToInvoice(false);
+      setAddToInvoiceId('');
+      setAddToInvoiceAmount('');
+      load();
+    } else {
+      const err = await res.json();
+      alert(err.error || 'Ошибка');
+    }
+  };
+
+  const openEditInvoice = async (inv: Invoice) => {
+    const res = await fetch(`/api/invoices/${inv.id}`);
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || 'Не удалось загрузить счёт');
+      return;
+    }
+    const full = data.invoice as Invoice & { invoiceDate?: string; lines?: InvoiceLine[] };
+    setEditingInvoice(full);
+    setEditForm({
+      invoiceNumber: full.invoiceNumber ?? '',
+      invoiceDate: full.invoiceDate ? full.invoiceDate.slice(0, 10) : '',
+      lines: (full.lines ?? []).map((l) => ({
+        id: l.id,
+        serviceNameOverride: l.serviceNameOverride ?? '',
+        siteNameOverride: l.siteNameOverride ?? '',
+      })),
+    });
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingInvoice || !editForm) return;
+    const resInv = await fetch(`/api/invoices/${editingInvoice.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        invoiceNumber: editForm.invoiceNumber.trim() || null,
+        invoiceDate: editForm.invoiceDate || null,
+      }),
+    });
+    if (!resInv.ok) {
+      const err = await resInv.json();
+      alert(err.error || 'Ошибка сохранения счёта');
+      return;
+    }
+    for (const row of editForm.lines) {
+      await fetch(`/api/invoices/${editingInvoice.id}/lines/${row.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceNameOverride: row.serviceNameOverride.trim() || null,
+          siteNameOverride: row.siteNameOverride.trim() || null,
+        }),
+      });
+    }
+    setEditingInvoice(null);
+    setEditForm(null);
+    load();
   };
 
   const handleDeletePayment = async (paymentId: string) => {
@@ -335,12 +428,59 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
         )}
       </div>
 
-      <div className="mb-4 flex justify-between items-center">
+      <div className="mb-4 flex justify-between items-center flex-wrap gap-2">
         <h2 className="text-lg font-semibold">Счета</h2>
-        {!showInvoiceForm && (
-          <button onClick={() => setShowInvoiceForm(true)} className="px-3 py-1 bg-blue-600 text-white rounded text-sm">+ Счёт</button>
+        {!showInvoiceForm && !showAddToInvoice && (
+          <>
+            <button onClick={() => setShowInvoiceForm(true)} className="px-3 py-1 bg-blue-600 text-white rounded text-sm">+ Счёт</button>
+            <button
+              onClick={() => {
+                setShowAddToInvoice(true);
+                loadAvailableInvoices();
+                setAddToInvoiceAmount(expectedRub > 0 ? expectedRub.toFixed(2) : '');
+              }}
+              className="px-3 py-1 bg-slate-600 text-white rounded text-sm"
+            >
+              Добавить в счёт
+            </button>
+          </>
         )}
       </div>
+      {showAddToInvoice && (
+        <form onSubmit={handleAddToInvoice} className="mb-4 p-4 border rounded flex flex-wrap gap-2 items-end bg-slate-50">
+          <div>
+            <label className="block text-xs text-gray-500">Счёт</label>
+            <select
+              name="invoiceId"
+              required
+              className="border rounded px-2 py-1 min-w-[200px]"
+              value={addToInvoiceId}
+              onChange={(e) => setAddToInvoiceId(e.target.value)}
+            >
+              <option value="">Выберите счёт</option>
+              {availableInvoices.map((inv) => (
+                <option key={inv.id} value={inv.id}>
+                  № {inv.invoiceNumber || inv.id.slice(0, 8)} — {inv.legalEntity.name} ({formatAmount(inv.amount)})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500">Сумма (руб)</label>
+            <input
+              type="number"
+              name="amount"
+              step="0.01"
+              required
+              className="border rounded px-2 py-1 w-28"
+              value={addToInvoiceAmount}
+              onChange={(e) => setAddToInvoiceAmount(e.target.value)}
+            />
+          </div>
+          <button type="submit" className="px-3 py-1 bg-slate-600 text-white rounded text-sm">Добавить</button>
+          <button type="button" onClick={() => { setShowAddToInvoice(false); setAddToInvoiceId(''); }} className="px-3 py-1 border rounded text-sm">Отмена</button>
+        </form>
+      )}
       {showInvoiceForm && (
         <form onSubmit={handleCreateInvoice} className="mb-4 p-4 border rounded flex flex-wrap gap-2 items-end" key={`inv-${period.id}-${expectedRub}-${clientLegalEntityId ?? ''}`}>
           <div>
@@ -381,6 +521,7 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
               <div className="flex justify-between items-center flex-wrap gap-2">
                 <span>Счёт {inv.invoiceNumber || inv.id.slice(0, 8)} — {inv.legalEntity.name}: {formatAmount(inv.amount)}</span>
                 <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => openEditInvoice(inv)} className="text-slate-600 hover:underline text-sm">Редактировать</button>
                   <a href={`/api/invoices/${inv.id}/download`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm">Скачать счёт</a>
                   {mounted && inv.publicToken && (
                     <span className="inline-flex items-center gap-1" title="QR для скачивания счёта в PDF (публичная ссылка)">
@@ -446,6 +587,75 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
           </form>
         )}
       </div>
+
+      {editingInvoice && editForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setEditingInvoice(null); setEditForm(null); }}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-4">Редактирование счёта</h3>
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Номер счёта</label>
+                <input
+                  type="text"
+                  className="border rounded px-2 py-1 w-full"
+                  value={editForm.invoiceNumber}
+                  onChange={(e) => setEditForm({ ...editForm, invoiceNumber: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Дата счёта</label>
+                <input
+                  type="date"
+                  className="border rounded px-2 py-1 w-full"
+                  value={editForm.invoiceDate}
+                  onChange={(e) => setEditForm({ ...editForm, invoiceDate: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Строки счёта (название услуги / сайта в счёте)</label>
+                <div className="space-y-3">
+                  {editForm.lines.map((row, idx) => {
+                    const line = editingInvoice.lines?.[idx];
+                    return (
+                      <div key={row.id} className="p-3 border rounded bg-gray-50 space-y-2">
+                        {line?.workPeriod && (
+                          <p className="text-xs text-gray-500">
+                            Период: {formatDate(line.workPeriod.dateFrom)} — {formatDate(line.workPeriod.dateTo)} · {line.workPeriod.service?.product?.name ?? ''} · {line.workPeriod.service?.site?.title ?? ''}
+                          </p>
+                        )}
+                        <input
+                          type="text"
+                          placeholder="Название услуги в счёте"
+                          className="border rounded px-2 py-1 w-full text-sm"
+                          value={row.serviceNameOverride}
+                          onChange={(e) => {
+                            const next = editForm.lines.map((l) => (l.id === row.id ? { ...l, serviceNameOverride: e.target.value } : l));
+                            setEditForm({ ...editForm, lines: next });
+                          }}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Название / адрес сайта в счёте"
+                          className="border rounded px-2 py-1 w-full text-sm"
+                          value={row.siteNameOverride}
+                          onChange={(e) => {
+                            const next = editForm.lines.map((l) => (l.id === row.id ? { ...l, siteNameOverride: e.target.value } : l));
+                            setEditForm({ ...editForm, lines: next });
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded text-sm">Сохранить</button>
+                <button type="button" onClick={() => { setEditingInvoice(null); setEditForm(null); }} className="px-4 py-2 border rounded text-sm">Отмена</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
