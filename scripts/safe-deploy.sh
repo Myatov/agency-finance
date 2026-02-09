@@ -13,8 +13,8 @@ echo "1️⃣ Обновление кода..."
 git pull origin main
 echo ""
 
-echo "2️⃣ Установка зависимостей..."
-npm ci || npm install
+echo "2️⃣ Установка зависимостей (включая dev для сборки)..."
+npm ci --include=dev 2>/dev/null || npm ci || npm install
 echo ""
 
 echo "3️⃣ Генерация Prisma Client..."
