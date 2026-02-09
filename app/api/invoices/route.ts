@@ -197,7 +197,20 @@ export async function POST(request: NextRequest) {
         },
         include: {
           payments: true,
-          lines: { include: { workPeriod: { include: { service: { include: { product: { select: { name: true } }, site: { select: { title: true } } } } } } },
+          lines: {
+            include: {
+              workPeriod: {
+                include: {
+                  service: {
+                    include: {
+                      product: { select: { name: true } },
+                      site: { select: { title: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
           legalEntity: { select: { id: true, name: true } },
         },
       });
