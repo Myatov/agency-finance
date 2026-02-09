@@ -1,5 +1,14 @@
 // Utility functions
 
+/** Базовый URL приложения для публичных ссылок (QR, личный кабинет). На клиенте: NEXT_PUBLIC_APP_URL или origin. */
+export function getAppUrlBase(): string {
+  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL?.trim()) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined') return window.location.origin;
+  return '';
+}
+
 /** Публичный origin для ссылок (портал клиента). Учитывает прокси (X-Forwarded-*). */
 export function getPublicOrigin(request: Request & { nextUrl?: URL }): string {
   const env = process.env.NEXT_PUBLIC_APP_URL;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { formatDate } from '@/lib/utils';
+import { formatDate, getAppUrlBase } from '@/lib/utils';
 
 function useMounted() {
   const [mounted, setMounted] = useState(false);
@@ -36,8 +36,14 @@ export default function CabinetInvoicesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const openDownload = (id: string) => {
-    window.open(`/api/client-portal/invoices/${id}/download`, '_blank');
+  const baseUrl = mounted ? getAppUrlBase() : '';
+
+  const openPrintPdf = (inv: Invoice) => {
+    if (inv.publicToken && baseUrl) {
+      window.open(`${baseUrl}/api/invoices/public/${inv.publicToken}/pdf`, '_blank');
+    } else {
+      window.open(`/api/client-portal/invoices/${inv.id}/download`, '_blank');
+    }
   };
 
   if (loading) return <div className="text-slate-500">Загрузка...</div>;
@@ -69,14 +75,14 @@ export default function CabinetInvoicesPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => openDownload(inv.id)}
+                  onClick={() => openPrintPdf(inv)}
                   className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700"
                 >
-                  Скачать счёт
+                  Печать счёта
                 </button>
-                {mounted && inv.publicToken && (
+                {mounted && inv.publicToken && baseUrl && (
                   <img
-                    src={`/api/qr?url=${encodeURIComponent(`${window.location.origin}/api/invoices/public/${inv.publicToken}/pdf`)}`}
+                    src={`/api/qr?url=${encodeURIComponent(`${baseUrl}/api/invoices/public/${inv.publicToken}/pdf`)}`}
                     alt="QR счёт"
                     className="w-10 h-10 border border-slate-200 rounded"
                     title="QR для скачивания счёта (можно отправить контрагенту)"

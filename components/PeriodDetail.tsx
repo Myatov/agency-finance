@@ -522,16 +522,13 @@ export default function PeriodDetail({ periodId }: PeriodDetailProps) {
                 <span>Счёт {inv.invoiceNumber || inv.id.slice(0, 8)} — {inv.legalEntity.name}: {formatAmount(inv.amount)}</span>
                 <div className="flex items-center gap-2">
                   <button type="button" onClick={() => openEditInvoice(inv)} className="text-slate-600 hover:underline text-sm">Редактировать</button>
-                  <a href={`/api/invoices/${inv.id}/download`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm">Скачать счёт</a>
-                  {mounted && inv.publicToken && (
-                    <span className="inline-flex items-center gap-1" title="QR для скачивания счёта в PDF (публичная ссылка)">
-                      <img
-                        src={`/api/qr?url=${encodeURIComponent(`${window.location.origin}/api/invoices/public/${inv.publicToken}/pdf`)}`}
-                        alt="QR счёт"
-                        className="w-8 h-8 border border-gray-200 rounded"
-                      />
-                    </span>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => window.open(`/api/invoices/${inv.id}/pdf`, '_blank')}
+                    className="text-blue-600 hover:underline text-sm"
+                  >
+                    Печать счёта
+                  </button>
                 </div>
               </div>
               {inv.payments.length > 0 && (

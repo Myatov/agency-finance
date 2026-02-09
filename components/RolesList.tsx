@@ -109,6 +109,7 @@ export default function RolesList() {
     { code: 'services', label: 'Услуги' },
     { code: 'clients', label: 'Клиенты' },
     { code: 'contracts', label: 'Договора' },
+    { code: 'invoices', label: 'Счета' },
     { code: 'closeout', label: 'Закрывающие документы' },
     { code: 'storage', label: 'Хранилище' },
     { code: 'incomes', label: 'Доходы' },

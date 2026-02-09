@@ -3,51 +3,106 @@ import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { canAccessServiceForPeriods } from '@/lib/permissions';
 
+const invoiceListInclude = {
+  payments: true,
+  lines: {
+    include: {
+      workPeriod: {
+        include: {
+          service: {
+            include: { site: { include: { client: { select: { sellerEmployeeId: true } } } } },
+          },
+        },
+      },
+    },
+  },
+  legalEntity: { select: { id: true, name: true } },
+  workPeriod: {
+    include: {
+      service: {
+        include: { site: { include: { client: { select: { id: true, name: true, sellerEmployeeId: true } } } } },
+      },
+    },
+  },
+};
+
 export async function GET(request: NextRequest) {
   try {
     const user = await getSession();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const workPeriodId = request.nextUrl.searchParams.get('workPeriodId');
-    if (!workPeriodId) {
-      return NextResponse.json({ error: 'workPeriodId is required' }, { status: 400 });
+
+    if (workPeriodId) {
+      const period = await prisma.workPeriod.findUnique({
+        where: { id: workPeriodId },
+        include: {
+          service: { include: { site: { include: { client: true } } } },
+        },
+      });
+      if (!period) return NextResponse.json({ error: 'Work period not found' }, { status: 404 });
+
+      const canAccess = await canAccessServiceForPeriods(
+        user,
+        period.service.site.accountManagerId,
+        period.service.site.client.sellerEmployeeId
+      );
+      if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+      const [byPeriod, byLines] = await Promise.all([
+        prisma.invoice.findMany({
+          where: { workPeriodId },
+          include: invoiceListInclude,
+        }),
+        prisma.invoice.findMany({
+          where: { lines: { some: { workPeriodId } } },
+          include: invoiceListInclude,
+        }),
+      ]);
+      const seen = new Set(byPeriod.map((i) => i.id));
+      const merged = [...byPeriod];
+      for (const inv of byLines) {
+        if (!seen.has(inv.id)) {
+          merged.push(inv);
+          seen.add(inv.id);
+        }
+      }
+
+      const out = JSON.parse(JSON.stringify(merged, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
+      return NextResponse.json({ invoices: out });
     }
 
-    const period = await prisma.workPeriod.findUnique({
-      where: { id: workPeriodId },
-      include: {
-        service: { include: { site: { include: { client: true } } } },
-      },
+    // Список всех счетов (для раздела «Счета»): только те, к которым есть доступ
+    const all = await prisma.invoice.findMany({
+      include: invoiceListInclude,
+      orderBy: { createdAt: 'desc' },
+      take: 1000,
     });
-    if (!period) return NextResponse.json({ error: 'Work period not found' }, { status: 404 });
-
-    const canAccess = await canAccessServiceForPeriods(
-      user,
-      period.service.site.accountManagerId,
-      period.service.site.client.sellerEmployeeId
-    );
-    if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-
-    const [byPeriod, byLines] = await Promise.all([
-      prisma.invoice.findMany({
-        where: { workPeriodId },
-        include: { payments: true, lines: true, legalEntity: { select: { id: true, name: true } } },
-      }),
-      prisma.invoice.findMany({
-        where: { lines: { some: { workPeriodId } } },
-        include: { payments: true, lines: true, legalEntity: { select: { id: true, name: true } } },
-      }),
-    ]);
-    const seen = new Set(byPeriod.map((i) => i.id));
-    const merged = [...byPeriod];
-    for (const inv of byLines) {
-      if (!seen.has(inv.id)) {
-        merged.push(inv);
-        seen.add(inv.id);
+    const filtered: typeof all = [];
+    for (const inv of all) {
+      const canMain = await canAccessServiceForPeriods(
+        user,
+        inv.workPeriod.service.site.accountManagerId,
+        inv.workPeriod.service.site.client.sellerEmployeeId
+      );
+      if (canMain) {
+        filtered.push(inv);
+        continue;
+      }
+      for (const l of inv.lines) {
+        const can = await canAccessServiceForPeriods(
+          user,
+          l.workPeriod.service.site.accountManagerId,
+          l.workPeriod.service.site.client.sellerEmployeeId
+        );
+        if (can) {
+          filtered.push(inv);
+          break;
+        }
       }
     }
 
-    const out = JSON.parse(JSON.stringify(merged, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
+    const out = JSON.parse(JSON.stringify(filtered, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
     return NextResponse.json({ invoices: out });
   } catch (e: any) {
     console.error('GET invoices', e);

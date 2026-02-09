@@ -41,6 +41,7 @@ export default function RoleModal({
     { code: 'services', label: 'Услуги' },
     { code: 'clients', label: 'Клиенты' },
     { code: 'contracts', label: 'Договора' },
+    { code: 'invoices', label: 'Счета' },
     { code: 'closeout', label: 'Закрывающие документы' },
     { code: 'storage', label: 'Хранилище' },
     { code: 'incomes', label: 'Доходы' },
@@ -56,7 +57,7 @@ export default function RoleModal({
   ];
 
   // Разделы, для которых можно включить «Просмотр всех» (иначе — только свои/все)
-  const sectionsWithViewAll = ['sites', 'services', 'clients', 'incomes', 'expenses', 'employees', 'contracts', 'closeout', 'storage', 'payments'];
+  const sectionsWithViewAll = ['sites', 'services', 'clients', 'incomes', 'expenses', 'employees', 'contracts', 'invoices', 'closeout', 'storage', 'payments'];
 
   const permissions = [
     { code: 'view', label: 'Просмотр' },

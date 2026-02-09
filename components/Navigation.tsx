@@ -36,14 +36,14 @@ export default function Navigation() {
           // OWNER видит всё, CEO — всё кроме Ролей и Юрлиц
       if (user.roleCode === 'OWNER') {
         setAccessibleSections([
-          '/sites', '/services', '/clients', '/contracts', '/closeout', '/storage',
+          '/sites', '/services', '/clients', '/contracts', '/invoices', '/closeout', '/storage',
           '/incomes', '/expenses', '/payments', '/employees', '/products', '/reports', '/roles', '/legal-entities', '/niches', '/contacts', '/agents',
         ]);
         return;
       }
       if (user.roleCode === 'CEO') {
         setAccessibleSections([
-          '/sites', '/services', '/clients', '/contracts', '/closeout', '/storage',
+          '/sites', '/services', '/clients', '/contracts', '/invoices', '/closeout', '/storage',
           '/incomes', '/expenses', '/payments', '/employees', '/products', '/reports', '/roles', '/niches', '/contacts', '/agents',
         ]);
         return;
@@ -55,6 +55,7 @@ export default function Navigation() {
         { href: '/services', section: 'services' },
         { href: '/clients', section: 'clients' },
         { href: '/contracts', section: 'contracts' },
+        { href: '/invoices', section: 'invoices' },
         { href: '/closeout', section: 'closeout' },
         { href: '/storage', section: 'storage' },
         { href: '/incomes', section: 'incomes' },
@@ -141,6 +142,7 @@ export default function Navigation() {
   const workSubmenuAll = [
     { href: '/clients', label: 'Клиенты', section: 'clients' },
     { href: '/contracts', label: 'Договора', section: 'contracts' },
+    { href: '/invoices', label: 'Счета', section: 'invoices' },
     { href: '/closeout', label: 'Закрывающие документы', section: 'closeout' },
     { href: '/sites', label: 'Сайты', section: 'sites' },
     { href: '/services', label: 'Услуги', section: 'services' },

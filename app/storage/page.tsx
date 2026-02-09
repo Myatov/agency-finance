@@ -18,6 +18,14 @@ export default function StoragePage() {
             </li>
             <li>
               <Link
+                href="/invoices"
+                className="block px-6 py-4 hover:bg-gray-50 text-blue-600 font-medium"
+              >
+                Счета
+              </Link>
+            </li>
+            <li>
+              <Link
                 href="/closeout"
                 className="block px-6 py-4 hover:bg-gray-50 text-blue-600 font-medium"
               >
