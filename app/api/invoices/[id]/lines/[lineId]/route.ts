@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession, type SessionUser } from '@/lib/auth';
+import { getSession } from '@/lib/auth';
+import type { SessionUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { canAccessServiceForPeriods } from '@/lib/permissions';
 
@@ -7,8 +8,24 @@ async function canAccessInvoiceLine(user: SessionUser, invoiceId: string): Promi
   const invoice = await prisma.invoice.findUnique({
     where: { id: invoiceId },
     include: {
-      workPeriod: { include: { service: { include: { site: { include: { client: true } } } } } },
-      lines: { include: { workPeriod: { include: { service: { include: { site: { include: { client: true } } } } } } } } },
+      workPeriod: {
+        include: {
+          service: {
+            include: { site: { include: { client: true } } },
+          },
+        },
+      },
+      lines: {
+        include: {
+          workPeriod: {
+            include: {
+              service: {
+                include: { site: { include: { client: true } } },
+              },
+            },
+          },
+        },
+      },
     },
   });
   if (!invoice) return false;
