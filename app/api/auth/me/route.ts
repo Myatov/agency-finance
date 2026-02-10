@@ -12,20 +12,42 @@ export async function GET() {
 
   const defaultRoute = await getDefaultRoute(user);
 
-  // Права по разделу «Команда» для отображения кнопок Редактировать/Удалить
-  const employeePerms = await prisma.rolePermission.findMany({
-    where: { roleId: user.roleId, section: 'employees' },
-    select: { permission: true },
+  // Права по разделам (используются в UI для показа кнопок)
+  const rolePerms = await prisma.rolePermission.findMany({
+    where: { roleId: user.roleId },
+    select: { section: true, permission: true },
   });
+
+  const buildSectionPerms = (section: string) => {
+    const isOwner = user.roleCode === 'OWNER';
+    const isCEO = user.roleCode === 'CEO';
+    if (isOwner || isCEO) {
+      return {
+        view: true,
+        create: true,
+        edit: true,
+        delete: true,
+        manage: true,
+        view_all: true,
+      };
+    }
+    const perms = rolePerms.filter((p) => p.section === section).map((p) => p.permission);
+    const hasAny = (list: string[]) => perms.some((p) => list.includes(p));
+    return {
+      view: hasAny(['view', 'manage']),
+      create: hasAny(['create', 'manage']),
+      edit: hasAny(['edit', 'manage']),
+      delete: hasAny(['delete', 'manage']),
+      manage: hasAny(['manage']),
+      view_all: hasAny(['view_all', 'manage']),
+    };
+  };
+
   const permissions = {
-    employees: {
-      view: user.roleCode === 'OWNER' || user.roleCode === 'CEO' || employeePerms.some((p) => ['view', 'manage'].includes(p.permission)),
-      create: user.roleCode === 'OWNER' || user.roleCode === 'CEO' || employeePerms.some((p) => ['create', 'manage'].includes(p.permission)),
-      edit: user.roleCode === 'OWNER' || user.roleCode === 'CEO' || employeePerms.some((p) => ['edit', 'manage'].includes(p.permission)),
-      delete: user.roleCode === 'OWNER' || user.roleCode === 'CEO' || employeePerms.some((p) => ['delete', 'manage'].includes(p.permission)),
-      manage: user.roleCode === 'OWNER' || user.roleCode === 'CEO' || employeePerms.some((p) => p.permission === 'manage'),
-      view_all: user.roleCode === 'OWNER' || user.roleCode === 'CEO' || employeePerms.some((p) => ['view_all', 'manage'].includes(p.permission)),
-    },
+    employees: buildSectionPerms('employees'),
+    contacts: buildSectionPerms('contacts'),
+    agents: buildSectionPerms('agents'),
+    invoices: buildSectionPerms('invoices'),
   };
 
   return NextResponse.json({

@@ -8,15 +8,31 @@ interface ContactWithCount extends Contact {
   _count?: { clientLinks: number };
 }
 
+interface UserWithPermissions {
+  roleCode: string;
+  permissions?: {
+    contacts?: {
+      view: boolean;
+      create: boolean;
+      edit: boolean;
+      delete: boolean;
+      manage: boolean;
+      view_all: boolean;
+    };
+  };
+}
+
 export default function ContactsList() {
   const [contacts, setContacts] = useState<ContactWithCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
-  const [user, setUser] = useState<{ roleCode: string } | null>(null);
+  const [user, setUser] = useState<UserWithPermissions | null>(null);
 
-  const canManage = (u: { roleCode: string } | null) => u?.roleCode === 'OWNER' || u?.roleCode === 'CEO';
+  const canCreate = !!(user?.permissions?.contacts?.create || user?.permissions?.contacts?.manage);
+  const canEdit = !!(user?.permissions?.contacts?.edit || user?.permissions?.contacts?.manage);
+  const canDelete = !!(user?.permissions?.contacts?.delete || user?.permissions?.contacts?.manage);
 
   const fetchContacts = useCallback(async () => {
     setLoading(true);
@@ -69,7 +85,7 @@ export default function ContactsList() {
             onChange={(e) => setSearch(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-md min-w-[280px]"
           />
-          {canManage(user) && (
+          {canCreate && (
             <button
               onClick={handleAdd}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg font-medium"
@@ -91,7 +107,7 @@ export default function ContactsList() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Telegram / WhatsApp</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Должность</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Клиенты</th>
-                {canManage(user) && (
+                {(canEdit || canDelete) && (
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
                 )}
               </tr>
@@ -109,14 +125,18 @@ export default function ContactsList() {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">{c.position || '—'}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{c._count?.clientLinks ?? 0}</td>
-                  {canManage(user) && (
+                  {(canEdit || canDelete) && (
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button onClick={() => handleEdit(c)} className="text-blue-600 hover:text-blue-900 mr-4">
-                        Редактировать
-                      </button>
-                      <button onClick={() => handleDelete(c)} className="text-red-600 hover:text-red-900">
-                        Удалить
-                      </button>
+                      {canEdit && (
+                        <button onClick={() => handleEdit(c)} className="text-blue-600 hover:text-blue-900 mr-4">
+                          Редактировать
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button onClick={() => handleDelete(c)} className="text-red-600 hover:text-red-900">
+                          Удалить
+                        </button>
+                      )}
                     </td>
                   )}
                 </tr>

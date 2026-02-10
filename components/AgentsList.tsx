@@ -7,6 +7,20 @@ interface AgentWithCount extends Agent {
   _count?: { clients: number };
 }
 
+interface UserWithPermissions {
+  roleCode: string;
+  permissions?: {
+    agents?: {
+      view: boolean;
+      create: boolean;
+      edit: boolean;
+      delete: boolean;
+      manage: boolean;
+      view_all: boolean;
+    };
+  };
+}
+
 const STATUS_LABELS: Record<string, string> = {
   ACTIVE: 'Активен',
   PAUSED: 'Пауза',
@@ -26,9 +40,10 @@ export default function AgentsList() {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
-  const [user, setUser] = useState<{ roleCode: string } | null>(null);
+  const [user, setUser] = useState<UserWithPermissions | null>(null);
 
-  const canManage = (u: { roleCode: string } | null) => u?.roleCode === 'OWNER' || u?.roleCode === 'CEO';
+  const canCreate = !!(user?.permissions?.agents?.create || user?.permissions?.agents?.manage);
+  const canEdit = !!(user?.permissions?.agents?.edit || user?.permissions?.agents?.manage);
 
   const fetchAgents = useCallback(async () => {
     setLoading(true);
@@ -71,7 +86,7 @@ export default function AgentsList() {
             onChange={(e) => setSearch(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-md min-w-[280px]"
           />
-          {canManage(user) && (
+          {canCreate && (
             <button
               onClick={handleAdd}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg font-medium"
@@ -94,7 +109,7 @@ export default function AgentsList() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Источник</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Клиентов приведено</th>
-                {canManage(user) && (
+                {canEdit && (
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
                 )}
               </tr>
@@ -113,7 +128,7 @@ export default function AgentsList() {
                   <td className="px-6 py-4 text-sm text-gray-500">{a.source ? SOURCE_LABELS[a.source] || a.source : '—'}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{a.status ? STATUS_LABELS[a.status] || a.status : '—'}</td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{a._count?.clients ?? 0}</td>
-                  {canManage(user) && (
+                  {canEdit && (
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <button onClick={() => handleEdit(a)} className="text-blue-600 hover:text-blue-900">
                         Редактировать

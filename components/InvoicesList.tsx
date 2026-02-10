@@ -36,6 +36,20 @@ interface Invoice {
   };
 }
 
+interface UserWithPermissions {
+  roleCode: string;
+  permissions?: {
+    invoices?: {
+      view: boolean;
+      create: boolean;
+      edit: boolean;
+      delete: boolean;
+      manage: boolean;
+      view_all: boolean;
+    };
+  };
+}
+
 type NewFormLine = {
   workPeriodId: string;
   amount: string;
@@ -68,6 +82,9 @@ export default function InvoicesList() {
   const [savingNew, setSavingNew] = useState(false);
   const [showAddPeriodForEdit, setShowAddPeriodForEdit] = useState(false);
   const [addingPeriodToInvoiceId, setAddingPeriodToInvoiceId] = useState<string | null>(null);
+  const [user, setUser] = useState<UserWithPermissions | null>(null);
+  const canCreate = !!(user?.permissions?.invoices?.create || user?.permissions?.invoices?.manage);
+  const canEdit = !!(user?.permissions?.invoices?.edit || user?.permissions?.invoices?.manage);
 
   useEffect(() => setMounted(true), []);
 
@@ -78,6 +95,12 @@ export default function InvoicesList() {
       .then((d) => setInvoices(d.invoices ?? []))
       .finally(() => setLoading(false));
   };
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => d.user && setUser(d.user));
+  }, []);
 
   useEffect(() => {
     load();
@@ -325,17 +348,19 @@ export default function InvoicesList() {
           <h1 className="text-2xl font-bold">Счета</h1>
           <p className="text-gray-600 mt-1">Новые счета создаются здесь. Просмотр и печать — HTML-форма с подставленными полями.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setShowNewForm(true);
-            loadServices();
-            setNewForm((prev) => ({ ...prev, invoiceDate: new Date().toISOString().slice(0, 10), lines: [] }));
-          }}
-          className="px-4 py-2 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
-        >
-          Новый счёт
-        </button>
+        {canCreate && (
+          <button
+            type="button"
+            onClick={() => {
+              setShowNewForm(true);
+              loadServices();
+              setNewForm((prev) => ({ ...prev, invoiceDate: new Date().toISOString().slice(0, 10), lines: [] }));
+            }}
+            className="px-4 py-2 bg-teal-600 text-white rounded text-sm hover:bg-teal-700"
+          >
+            Новый счёт
+          </button>
+        )}
       </div>
 
       {invoices.length === 0 ? (
@@ -355,13 +380,15 @@ export default function InvoicesList() {
                   <span>{formatAmount(inv.amount)}</span>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => openEditInvoice(inv)}
-                    className="text-slate-600 hover:underline text-sm"
-                  >
-                    Редактировать
-                  </button>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => openEditInvoice(inv)}
+                      className="text-slate-600 hover:underline text-sm"
+                    >
+                      Редактировать
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => openViewOrPrint(inv.id)}
