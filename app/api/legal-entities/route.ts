@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { LegalEntityType } from '@prisma/client';
+import { hasPermission } from '@/lib/permissions';
 
 export async function GET() {
   try {
     const user = await getSession();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const canView = await hasPermission(user, 'legal-entities', 'view');
+    if (!canView) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Any authenticated user can view legal entities (needed for client creation/editing)
@@ -44,8 +50,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Только Владелец может создавать/редактировать юрлица (раздел скрыт от CEO)
-    if (user.roleCode !== 'OWNER') {
+    const canManage = await hasPermission(user, 'legal-entities', 'manage');
+    if (!canManage) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

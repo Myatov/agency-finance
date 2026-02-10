@@ -29,18 +29,49 @@ export default function RolesList() {
   const [showModal, setShowModal] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [canManage, setCanManage] = useState(false);
 
   useEffect(() => {
-    fetchUser();
-    fetchRoles();
+    const init = async () => {
+      await fetchUser();
+      try {
+        // Проверяем, может ли пользователь вообще видеть раздел «Роли»
+        const viewRes = await fetch('/api/permissions/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ section: 'roles', permission: 'view' }),
+        });
+        if (!viewRes.ok) {
+          window.location.href = '/';
+          return;
+        }
+        const viewData = await viewRes.json();
+        if (!viewData.hasPermission) {
+          window.location.href = '/';
+          return;
+        }
+
+        // Проверяем право на полный доступ к разделу «Роли» (создание/редактирование/удаление)
+        const manageRes = await fetch('/api/permissions/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ section: 'roles', permission: 'manage' }),
+        });
+        if (manageRes.ok) {
+          const manageData = await manageRes.json();
+          setCanManage(!!manageData.hasPermission);
+        } else {
+          setCanManage(false);
+        }
+
+        await fetchRoles();
+      } catch {
+        window.location.href = '/';
+      }
+    };
+
+    void init();
   }, []);
-
-  // Раздел Роли для Владельца и CEO (только просмотр для CEO, редактирование только для OWNER)
-  useEffect(() => {
-    if (user && user.roleCode !== 'OWNER' && user.roleCode !== 'CEO') {
-      window.location.href = '/';
-    }
-  }, [user]);
 
   const fetchUser = async () => {
     const res = await fetch('/api/auth/me');
@@ -101,8 +132,6 @@ export default function RolesList() {
       alert(data.error || 'Ошибка удаления');
     }
   };
-
-  const canManage = user?.roleCode === 'OWNER';
 
   const sections = [
     { code: 'sites', label: 'Сайты' },

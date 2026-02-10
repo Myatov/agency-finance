@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { canManageProducts } from '@/lib/permissions';
+import { canManageProducts, hasPermission } from '@/lib/permissions';
 
 export async function GET() {
   try {
     const user = await getSession();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const canView = await hasPermission(user, 'products', 'view');
+    if (!canView) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const products = await prisma.product.findMany({

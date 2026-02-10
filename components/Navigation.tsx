@@ -68,6 +68,8 @@ export default function Navigation() {
         { href: '/niches', section: 'niches' },
         { href: '/contacts', section: 'contacts' },
         { href: '/agents', section: 'agents' },
+        { href: '/roles', section: 'roles' },
+        { href: '/legal-entities', section: 'legal-entities' },
       ];
 
       Promise.all(
@@ -124,15 +126,9 @@ export default function Navigation() {
     { href: '/niches', label: 'Ниши', section: 'niches' },
     { href: '/contacts', label: 'Контакты', section: 'contacts' },
     { href: '/agents', label: 'Агенты / Партнёры', section: 'agents' },
+    { href: '/roles', label: 'Роли', section: 'roles' },
+    { href: '/legal-entities', label: 'Юрлица', section: 'legal-entities' },
   ];
-
-  // Роли — Владелец и CEO, Юрлица — только Владелец
-  if (user.roleCode === 'OWNER' || user.roleCode === 'CEO') {
-    settingsItems.push({ href: '/roles', label: 'Роли', section: 'roles' });
-  }
-  if (user.roleCode === 'OWNER') {
-    settingsItems.push({ href: '/legal-entities', label: 'Юрлица' });
-  }
 
   const visibleSettingsItems =
     user.roleCode === 'OWNER' || user.roleCode === 'CEO'

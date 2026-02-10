@@ -10,13 +10,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Владелец, CEO или кто может создавать/редактировать сотрудников (нужен список ролей для формы)
-    const canViewRoles =
-      user.roleCode === 'OWNER' ||
-      user.roleCode === 'CEO' ||
-      (await hasPermission(user, 'employees', 'create')) ||
-      (await hasPermission(user, 'employees', 'edit')) ||
-      (await hasPermission(user, 'employees', 'manage'));
+    // Доступ к разделу «Роли» по праву на раздел roles
+    const canViewRoles = await hasPermission(user, 'roles', 'view');
     if (!canViewRoles) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
@@ -48,8 +43,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only OWNER can create roles
-    if (user.roleCode !== 'OWNER') {
+    // Создавать роли может тот, у кого есть полный доступ к разделу «Роли»
+    const canManageRoles = await hasPermission(user, 'roles', 'manage');
+    if (!canManageRoles) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

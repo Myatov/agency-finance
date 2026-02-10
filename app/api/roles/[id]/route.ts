@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { hasPermission } from '@/lib/permissions';
 
 export async function GET(
   request: NextRequest,
@@ -12,8 +13,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // OWNER и CEO могут просматривать роли
-    if (user.roleCode !== 'OWNER' && user.roleCode !== 'CEO') {
+    const canViewRoles = await hasPermission(user, 'roles', 'view');
+    if (!canViewRoles) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -48,8 +49,9 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only OWNER can update roles (including permissions)
-    if (user.roleCode !== 'OWNER') {
+    // Обновлять роли может тот, у кого есть полный доступ к разделу «Роли»
+    const canManageRoles = await hasPermission(user, 'roles', 'manage');
+    if (!canManageRoles) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -61,8 +63,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Role not found' }, { status: 404 });
     }
 
-    // Cannot modify system roles (only OWNER and CEO)
-    if (role.isSystem && user.roleCode !== 'OWNER') {
+    // Системные роли изменять нельзя
+    if (role.isSystem) {
       return NextResponse.json({ error: 'Cannot modify system role' }, { status: 403 });
     }
 
@@ -130,8 +132,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only OWNER can delete roles
-    if (user.roleCode !== 'OWNER') {
+    // Удалять роли может тот, у кого есть полный доступ к разделу «Роли»
+    const canManageRoles = await hasPermission(user, 'roles', 'manage');
+    if (!canManageRoles) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

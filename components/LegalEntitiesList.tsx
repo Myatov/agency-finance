@@ -32,6 +32,7 @@ export default function LegalEntitiesList() {
   const [showModal, setShowModal] = useState(false);
   const [editingEntity, setEditingEntity] = useState<LegalEntity | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [canManage, setCanManage] = useState(false);
 
   useEffect(() => {
     fetchUser();
@@ -43,6 +44,20 @@ export default function LegalEntitiesList() {
     const data = await res.json();
     if (data.user) {
       setUser(data.user);
+      try {
+        const permRes = await fetch('/api/permissions/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ section: 'legal-entities', permission: 'manage' }),
+        });
+        if (permRes.ok) {
+          const permData = await permRes.json();
+          setCanManage(!!permData.hasPermission);
+        }
+      } catch {
+        // ignore permission check errors, fallback to no manage access
+        setCanManage(false);
+      }
     }
   };
 
@@ -92,15 +107,6 @@ export default function LegalEntitiesList() {
       alert(data.error || 'Ошибка удаления');
     }
   };
-
-  const canManage = user?.roleCode === 'OWNER';
-
-  // Раздел Юрлица только для Владельца (скрыт от CEO)
-  useEffect(() => {
-    if (user && user.roleCode !== 'OWNER') {
-      window.location.href = '/';
-    }
-  }, [user]);
 
   if (loading) {
     return <div className="text-center py-8">Загрузка...</div>;

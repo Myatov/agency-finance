@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { canManageCostItems } from '@/lib/permissions';
+import { canManageCostItems, canViewCostItems } from '@/lib/permissions';
 
 export async function GET() {
   try {
     const user = await getSession();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!(await canViewCostItems(user))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     let types: Array<{ id: string; name: string; sortOrder: number }>;
     try {
       types = await prisma.financialModelExpenseType.findMany({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { LegalEntityType } from '@prisma/client';
+import { hasPermission } from '@/lib/permissions';
 
 export async function GET(
   request: NextRequest,
@@ -12,8 +13,10 @@ export async function GET(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    // Any authenticated user can view a single legal entity (needed for client forms)
+    const canView = await hasPermission(user, 'legal-entities', 'view');
+    if (!canView) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     const legalEntity = await prisma.legalEntity.findUnique({
       where: { id: params.id },
     });
@@ -49,7 +52,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (user.roleCode !== 'OWNER') {
+    const canManage = await hasPermission(user, 'legal-entities', 'manage');
+    if (!canManage) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -135,8 +139,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only OWNER can delete legal entities
-    if (user.roleCode !== 'OWNER') {
+    const canManage = await hasPermission(user, 'legal-entities', 'manage');
+    if (!canManage) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
