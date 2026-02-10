@@ -5,6 +5,7 @@ import { canAccessServiceForPeriods } from '@/lib/permissions';
 import path from 'path';
 import fs from 'fs';
 import puppeteer from 'puppeteer';
+import { getPdfDir } from '@/lib/invoice-pdf';
 
 export const runtime = 'nodejs';
 
@@ -15,12 +16,6 @@ function getOrigin(req: NextRequest): string {
   const proto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() || 'https';
   if (host) return `${proto}://${host}`;
   return process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
-}
-
-function getPdfDir(): string {
-  const env = process.env.INVOICE_PDF_DIR;
-  if (env?.trim()) return env;
-  return path.join(process.cwd(), 'invoices-pdf');
 }
 
 export async function POST(
@@ -106,12 +101,12 @@ export async function POST(
     try {
       browser = await puppeteer.launch({
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
       });
       const page = await browser.newPage();
       await page.setContent(html, {
-        waitUntil: 'networkidle0',
-        timeout: 15000,
+        waitUntil: 'load',
+        timeout: 20000,
       });
       const pdfBuffer = await page.pdf({
         printBackground: true,
@@ -142,9 +137,14 @@ export async function POST(
     const pdfUrl = `${origin}/api/invoices/${id}/pdf`;
     return NextResponse.json({ pdfUrl });
   } catch (e: unknown) {
-    console.error('POST invoices/[id]/generate-pdf', e);
+    const err = e as Error;
+    console.error('POST invoices/[id]/generate-pdf', err);
+    const message = err?.message ?? String(e);
+    const details = process.env.NODE_ENV === 'development' && err?.stack
+      ? `${message}\n${err.stack}`
+      : message;
     return NextResponse.json(
-      { error: 'Internal server error', details: (e as Error)?.message },
+      { error: 'Ошибка формирования PDF', details },
       { status: 500 }
     );
   }

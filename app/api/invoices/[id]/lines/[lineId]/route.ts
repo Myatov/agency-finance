@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import type { SessionUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { canAccessServiceForPeriods } from '@/lib/permissions';
+import { deleteInvoicePdfFile } from '@/lib/invoice-pdf';
 
 async function canAccessInvoiceLine(user: SessionUser, invoiceId: string): Promise<boolean> {
   const invoice = await prisma.invoice.findUnique({
@@ -72,6 +73,7 @@ export async function DELETE(
 
     const lineCount = invoice.lines.length;
     if (lineCount <= 1) {
+      deleteInvoicePdfFile(invoiceId);
       await prisma.invoice.delete({ where: { id: invoiceId } });
       return NextResponse.json({ deletedLine: true, deletedInvoice: true });
     }

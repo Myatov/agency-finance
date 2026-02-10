@@ -204,8 +204,9 @@ export async function GET(
           line((client as { paymentRequisites?: string }).paymentRequisites),
           line((client as { contacts?: string }).contacts),
         ].filter((s) => s !== '—');
+    // Покупатель: из карточки Клиента, блок «Реквизиты юридического лица», поле «Юрлицо» (выбранное юрлицо) или «Юрлицо (наименование)»
     const buyerName =
-      (client.legalEntity?.name ?? (client as { legalEntityName?: string }).legalEntityName ?? client.name ?? '') || '—';
+      (client.legalEntity?.name ?? (client as { legalEntityName?: string | null }).legalEntityName ?? '').trim() || '—';
     const uniqueNum = invoice.invoiceNumber?.trim() || `INV-${invoice.workPeriod.dateFrom.toISOString().slice(0, 10).replace(/-/g, '')}-${id.slice(-6)}`;
     const invoiceDateRu = invoice.invoiceDate ? toRuDate(invoice.invoiceDate) : toRuDate(invoice.createdAt);
     const totalForWords = showVat ? totalWithVatRub : amountRub;
@@ -269,8 +270,9 @@ export async function GET(
     <p style="color:#555;font-size:0.875rem;">HTML-форма счёта с подставленными полями из базы.</p>
     <button type="button" id="btnGeneratePdf" style="padding:0.5rem 1rem;background:#0d9488;color:white;border:none;border-radius:6px;cursor:pointer;margin-right:0.5rem;">Сформировать PDF</button>
     <span id="pdfLinkSpan" style="display:${hasPdf ? 'inline' : 'none'};">
-      <a id="pdfLink" href="${escapeHtml(pdfUrl)}" target="_blank" rel="noopener" style="padding:0.5rem 1rem;background:#2563eb;color:white;border-radius:6px;text-decoration:none;">Счет в PDF</a>
+      <a id="pdfLink" href="${escapeHtml(pdfUrl)}" target="_blank" rel="noopener" style="padding:0.5rem 1rem;background:#2563eb;color:white;border-radius:6px;text-decoration:none;margin-right:0.5rem;">Счет в PDF</a>
     </span>
+    ${hasPdf ? `<button type="button" id="btnDeletePdf" style="padding:0.5rem 1rem;background:#dc2626;color:white;border:none;border-radius:6px;cursor:pointer;">Удалить PDF</button>` : ''}
   </div>
 
   <div id="printArea">
@@ -326,6 +328,19 @@ export async function GET(
           .finally(function(){ btn.disabled = false; btn.textContent = 'Сформировать PDF'; });
       };
       if (body.getAttribute('data-has-pdf') === 'true' && span) span.style.display = 'inline';
+      var btnDeletePdf = document.getElementById('btnDeletePdf');
+      if (btnDeletePdf) btnDeletePdf.onclick = function(){
+        if (!confirm('Удалить сформированный PDF? QR-код и ссылка на PDF исчезнут из просмотра.')) return;
+        btnDeletePdf.disabled = true;
+        fetch('/api/invoices/${escapeHtml(id)}/pdf', { method: 'DELETE' })
+          .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+          .then(function(res){
+            if (res.ok) location.reload();
+            else alert(res.data && res.data.error ? res.data.error : 'Ошибка удаления PDF');
+          })
+          .catch(function(){ alert('Ошибка сети'); })
+          .finally(function(){ btnDeletePdf.disabled = false; });
+      };
     })();
   </script>
 </body>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { canAccessServiceForPeriods } from '@/lib/permissions';
+import { deleteInvoicePdfFile } from '@/lib/invoice-pdf';
 import type { SessionUser } from '@/lib/auth';
 
 async function getInvoiceWithAccess(user: SessionUser, id: string) {
@@ -114,6 +115,7 @@ export async function DELETE(
     if (invoice === null) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     if (invoice === undefined) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
+    deleteInvoicePdfFile(id);
     await prisma.invoice.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (e: any) {
