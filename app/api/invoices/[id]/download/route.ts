@@ -216,8 +216,9 @@ export async function GET(
     const hasPdf = !!invoice.pdfGeneratedAt;
     const forPdf = request.nextUrl?.searchParams?.get('forPdf') === '1';
     const baseUrlFromQuery = request.nextUrl?.searchParams?.get('baseUrl')?.trim()?.replace(/\/$/, '');
-    let baseUrl = baseUrlFromQuery || (process.env.NEXT_PUBLIC_APP_URL?.trim() ? process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '') : '') || getPublicOrigin(request as Request & { nextUrl?: URL }) || '';
-    if (!baseUrl || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(baseUrl)) baseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()?.replace(/\/$/, '') || baseUrlFromQuery || '';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()?.replace(/\/$/, '');
+    let baseUrl = baseUrlFromQuery || appUrl || getPublicOrigin(request as Request & { nextUrl?: URL }) || '';
+    if (!baseUrl || /localhost|127\.0\.0\.1/i.test(baseUrl)) baseUrl = appUrl || baseUrlFromQuery || '';
     const pdfUrl = baseUrl ? `${baseUrl}/api/invoices/${id}/pdf` : '';
     const publicPdfUrl = invoice.publicToken && baseUrl ? `${baseUrl}/api/invoices/public/${invoice.publicToken}/pdf` : '';
     const qrTargetUrl = forPdf

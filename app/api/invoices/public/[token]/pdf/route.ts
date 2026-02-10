@@ -18,7 +18,9 @@ export async function GET(
   });
   if (!invoice) return NextResponse.json({ error: 'Счёт не найден' }, { status: 404 });
 
-  const base = request.nextUrl.origin;
-  const pdfUrl = `${base}/api/invoices/${invoice.id}/pdf?token=${encodeURIComponent(token)}`;
+  let base = process.env.NEXT_PUBLIC_APP_URL?.trim()?.replace(/\/$/, '') || request.nextUrl.origin;
+  if (/localhost|127\.0\.0\.1/i.test(base)) base = process.env.NEXT_PUBLIC_APP_URL?.trim()?.replace(/\/$/, '') || '';
+  const pdfPath = `/api/invoices/${invoice.id}/pdf?token=${encodeURIComponent(token)}`;
+  const pdfUrl = base ? `${base}${pdfPath}` : pdfPath;
   return NextResponse.redirect(pdfUrl);
 }
