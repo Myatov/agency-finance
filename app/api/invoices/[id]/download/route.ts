@@ -73,6 +73,41 @@ function rublesInWords(amountRub: string): string {
   return (rubPart ? rubPart.charAt(0).toUpperCase() + rubPart.slice(1) : 'Ноль') + ' ' + rubWord + ' ' + kStr + ' копеек';
 }
 
+/** Формат ST00012 — реквизиты для приложения банка (как в Мегаплане). Возвращает строку для QR или null, если не хватает данных. */
+function buildST00012PaymentString(
+  legal: { fullName?: string | null; name: string; contactInfo?: string | null; rs?: string | null; bankName?: string | null; bik?: string | null; ks?: string | null; inn?: string | null },
+  amountKopecks: number,
+  invoiceNumber: string,
+  invoiceDateRu: string,
+  vatRub: string | null
+): string | null {
+  const namePart = (legal.fullName || legal.name || '').trim();
+  const contactPart = (legal.contactInfo || '').trim();
+  const name = contactPart ? `${namePart}, ${contactPart}` : namePart;
+  const personalAcc = (legal.rs || '').trim();
+  const bankName = (legal.bankName || '').trim();
+  const bic = (legal.bik || '').trim();
+  const correspAcc = (legal.ks || '').trim();
+  const payeeInn = (legal.inn || '').trim();
+  if (!name || !personalAcc || !bankName || !bic || !correspAcc || !payeeInn) return null;
+  const sum = Math.round(amountKopecks);
+  const purpose = vatRub != null && vatRub !== ''
+    ? `оплата по счету № ${invoiceNumber} от ${invoiceDateRu}, в т.ч. ндс ${vatRub}`
+    : `оплата по счету № ${invoiceNumber} от ${invoiceDateRu}`;
+  const parts = [
+    'ST00012',
+    `Name=${name}`,
+    `PersonalAcc=${personalAcc}`,
+    `BankName=${bankName}`,
+    `BIC=${bic}`,
+    `CorrespAcc=${correspAcc}`,
+    `PayeeINN=${payeeInn}`,
+    `Sum=${sum}`,
+    `Purpose=${purpose}`,
+  ];
+  return parts.join('|');
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -214,19 +249,21 @@ export async function GET(
     const amountWords = rublesInWords(totalForWords);
     const totalItemsText = `Всего наименований ${rows.length}, на сумму ${showVat ? totalWithVatRub : amountRub} руб.`;
     const hasPdf = !!invoice.pdfGeneratedAt;
-    const forPdf = request.nextUrl?.searchParams?.get('forPdf') === '1';
     const baseUrlFromQuery = request.nextUrl?.searchParams?.get('baseUrl')?.trim()?.replace(/\/$/, '');
     const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()?.replace(/\/$/, '');
     let baseUrl = baseUrlFromQuery || appUrl || getPublicOrigin(request as Request & { nextUrl?: URL }) || '';
     if (!baseUrl || /localhost|127\.0\.0\.1/i.test(baseUrl)) baseUrl = appUrl || baseUrlFromQuery || '';
     const pdfUrl = baseUrl ? `${baseUrl}/api/invoices/${id}/pdf` : '';
-    const publicPdfUrl = invoice.publicToken && baseUrl ? `${baseUrl}/api/invoices/public/${invoice.publicToken}/pdf` : '';
-    const qrTargetUrl = forPdf
-      ? (publicPdfUrl || pdfUrl)
-      : hasPdf
-        ? (publicPdfUrl || pdfUrl)
-        : '';
-    const qrImageUrl = qrTargetUrl && baseUrl ? `${baseUrl}/api/qr?url=${encodeURIComponent(qrTargetUrl)}` : '';
+
+    // QR в формате ST00012 — реквизиты для приложения банка (как в Мегаплане)
+    const paymentString = buildST00012PaymentString(
+      legal,
+      Number(invoice.amount),
+      uniqueNum,
+      invoiceDateRu,
+      showVat ? vatRub : null
+    );
+    const qrImageUrl = paymentString && baseUrl ? `${baseUrl}/api/qr?url=${encodeURIComponent(paymentString)}` : '';
 
     const recipientLines = [
       line(legal.name),
@@ -287,7 +324,7 @@ export async function GET(
       <tr><td style="padding:4px 0;width:85px;vertical-align:top;">Поставщик:</td><td>${payerBlock}</td></tr>
       <tr><td style="padding:4px 0;vertical-align:top;">Получатель:</td><td><b>${escapeHtml(recipientName)}</b></td></tr>
     </table>
-    ${qrImageUrl ? `<p style="margin:0.5rem 0;"><img src="${escapeHtml(qrImageUrl)}" alt="QR код счёта" width="80" height="80" /> <span style="font-size:0.875rem;color:#555;">Скачать счёт по QR-коду</span></p>` : ''}
+    ${qrImageUrl ? `<p style="margin:0.5rem 0;"><img src="${escapeHtml(qrImageUrl)}" alt="QR оплаты" width="80" height="80" /> <span style="font-size:0.875rem;color:#555;">Оплата по QR (реквизиты для приложения банка)</span></p>` : '<p style="margin:0.5rem 0;font-size:0.875rem;color:#888;">Для QR оплаты заполните у юрлица: р/с, банк, БИК, к/с, ИНН.</p>'}
     <table style="width:100%;max-width:684px;border-collapse:collapse;border:1.5px solid #000;font-size:10pt;">
       <tr style="background:#f5f5f5;">
         <th style="border:1px solid #000;padding:6px;text-align:center;width:30px;">№</th>
