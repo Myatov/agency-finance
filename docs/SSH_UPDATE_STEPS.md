@@ -130,6 +130,26 @@ unset PGPASSWORD
 
 После этого переходите к шагам 6–8 (npm ci, prisma generate, build, pm2 restart).
 
+**Период в строках счёта (periodOverride, колонка «Период» в просмотре и PDF):**  
+После `git pull` выполните миграцию (один раз):
+
+```bash
+cd /var/www/agency-finance
+export $(grep -v '^#' .env | xargs)
+export DATABASE_URL_PSQL="${DATABASE_URL%%\?*}"
+psql "$DATABASE_URL_PSQL" -f prisma/add-invoice-line-period-override.sql
+```
+
+При ошибке `role "root" does not exist`:
+
+```bash
+export PGPASSWORD='ПАРОЛЬ'
+psql -h localhost -U ЛОГИН -d ИМЯ_БД -f /var/www/agency-finance/prisma/add-invoice-line-period-override.sql
+unset PGPASSWORD
+```
+
+Далее — шаги 4–8 (git pull уже должен быть выполнен до миграции, затем npm ci, prisma generate, build, pm2 restart).
+
 ---
 
 ## Шаг 4. Обновить код из Git
