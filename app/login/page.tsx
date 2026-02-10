@@ -50,7 +50,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <div className="flex-1 flex flex-col items-center justify-center">
       <div className="mb-8">
         <h1 className="text-center text-5xl font-bold text-gray-900">
           Seo Performance Agency
@@ -100,6 +101,15 @@ export default function LoginPage() {
           </div>
         </form>
       </div>
+      </div>
+      <footer className="mt-auto w-full py-6 flex justify-end pr-4 sm:pr-8">
+        <a
+          href="/about"
+          className="text-sm text-gray-500 hover:text-gray-700 transition"
+        >
+          О продукте · Finance Agency CRM
+        </a>
+      </footer>
     </div>
   );
 }
