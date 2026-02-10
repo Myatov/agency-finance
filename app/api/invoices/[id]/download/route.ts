@@ -255,9 +255,21 @@ export async function GET(
     if (!baseUrl || /localhost|127\.0\.0\.1/i.test(baseUrl)) baseUrl = appUrl || baseUrlFromQuery || '';
     const pdfUrl = baseUrl ? `${baseUrl}/api/invoices/${id}/pdf` : '';
 
-    // QR в формате ST00012 — реквизиты для приложения банка (как в Мегаплане)
+    // QR в формате ST00012 — реквизиты из блока «Поставщик» страницы (client.legalEntity или поля клиента)
+    const supplierLegal = payerEntity
+      ? payerEntity
+      : {
+          fullName: (client as { legalEntityName?: string | null }).legalEntityName ?? client.name,
+          name: client.name || (client as { legalEntityName?: string }).legalEntityName || '',
+          contactInfo: (client as { contacts?: string | null }).contacts ?? null,
+          rs: (client as { rs?: string | null }).rs ?? null,
+          bankName: (client as { bankName?: string | null }).bankName ?? null,
+          bik: (client as { bik?: string | null }).bik ?? null,
+          ks: (client as { ks?: string | null }).ks ?? null,
+          inn: (client as { inn?: string | null }).inn ?? null,
+        };
     const paymentString = buildST00012PaymentString(
-      legal,
+      supplierLegal,
       Number(invoice.amount),
       uniqueNum,
       invoiceDateRu,
