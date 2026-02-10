@@ -185,28 +185,30 @@ export async function GET(
       ? [
           line(payerEntity.fullName ?? payerEntity.name),
           line(payerEntity.legalAddress),
-          [payerEntity.inn, payerEntity.kpp].filter(Boolean).join(', ') || '—',
+          line(`ИНН ${payerEntity.inn ?? '—'}${payerEntity.kpp ? ', КПП ' + payerEntity.kpp : ''}`),
           payerEntity.ogrn ? `ОГРН ${payerEntity.ogrn}` : '—',
           payerEntity.rs ? `Р/с ${payerEntity.rs}` : '—',
           line(payerEntity.bankName),
-          [payerEntity.bik, payerEntity.ks].filter(Boolean).join(', ') || '—',
+          line(`БИК ${payerEntity.bik ?? '—'}${payerEntity.ks ? ', К/с ' + payerEntity.ks : ''}`),
           line(payerEntity.paymentInfo),
           line(payerEntity.contactInfo ?? (client as { contacts?: string }).contacts),
         ].filter((s) => s !== '—')
       : [
           line(client.name || (client as { legalEntityName?: string }).legalEntityName),
           line((client as { legalAddress?: string }).legalAddress),
-          [client.inn, client.kpp].filter(Boolean).join(', ') || '—',
+          line(`ИНН ${client.inn ?? '—'}${client.kpp ? ', КПП ' + client.kpp : ''}`),
           client.ogrn ? `ОГРН ${client.ogrn}` : '—',
           client.rs ? `Р/с ${client.rs}` : '—',
           line(client.bankName),
-          [client.bik, client.ks].filter(Boolean).join(', ') || '—',
+          line(`БИК ${client.bik ?? '—'}${client.ks ? ', К/с ' + client.ks : ''}`),
           line((client as { paymentRequisites?: string }).paymentRequisites),
           line((client as { contacts?: string }).contacts),
         ].filter((s) => s !== '—');
-    // Покупатель: из карточки Клиента, блок «Реквизиты юридического лица», поле «Юрлицо» (выбранное юрлицо) или «Юрлицо (наименование)»
+    // Покупатель: из карточки Клиента, блок «Реквизиты юридического лица», поле «Юрлицо»
     const buyerName =
       (client.legalEntity?.name ?? (client as { legalEntityName?: string | null }).legalEntityName ?? '').trim() || '—';
+    // Получатель: из карточки Клиента, поле «Форма юрлица» (legalEntityName)
+    const recipientName = (client as { legalEntityName?: string | null }).legalEntityName?.trim() || '—';
     const uniqueNum = invoice.invoiceNumber?.trim() || `INV-${invoice.workPeriod.dateFrom.toISOString().slice(0, 10).replace(/-/g, '')}-${id.slice(-6)}`;
     const invoiceDateRu = invoice.invoiceDate ? toRuDate(invoice.invoiceDate) : toRuDate(invoice.createdAt);
     const totalForWords = showVat ? totalWithVatRub : amountRub;
@@ -262,6 +264,7 @@ export async function GET(
   <style>
     body { font-family: sans-serif; max-width: 700px; margin: 1rem auto; padding: 1rem; }
     .no-print { margin-bottom: 1rem; padding: 1rem; background: #f5f5f5; border-radius: 8px; }
+    #pdfError { margin-top: 0.5rem; padding: 0.75rem; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; font-size: 0.875rem; white-space: pre-wrap; word-break: break-word; }
     @media print { .no-print { display: none !important; } }
   </style>
 </head>
@@ -273,6 +276,7 @@ export async function GET(
       <a id="pdfLink" href="${escapeHtml(pdfUrl)}" target="_blank" rel="noopener" style="padding:0.5rem 1rem;background:#2563eb;color:white;border-radius:6px;text-decoration:none;margin-right:0.5rem;">Счет в PDF</a>
     </span>
     ${hasPdf ? `<button type="button" id="btnDeletePdf" style="padding:0.5rem 1rem;background:#dc2626;color:white;border:none;border-radius:6px;cursor:pointer;">Удалить PDF</button>` : ''}
+    <div id="pdfError" style="display:none;" role="alert"></div>
   </div>
 
   <div id="printArea">
@@ -280,6 +284,7 @@ export async function GET(
     <table style="width:100%;max-width:681px;border-collapse:collapse;font-size:12pt;margin:0.5rem 0 1rem;">
       <tr><td style="padding:4px 0;width:85px;vertical-align:top;">Поставщик:</td><td>${payerBlock}</td></tr>
       <tr><td style="padding:4px 0;vertical-align:top;">Покупатель:</td><td><b>${escapeHtml(buyerName)}</b></td></tr>
+      <tr><td style="padding:4px 0;vertical-align:top;">Получатель:</td><td><b>${escapeHtml(recipientName)}</b></td></tr>
     </table>
     ${qrImageUrl ? `<p style="margin:0.5rem 0;"><img src="${escapeHtml(qrImageUrl)}" alt="QR код счёта" width="80" height="80" /> <span style="font-size:0.875rem;color:#555;">Скачать счёт по QR-коду</span></p>` : ''}
     <table style="width:100%;max-width:684px;border-collapse:collapse;border:1.5px solid #000;font-size:10pt;">
@@ -312,19 +317,31 @@ export async function GET(
       var link = document.getElementById('pdfLink');
       var body = document.body;
       if (btn) btn.onclick = function(){
+        var errEl = document.getElementById('pdfError');
+        if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
         btn.disabled = true;
         btn.textContent = 'Формирование…';
         fetch('/api/invoices/${escapeHtml(id)}/generate-pdf', { method: 'POST' })
-          .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+          .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, status: r.status, data: d }; }); })
           .then(function(res){
             if (res.ok && res.data && res.data.pdfUrl) {
               if (link) { link.href = res.data.pdfUrl; }
               if (span) span.style.display = 'inline';
               body.setAttribute('data-has-pdf', 'true');
               btn.style.display = 'none';
-            } else { alert(res.data && res.data.error ? res.data.error : 'Ошибка формирования PDF'); }
+            } else {
+              var msg = res.data && res.data.error ? res.data.error : 'Ошибка формирования PDF';
+              var details = res.data && res.data.details ? res.data.details : '';
+              var full = details ? msg + '\\n\\n' + details : msg;
+              if (errEl) { errEl.textContent = full; errEl.style.display = 'block'; }
+              alert(msg);
+            }
           })
-          .catch(function(){ alert('Ошибка сети'); })
+          .catch(function(e){
+            var full = 'Ошибка сети: ' + (e && e.message ? e.message : String(e));
+            if (errEl) { errEl.textContent = full; errEl.style.display = 'block'; }
+            alert('Ошибка сети');
+          })
           .finally(function(){ btn.disabled = false; btn.textContent = 'Сформировать PDF'; });
       };
       if (body.getAttribute('data-has-pdf') === 'true' && span) span.style.display = 'inline';

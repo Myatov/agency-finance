@@ -540,7 +540,7 @@ export default function ClientModal({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Юрлицо (наименование)
+                  Форма юрлица
                 </label>
                 <input
                   name="legalEntityName"

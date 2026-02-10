@@ -140,9 +140,10 @@ export async function POST(
     const err = e as Error;
     console.error('POST invoices/[id]/generate-pdf', err);
     const message = err?.message ?? String(e);
-    const details = process.env.NODE_ENV === 'development' && err?.stack
-      ? `${message}\n${err.stack}`
-      : message;
+    const details =
+      process.env.NODE_ENV === 'development' && err?.stack
+        ? `${message}\n\n${err.stack}`
+        : message;
     return NextResponse.json(
       { error: 'Ошибка формирования PDF', details },
       { status: 500 }
