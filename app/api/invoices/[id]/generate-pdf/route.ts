@@ -82,7 +82,8 @@ export async function POST(
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const origin = getOrigin(request);
-    const downloadUrl = `${origin}/api/invoices/${id}/download?forPdf=1`;
+    const baseUrlForPdf = process.env.NEXT_PUBLIC_APP_URL?.trim()?.replace(/\/$/, '') || origin;
+    const downloadUrl = `${origin}/api/invoices/${id}/download?forPdf=1&baseUrl=${encodeURIComponent(baseUrlForPdf)}`;
     const htmlRes = await fetch(downloadUrl, {
       headers: {
         cookie: request.headers.get('cookie') || '',

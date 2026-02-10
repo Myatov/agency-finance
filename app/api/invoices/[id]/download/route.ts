@@ -152,17 +152,16 @@ export async function GET(
     const vatPercent = legal.vatPercent != null ? Number(legal.vatPercent) : 0;
     const showVat = vatPercent > 0;
 
-    const rows: { name: string; amountRub: string; period: string }[] = [];
+    const rows: { name: string; amountRub: string }[] = [];
     if (invoice.lines.length > 0) {
       for (const l of invoice.lines) {
         const productName = l.serviceNameOverride ?? l.workPeriod.service.product.name;
         const siteTitle = l.siteNameOverride ?? l.workPeriod.service.site.title;
-        const name = [productName, siteTitle].filter(Boolean).join(' ') || '—';
+        const periodText = (l as { periodOverride?: string | null }).periodOverride?.trim() || '';
+        const nameLine = [productName, siteTitle].filter(Boolean).join(' ') || '—';
+        const name = periodText ? `${nameLine}\n${periodText}` : nameLine;
         const amountRub = (Number(l.amount) / 100).toFixed(2);
-        const period =
-          (l as { periodOverride?: string | null }).periodOverride?.trim() ||
-          `${toRuDate(l.workPeriod.dateFrom)} — ${toRuDate(l.workPeriod.dateTo)}`;
-        rows.push({ name, amountRub, period });
+        rows.push({ name, amountRub });
       }
     } else {
       const wp = invoice.workPeriod;
@@ -171,7 +170,6 @@ export async function GET(
       rows.push({
         name: [productName, siteTitle].filter(Boolean).join(' ') || '—',
         amountRub: (Number(invoice.amount) / 100).toFixed(2),
-        period: `${toRuDate(wp.dateFrom)} — ${toRuDate(wp.dateTo)}`,
       });
     }
 
@@ -217,10 +215,9 @@ export async function GET(
     const totalItemsText = `Всего наименований ${rows.length}, на сумму ${showVat ? totalWithVatRub : amountRub} руб.`;
     const hasPdf = !!invoice.pdfGeneratedAt;
     const forPdf = request.nextUrl?.searchParams?.get('forPdf') === '1';
-    // Для QR и ссылки на PDF используем публичный URL приложения; иначе при генерации PDF (запрос с сервера на себя) подставляется localhost
-    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL?.trim())
-      ? process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')
-      : getPublicOrigin(request as Request & { nextUrl?: URL }) || '';
+    const baseUrlFromQuery = request.nextUrl?.searchParams?.get('baseUrl')?.trim()?.replace(/\/$/, '');
+    let baseUrl = baseUrlFromQuery || (process.env.NEXT_PUBLIC_APP_URL?.trim() ? process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '') : '') || getPublicOrigin(request as Request & { nextUrl?: URL }) || '';
+    if (!baseUrl || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(baseUrl)) baseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()?.replace(/\/$/, '') || baseUrlFromQuery || '';
     const pdfUrl = baseUrl ? `${baseUrl}/api/invoices/${id}/pdf` : '';
     const publicPdfUrl = invoice.publicToken && baseUrl ? `${baseUrl}/api/invoices/public/${invoice.publicToken}/pdf` : '';
     const qrTargetUrl = forPdf
@@ -251,8 +248,7 @@ export async function GET(
         (r, i) =>
           `<tr>
         <td style="border:1px solid #000;padding:6px;text-align:center;">${i + 1}</td>
-        <td style="border:1px solid #000;padding:6px;">${escapeHtml(r.name)}</td>
-        <td style="border:1px solid #000;padding:6px;text-align:center;white-space:nowrap;">${escapeHtml(r.period)}</td>
+        <td style="border:1px solid #000;padding:6px;white-space:pre-line;">${escapeHtml(r.name)}</td>
         <td style="border:1px solid #000;padding:6px;text-align:right;">1</td>
         <td style="border:1px solid #000;padding:6px;text-align:center;">усл.</td>
         <td style="border:1px solid #000;padding:6px;text-align:right;">${r.amountRub}</td>
@@ -295,7 +291,6 @@ export async function GET(
       <tr style="background:#f5f5f5;">
         <th style="border:1px solid #000;padding:6px;text-align:center;width:30px;">№</th>
         <th style="border:1px solid #000;padding:6px;">Наименование работ, услуг</th>
-        <th style="border:1px solid #000;padding:6px;text-align:center;width:100px;">Период</th>
         <th style="border:1px solid #000;padding:6px;text-align:center;width:50px;">Кол-во</th>
         <th style="border:1px solid #000;padding:6px;text-align:center;width:45px;">Ед</th>
         <th style="border:1px solid #000;padding:6px;text-align:center;width:70px;">Цена</th>

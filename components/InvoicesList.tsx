@@ -101,16 +101,12 @@ export default function InvoicesList() {
     setEditForm({
       invoiceNumber: full.invoiceNumber ?? '',
       invoiceDate: full.invoiceDate ? String(full.invoiceDate).slice(0, 10) : '',
-      lines: (full.lines ?? []).map((l) => {
-        const wp = l.workPeriod;
-        const defaultPeriod = wp ? `${formatDate(wp.dateFrom)} — ${formatDate(wp.dateTo)}` : '';
-        return {
-          id: l.id,
-          serviceNameOverride: l.serviceNameOverride ?? '',
-          siteNameOverride: l.siteNameOverride ?? '',
-          periodOverride: (l as { periodOverride?: string | null }).periodOverride ?? defaultPeriod,
-        };
-      }),
+      lines: (full.lines ?? []).map((l) => ({
+        id: l.id,
+        serviceNameOverride: l.serviceNameOverride ?? '',
+        siteNameOverride: l.siteNameOverride ?? '',
+        periodOverride: (l as { periodOverride?: string | null }).periodOverride ?? '',
+      })),
     });
   };
 
@@ -199,16 +195,12 @@ export default function InvoicesList() {
       setEditForm({
         invoiceNumber: full.invoiceNumber ?? '',
         invoiceDate: full.invoiceDate ? String(full.invoiceDate).slice(0, 10) : '',
-        lines: (full.lines ?? []).map((l) => {
-          const wp = l.workPeriod;
-          const defaultPeriod = wp ? `${formatDate(wp.dateFrom)} — ${formatDate(wp.dateTo)}` : '';
-          return {
-            id: l.id,
-            serviceNameOverride: l.serviceNameOverride ?? '',
-            siteNameOverride: l.siteNameOverride ?? '',
-            periodOverride: (l as { periodOverride?: string | null }).periodOverride ?? defaultPeriod,
-          };
-        }),
+        lines: (full.lines ?? []).map((l) => ({
+          id: l.id,
+          serviceNameOverride: l.serviceNameOverride ?? '',
+          siteNameOverride: l.siteNameOverride ?? '',
+          periodOverride: (l as { periodOverride?: string | null }).periodOverride ?? '',
+        })),
       });
     }
   };
@@ -305,16 +297,12 @@ export default function InvoicesList() {
       setEditForm({
         invoiceNumber: full.invoiceNumber ?? '',
         invoiceDate: full.invoiceDate ? String(full.invoiceDate).slice(0, 10) : '',
-        lines: (full.lines ?? []).map((l) => {
-          const wp = l.workPeriod;
-          const defaultPeriod = wp ? `${formatDate(wp.dateFrom)} — ${formatDate(wp.dateTo)}` : '';
-          return {
-            id: l.id,
-            serviceNameOverride: l.serviceNameOverride ?? '',
-            siteNameOverride: l.siteNameOverride ?? '',
-            periodOverride: (l as { periodOverride?: string | null }).periodOverride ?? defaultPeriod,
-          };
-        }),
+        lines: (full.lines ?? []).map((l) => ({
+          id: l.id,
+          serviceNameOverride: l.serviceNameOverride ?? '',
+          siteNameOverride: l.siteNameOverride ?? '',
+          periodOverride: (l as { periodOverride?: string | null }).periodOverride ?? '',
+        })),
       });
     } else {
       load();

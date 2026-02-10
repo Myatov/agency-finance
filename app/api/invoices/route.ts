@@ -128,12 +128,7 @@ export async function POST(request: NextRequest) {
       lines: linesBody,
     } = body;
 
-    const legalEntity = await prisma.legalEntity.findUnique({
-      where: { id: legalEntityId },
-    });
-    if (!legalEntity) return NextResponse.json({ error: 'Legal entity not found' }, { status: 404 });
-
-    // Создание счёта из раздела «Счета» с несколькими периодами (строками)
+    // Создание счёта из раздела «Счета» с несколькими периодами (строками) — legalEntity берётся из клиента первого периода
     if (Array.isArray(linesBody) && linesBody.length > 0) {
       const first = linesBody[0];
       const workPeriodIdFirst = first.workPeriodId;
@@ -257,6 +252,11 @@ export async function POST(request: NextRequest) {
     if (!workPeriodId || amount === undefined || !legalEntityId) {
       return NextResponse.json({ error: 'workPeriodId, amount, legalEntityId are required' }, { status: 400 });
     }
+
+    const legalEntity = await prisma.legalEntity.findUnique({
+      where: { id: legalEntityId },
+    });
+    if (!legalEntity) return NextResponse.json({ error: 'Legal entity not found' }, { status: 404 });
 
     const period = await prisma.workPeriod.findUnique({
       where: { id: workPeriodId },
