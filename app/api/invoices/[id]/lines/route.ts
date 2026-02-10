@@ -23,7 +23,7 @@ export async function POST(
 
     const { id: invoiceId } = await params;
     const body = await request.json();
-    const { workPeriodId, amount } = body;
+    const { workPeriodId, amount, serviceNameOverride, siteNameOverride, periodOverride } = body;
 
     if (!workPeriodId || amount === undefined) {
       return NextResponse.json({ error: 'workPeriodId and amount are required' }, { status: 400 });
@@ -75,6 +75,9 @@ export async function POST(
         workPeriodId,
         amount: amountBigInt,
         sortOrder: maxOrder + 1,
+        serviceNameOverride: serviceNameOverride != null && String(serviceNameOverride).trim() ? String(serviceNameOverride).trim() : undefined,
+        siteNameOverride: siteNameOverride != null && String(siteNameOverride).trim() ? String(siteNameOverride).trim() : undefined,
+        periodOverride: periodOverride != null && String(periodOverride).trim() ? String(periodOverride).trim() : undefined,
       },
       include: { workPeriod: { include: { service: { include: { product: { select: { name: true } }, site: { select: { title: true } } } } } } },
     });

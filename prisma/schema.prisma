@@ -454,6 +454,7 @@ model InvoiceLine {
   sortOrder          Int       @default(0)
   serviceNameOverride String?  // Название услуги в счёте (если не из периода)
   siteNameOverride   String?   // Название/адрес сайта в счёте
+  periodOverride     String?   // Период в счёте (например «01.01.2025 — 31.01.2025»), иначе из workPeriod
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   invoice            Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)

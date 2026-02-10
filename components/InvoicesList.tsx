@@ -41,6 +41,7 @@ type NewFormLine = {
   amount: string;
   serviceNameOverride: string;
   siteNameOverride: string;
+  periodOverride: string;
   label: string;
 };
 
@@ -51,7 +52,7 @@ export default function InvoicesList() {
   const [editForm, setEditForm] = useState<{
     invoiceNumber: string;
     invoiceDate: string;
-    lines: { id: string; serviceNameOverride: string; siteNameOverride: string }[];
+    lines: { id: string; serviceNameOverride: string; siteNameOverride: string; periodOverride: string }[];
   } | null>(null);
   const [mounted, setMounted] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
@@ -100,11 +101,16 @@ export default function InvoicesList() {
     setEditForm({
       invoiceNumber: full.invoiceNumber ?? '',
       invoiceDate: full.invoiceDate ? String(full.invoiceDate).slice(0, 10) : '',
-      lines: (full.lines ?? []).map((l) => ({
-        id: l.id,
-        serviceNameOverride: l.serviceNameOverride ?? '',
-        siteNameOverride: l.siteNameOverride ?? '',
-      })),
+      lines: (full.lines ?? []).map((l) => {
+        const wp = l.workPeriod;
+        const defaultPeriod = wp ? `${formatDate(wp.dateFrom)} — ${formatDate(wp.dateTo)}` : '';
+        return {
+          id: l.id,
+          serviceNameOverride: l.serviceNameOverride ?? '',
+          siteNameOverride: l.siteNameOverride ?? '',
+          periodOverride: (l as { periodOverride?: string | null }).periodOverride ?? defaultPeriod,
+        };
+      }),
     });
   };
 
@@ -131,7 +137,8 @@ export default function InvoicesList() {
     const svc = services.find((s) => s.id === addPeriodServiceId);
     if (!period || !svc) return;
     const amountRub = period.expectedAmount != null ? (Number(period.expectedAmount) / 100).toFixed(2) : (svc.price ? (Number(svc.price) / 100).toFixed(2) : '0');
-    const label = `${svc.site.client.name} · ${svc.site.title} · ${svc.product.name} · ${formatDate(period.dateFrom)}–${formatDate(period.dateTo)}`;
+    const periodStr = `${formatDate(period.dateFrom)} — ${formatDate(period.dateTo)}`;
+    const label = `${svc.site.client.name} · ${svc.site.title} · ${svc.product.name} · ${periodStr}`;
     if (newForm.lines.some((l) => l.workPeriodId === period.id)) {
       alert('Этот период уже добавлен');
       return;
@@ -145,6 +152,7 @@ export default function InvoicesList() {
           amount: amountRub,
           serviceNameOverride: svc.product.name,
           siteNameOverride: svc.site.title,
+          periodOverride: periodStr,
           label,
         },
       ],
@@ -161,6 +169,7 @@ export default function InvoicesList() {
     const svc = services.find((s) => s.id === addPeriodServiceId);
     if (!period || !svc) return;
     const amountRub = period.expectedAmount != null ? Number(period.expectedAmount) / 100 : (svc.price ? Number(svc.price) / 100 : 0);
+    const periodStr = `${formatDate(period.dateFrom)} — ${formatDate(period.dateTo)}`;
     const res = await fetch(`/api/invoices/${addingPeriodToInvoiceId}/lines`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -169,6 +178,7 @@ export default function InvoicesList() {
         amount: amountRub,
         serviceNameOverride: svc.product.name,
         siteNameOverride: svc.site.title,
+        periodOverride: periodStr,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -216,6 +226,7 @@ export default function InvoicesList() {
             amount: parseFloat(l.amount) || 0,
             serviceNameOverride: l.serviceNameOverride.trim() || null,
             siteNameOverride: l.siteNameOverride.trim() || null,
+            periodOverride: l.periodOverride.trim() || null,
           })),
         }),
       });
@@ -256,6 +267,7 @@ export default function InvoicesList() {
         body: JSON.stringify({
           serviceNameOverride: row.serviceNameOverride.trim() || null,
           siteNameOverride: row.siteNameOverride.trim() || null,
+          periodOverride: row.periodOverride.trim() || null,
         }),
       });
     }
@@ -288,11 +300,16 @@ export default function InvoicesList() {
       setEditForm({
         invoiceNumber: full.invoiceNumber ?? '',
         invoiceDate: full.invoiceDate ? String(full.invoiceDate).slice(0, 10) : '',
-        lines: (full.lines ?? []).map((l) => ({
-          id: l.id,
-          serviceNameOverride: l.serviceNameOverride ?? '',
-          siteNameOverride: l.siteNameOverride ?? '',
-        })),
+        lines: (full.lines ?? []).map((l) => {
+          const wp = l.workPeriod;
+          const defaultPeriod = wp ? `${formatDate(wp.dateFrom)} — ${formatDate(wp.dateTo)}` : '';
+          return {
+            id: l.id,
+            serviceNameOverride: l.serviceNameOverride ?? '',
+            siteNameOverride: l.siteNameOverride ?? '',
+            periodOverride: (l as { periodOverride?: string | null }).periodOverride ?? defaultPeriod,
+          };
+        }),
       });
     } else {
       load();
@@ -469,6 +486,18 @@ export default function InvoicesList() {
                             setEditForm({ ...editForm, lines: next });
                           }}
                         />
+                        <input
+                          type="text"
+                          placeholder="Период (например 01.01.2025 — 31.01.2025)"
+                          className="border rounded px-2 py-1 w-full text-sm"
+                          value={row.periodOverride}
+                          onChange={(e) => {
+                            const next = editForm.lines.map((l) =>
+                              l.id === row.id ? { ...l, periodOverride: e.target.value } : l
+                            );
+                            setEditForm({ ...editForm, lines: next });
+                          }}
+                        />
                       </div>
                     );
                   })}
@@ -578,6 +607,17 @@ export default function InvoicesList() {
                             onChange={(e) => {
                               const next = [...newForm.lines];
                               next[idx] = { ...next[idx], siteNameOverride: e.target.value };
+                              setNewForm({ ...newForm, lines: next });
+                            }}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Период (например 01.01.2025 — 31.01.2025)"
+                            className="border rounded px-2 py-1 flex-1 min-w-[180px]"
+                            value={line.periodOverride}
+                            onChange={(e) => {
+                              const next = [...newForm.lines];
+                              next[idx] = { ...next[idx], periodOverride: e.target.value };
                               setNewForm({ ...newForm, lines: next });
                             }}
                           />

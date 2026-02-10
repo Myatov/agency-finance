@@ -112,11 +112,12 @@ export async function PATCH(
     if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await request.json();
-    const { serviceNameOverride, siteNameOverride } = body;
+    const { serviceNameOverride, siteNameOverride, periodOverride } = body;
 
-    const updateData: { serviceNameOverride?: string | null; siteNameOverride?: string | null } = {};
+    const updateData: { serviceNameOverride?: string | null; siteNameOverride?: string | null; periodOverride?: string | null } = {};
     if (serviceNameOverride !== undefined) updateData.serviceNameOverride = serviceNameOverride ? String(serviceNameOverride).trim() : null;
     if (siteNameOverride !== undefined) updateData.siteNameOverride = siteNameOverride ? String(siteNameOverride).trim() : null;
+    if (periodOverride !== undefined) updateData.periodOverride = periodOverride ? String(periodOverride).trim() : null;
 
     const updated = await prisma.invoiceLine.update({
       where: { id: lineId },

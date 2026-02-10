@@ -152,14 +152,17 @@ export async function GET(
     const vatPercent = legal.vatPercent != null ? Number(legal.vatPercent) : 0;
     const showVat = vatPercent > 0;
 
-    const rows: { name: string; amountRub: string }[] = [];
+    const rows: { name: string; amountRub: string; period: string }[] = [];
     if (invoice.lines.length > 0) {
       for (const l of invoice.lines) {
         const productName = l.serviceNameOverride ?? l.workPeriod.service.product.name;
         const siteTitle = l.siteNameOverride ?? l.workPeriod.service.site.title;
         const name = [productName, siteTitle].filter(Boolean).join(' ') || '—';
         const amountRub = (Number(l.amount) / 100).toFixed(2);
-        rows.push({ name, amountRub });
+        const period =
+          (l as { periodOverride?: string | null }).periodOverride?.trim() ||
+          `${toRuDate(l.workPeriod.dateFrom)} — ${toRuDate(l.workPeriod.dateTo)}`;
+        rows.push({ name, amountRub, period });
       }
     } else {
       const wp = invoice.workPeriod;
@@ -168,6 +171,7 @@ export async function GET(
       rows.push({
         name: [productName, siteTitle].filter(Boolean).join(' ') || '—',
         amountRub: (Number(invoice.amount) / 100).toFixed(2),
+        period: `${toRuDate(wp.dateFrom)} — ${toRuDate(wp.dateTo)}`,
       });
     }
 
@@ -204,9 +208,6 @@ export async function GET(
           line((client as { paymentRequisites?: string }).paymentRequisites),
           line((client as { contacts?: string }).contacts),
         ].filter((s) => s !== '—');
-    // Покупатель: из карточки Клиента, блок «Реквизиты юридического лица», поле «Юрлицо»
-    const buyerName =
-      (client.legalEntity?.name ?? (client as { legalEntityName?: string | null }).legalEntityName ?? '').trim() || '—';
     // Получатель: из карточки Клиента, поле «Форма юрлица» (legalEntityName)
     const recipientName = (client as { legalEntityName?: string | null }).legalEntityName?.trim() || '—';
     const uniqueNum = invoice.invoiceNumber?.trim() || `INV-${invoice.workPeriod.dateFrom.toISOString().slice(0, 10).replace(/-/g, '')}-${id.slice(-6)}`;
@@ -216,7 +217,10 @@ export async function GET(
     const totalItemsText = `Всего наименований ${rows.length}, на сумму ${showVat ? totalWithVatRub : amountRub} руб.`;
     const hasPdf = !!invoice.pdfGeneratedAt;
     const forPdf = request.nextUrl?.searchParams?.get('forPdf') === '1';
-    const baseUrl = getPublicOrigin(request as Request & { nextUrl?: URL }) || process.env.NEXT_PUBLIC_APP_URL || '';
+    // Для QR и ссылки на PDF используем публичный URL приложения; иначе при генерации PDF (запрос с сервера на себя) подставляется localhost
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL?.trim())
+      ? process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')
+      : getPublicOrigin(request as Request & { nextUrl?: URL }) || '';
     const pdfUrl = baseUrl ? `${baseUrl}/api/invoices/${id}/pdf` : '';
     const publicPdfUrl = invoice.publicToken && baseUrl ? `${baseUrl}/api/invoices/public/${invoice.publicToken}/pdf` : '';
     const qrTargetUrl = forPdf
@@ -248,6 +252,7 @@ export async function GET(
           `<tr>
         <td style="border:1px solid #000;padding:6px;text-align:center;">${i + 1}</td>
         <td style="border:1px solid #000;padding:6px;">${escapeHtml(r.name)}</td>
+        <td style="border:1px solid #000;padding:6px;text-align:center;white-space:nowrap;">${escapeHtml(r.period)}</td>
         <td style="border:1px solid #000;padding:6px;text-align:right;">1</td>
         <td style="border:1px solid #000;padding:6px;text-align:center;">усл.</td>
         <td style="border:1px solid #000;padding:6px;text-align:right;">${r.amountRub}</td>
@@ -283,7 +288,6 @@ export async function GET(
     <p style="margin:1rem 0 0.5rem;font-size:16px;font-weight:bold;">Счет № ${escapeHtml(uniqueNum)} от ${escapeHtml(invoiceDateRu)} г.</p>
     <table style="width:100%;max-width:681px;border-collapse:collapse;font-size:12pt;margin:0.5rem 0 1rem;">
       <tr><td style="padding:4px 0;width:85px;vertical-align:top;">Поставщик:</td><td>${payerBlock}</td></tr>
-      <tr><td style="padding:4px 0;vertical-align:top;">Покупатель:</td><td><b>${escapeHtml(buyerName)}</b></td></tr>
       <tr><td style="padding:4px 0;vertical-align:top;">Получатель:</td><td><b>${escapeHtml(recipientName)}</b></td></tr>
     </table>
     ${qrImageUrl ? `<p style="margin:0.5rem 0;"><img src="${escapeHtml(qrImageUrl)}" alt="QR код счёта" width="80" height="80" /> <span style="font-size:0.875rem;color:#555;">Скачать счёт по QR-коду</span></p>` : ''}
@@ -291,6 +295,7 @@ export async function GET(
       <tr style="background:#f5f5f5;">
         <th style="border:1px solid #000;padding:6px;text-align:center;width:30px;">№</th>
         <th style="border:1px solid #000;padding:6px;">Наименование работ, услуг</th>
+        <th style="border:1px solid #000;padding:6px;text-align:center;width:100px;">Период</th>
         <th style="border:1px solid #000;padding:6px;text-align:center;width:50px;">Кол-во</th>
         <th style="border:1px solid #000;padding:6px;text-align:center;width:45px;">Ед</th>
         <th style="border:1px solid #000;padding:6px;text-align:center;width:70px;">Цена</th>

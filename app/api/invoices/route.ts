@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
         );
       }
       let totalAmount = BigInt(0);
-      const lineCreates: { workPeriodId: string; amount: bigint; sortOrder: number; serviceNameOverride?: string | null; siteNameOverride?: string | null }[] = [];
+      const lineCreates: { workPeriodId: string; amount: bigint; sortOrder: number; serviceNameOverride?: string | null; siteNameOverride?: string | null; periodOverride?: string | null }[] = [];
       for (let i = 0; i < linesBody.length; i++) {
         const row = linesBody[i];
         const wpId = row.workPeriodId;
@@ -189,6 +189,7 @@ export async function POST(request: NextRequest) {
           sortOrder: i,
           serviceNameOverride: row.serviceNameOverride && String(row.serviceNameOverride).trim() ? String(row.serviceNameOverride).trim() : null,
           siteNameOverride: row.siteNameOverride && String(row.siteNameOverride).trim() ? String(row.siteNameOverride).trim() : null,
+          periodOverride: row.periodOverride && String(row.periodOverride).trim() ? String(row.periodOverride).trim() : null,
         });
       }
       // Номер счёта: 5–7 знаков, уникальный
