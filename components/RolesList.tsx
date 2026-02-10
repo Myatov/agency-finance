@@ -122,6 +122,8 @@ export default function RolesList() {
     { code: 'legal-entities', label: 'Юрлица' },
     { code: 'roles', label: 'Роли' },
     { code: 'niches', label: 'Ниши' },
+    { code: 'contacts', label: 'Контакты' },
+    { code: 'agents', label: 'Агенты / Партнёры' },
   ];
 
   const permissionLabels: Record<string, string> = {

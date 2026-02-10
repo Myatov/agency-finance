@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-
-function canManageContacts(roleCode: string): boolean {
-  return roleCode === 'OWNER' || roleCode === 'CEO';
-}
+import { hasPermission } from '@/lib/permissions';
 
 export async function GET(
   _request: NextRequest,
@@ -14,6 +11,11 @@ export async function GET(
     const user = await getSession();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const canView = await hasPermission(user, 'contacts', 'view');
+    if (!canView) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const contact = await prisma.contact.findUnique({
@@ -47,7 +49,9 @@ export async function PUT(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    if (!canManageContacts(user.roleCode)) {
+
+    const canEdit = await hasPermission(user, 'contacts', 'edit');
+    if (!canEdit) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -108,7 +112,9 @@ export async function DELETE(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    if (!canManageContacts(user.roleCode)) {
+
+    const canDelete = await hasPermission(user, 'contacts', 'delete');
+    if (!canDelete) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

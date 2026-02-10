@@ -16,6 +16,7 @@
     "db:push-income-period": "prisma db execute --file prisma/add-income-work-period-id.sql",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
+    "db:clear-business": "tsx scripts/clear-business-data.ts",
     "db:migrate-server": "tsx scripts/run-migrate-cost-categories.ts",
     "clean": "rm -rf .next node_modules/.cache",
     "fresh": "npm run clean && npm run build"
