@@ -41,6 +41,7 @@ interface Client {
   ks?: string | null;
   paymentRequisites?: string | null;
   contacts?: string | null;
+  isArchived?: boolean;
 }
 
 interface User {
@@ -49,7 +50,12 @@ interface User {
   roleCode: string;
 }
 
-type ClientFilter = 'active' | 'all' | 'inactive';
+type ClientFilter = 'active' | 'all';
+
+type SimpleUser = {
+  id: string;
+  fullName: string;
+};
 
 export default function ClientsList() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -63,7 +69,12 @@ export default function ClientsList() {
   const [canEdit, setCanEdit] = useState(false);
   const [canDelete, setCanDelete] = useState(false);
   const [filter, setFilter] = useState<ClientFilter>('active');
-  const [includeNoProjects, setIncludeNoProjects] = useState(false);
+  const [sellers, setSellers] = useState<SimpleUser[]>([]);
+  const [accountManagers, setAccountManagers] = useState<SimpleUser[]>([]);
+  const [canViewAllClients, setCanViewAllClients] = useState(false);
+  const [sellerFilter, setSellerFilter] = useState<string>('');
+  const [accountManagerFilter, setAccountManagerFilter] = useState<string>('');
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     fetchUser();
@@ -71,7 +82,7 @@ export default function ClientsList() {
 
   useEffect(() => {
     fetchClients();
-  }, [filter, includeNoProjects]);
+  }, [filter, sellerFilter, accountManagerFilter, showArchived]);
 
   useEffect(() => {
     if (user) {
@@ -92,13 +103,54 @@ export default function ClientsList() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ section: 'clients', permission: 'delete' }),
         }).then((r) => r.json()),
-      ]).then(([create, edit, del]) => {
+        fetch('/api/permissions/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ section: 'clients', permission: 'view_all' }),
+        }).then((r) => r.json()),
+      ]).then(([create, edit, del, viewAll]) => {
         setCanAdd(create.hasPermission || false);
         setCanEdit(edit.hasPermission || false);
         setCanDelete(del.hasPermission || false);
+        setCanViewAllClients(viewAll.hasPermission || false);
       });
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    // Продавцы — для фильтра «Продавец»
+    fetch('/api/users/sellers')
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.sellers)) {
+          setSellers(d.sellers);
+        }
+      })
+      .catch(() => {
+        setSellers([]);
+      });
+
+    // Аккаунт-менеджеры — для фильтра «Аккаунт-менеджер»
+    fetch('/api/users/account-managers')
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.accountManagers)) {
+          setAccountManagers(d.accountManagers);
+        }
+      })
+      .catch(() => {
+        setAccountManagers([]);
+      });
+  }, [user]);
+
+  // По умолчанию: если нет права смотреть всех клиентов и роль — ACCOUNT_MANAGER,
+  // фильтр по аккаунт-менеджеру фиксируем на текущего пользователя
+  useEffect(() => {
+    if (user && !canViewAllClients && user.roleCode === 'ACCOUNT_MANAGER') {
+      setAccountManagerFilter(user.id);
+    }
+  }, [user, canViewAllClients]);
 
   const fetchUser = async () => {
     const res = await fetch('/api/auth/me');
@@ -112,7 +164,9 @@ export default function ClientsList() {
     setLoading(true);
     const params = new URLSearchParams();
     params.set('filter', filter);
-    if (includeNoProjects) params.set('includeNoProjects', '1');
+    if (sellerFilter) params.set('sellerId', sellerFilter);
+    if (accountManagerFilter) params.set('accountManagerId', accountManagerFilter);
+    if (showArchived) params.set('archived', '1');
     const res = await fetch(`/api/clients?${params}`, { cache: 'no-store' });
     const data = await res.json();
     setClients(data.clients || []);
@@ -165,7 +219,7 @@ export default function ClientsList() {
       </div>
 
       <div className="bg-white p-4 rounded-lg shadow mb-6">
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4 mb-4">
           <span className="text-sm font-medium text-gray-700">Показать:</span>
           <label className="inline-flex items-center gap-2 cursor-pointer">
             <input
@@ -187,24 +241,56 @@ export default function ClientsList() {
             />
             <span className="text-sm">всех клиентов</span>
           </label>
-          <label className="inline-flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="clientFilter"
-              checked={filter === 'inactive'}
-              onChange={() => setFilter('inactive')}
-              className="rounded border-gray-300"
-            />
-            <span className="text-sm">с неактивными проектами</span>
-          </label>
-          <label className="inline-flex items-center gap-2 cursor-pointer ml-4">
+        </div>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">Продавец:</span>
+            <select
+              value={sellerFilter}
+              onChange={(e) => setSellerFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+            >
+              <option value="">Все</option>
+              {sellers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.fullName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {(canViewAllClients || user?.roleCode === 'ACCOUNT_MANAGER') && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">Аккаунт-менеджер:</span>
+              <select
+                value={accountManagerFilter}
+                onChange={(e) => setAccountManagerFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              >
+                {canViewAllClients && (
+                  <option value="">Все</option>
+                )}
+                {!canViewAllClients && user?.roleCode === 'ACCOUNT_MANAGER' && (
+                  <option value={user.id}>Только я</option>
+                )}
+                {canViewAllClients &&
+                  accountManagers.map((am) => (
+                    <option key={am.id} value={am.id}>
+                      {am.fullName}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
+
+          <label className="inline-flex items-center gap-2 cursor-pointer ml-auto">
             <input
               type="checkbox"
-              checked={includeNoProjects}
-              onChange={(e) => setIncludeNoProjects(e.target.checked)}
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
               className="rounded border-gray-300"
             />
-            <span className="text-sm">включая без проектов</span>
+            <span className="text-sm">Архивные</span>
           </label>
         </div>
       </div>

@@ -49,6 +49,7 @@ interface Client {
     isPrimary: boolean;
     contact: { id: string; name: string; phone1?: string | null; telegram?: string | null; whatsapp?: string | null };
   }>;
+  isArchived?: boolean;
 }
 
 interface LegalEntity {
@@ -94,6 +95,7 @@ export default function ClientModal({
     keyClientStatusComment: '',
     returningClientStatusComment: '',
     workStartDate: '',
+    isArchived: false,
   });
   const [users, setUsers] = useState<User[]>([]);
   const [legalEntities, setLegalEntities] = useState<LegalEntity[]>([]);
@@ -145,6 +147,7 @@ export default function ClientModal({
         keyClientStatusComment: c.keyClientStatusComment ?? '',
         returningClientStatusComment: c.returningClientStatusComment ?? '',
         workStartDate: (c as { workStartDate?: string | null }).workStartDate ? String((c as { workStartDate: string }).workStartDate).slice(0, 10) : '',
+        isArchived: Boolean((c as { isArchived?: boolean }).isArchived),
       });
       if (c.clientContacts && Array.isArray(c.clientContacts)) {
         setClientContactsLinks(
@@ -304,6 +307,7 @@ export default function ClientModal({
         workStartDate: (latest.workStartDate ?? '').trim() ? (latest.workStartDate ?? '').trim() : null,
         agentId: (latest.agentId ?? '').trim() || null,
         clientContacts: clientContactsLinks.map((l) => ({ contactId: l.contactId, role: l.role, isPrimary: l.isPrimary })),
+        isArchived: Boolean(latest.isArchived),
       };
       const res = await fetch(url, {
         method,
@@ -529,6 +533,15 @@ export default function ClientModal({
                   />
                 </div>
               )}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.isArchived}
+                  onChange={(e) => updateField('isArchived', e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                <span>Архивный</span>
+              </label>
             </div>
           </div>
 

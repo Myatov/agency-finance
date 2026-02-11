@@ -185,6 +185,7 @@ model Client {
   keyClientStatusComment    String?
   returningClientStatusComment String?
   isSystem          Boolean         @default(false)
+  isArchived        Boolean         @default(false)
   workStartDate     DateTime?       // Дата старта работы с клиентом (ни на что не влияет, для справки)
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt

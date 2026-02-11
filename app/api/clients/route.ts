@@ -23,6 +23,9 @@ export async function GET(request: NextRequest) {
     const forCloseout = searchParams.get('forCloseout') === '1';
     const filter = searchParams.get('filter') || 'active';
     const includeNoProjects = searchParams.get('includeNoProjects') === '1';
+    const archivedOnly = searchParams.get('archived') === '1';
+    const sellerId = searchParams.get('sellerId');
+    const accountManagerId = searchParams.get('accountManagerId');
 
     let where: any = {};
 
@@ -45,20 +48,30 @@ export async function GET(request: NextRequest) {
       }
     } else {
       const viewAll = await hasViewAllPermission(user, 'clients');
-      const baseWhere = viewAll ? {} : { sellerEmployeeId: user.id };
+
+      // Базовый фильтр по правам и архивности
+      const baseWhere: any = {
+        ...(viewAll ? {} : { sellerEmployeeId: user.id }),
+        // По умолчанию показываем только неархивных клиентов, архивные — через отдельный фильтр
+        ...(archivedOnly ? { isArchived: true } : { isArchived: false }),
+      };
+
+      const andConditions: any[] = [];
 
       if (filter === 'active') {
-        where = { ...baseWhere, sites: { some: { services: { some: { status: 'ACTIVE' } } } } };
+        andConditions.push({ sites: { some: { services: { some: { status: 'ACTIVE' } } } } });
       } else if (filter === 'inactive') {
-        where = {
-          ...baseWhere,
+        andConditions.push({
           AND: [
             { sites: { some: { services: { some: {} } } } },
             { NOT: { sites: { some: { services: { some: { status: 'ACTIVE' } } } } } },
           ],
-        };
-      } else {
-        where = { ...baseWhere };
+        });
+      }
+
+      if (accountManagerId) {
+        // Клиенты, у которых есть хотя бы один сайт с указанным аккаунт-менеджером
+        andConditions.push({ sites: { some: { accountManagerId } } });
       }
 
       if (includeNoProjects) {
@@ -69,9 +82,19 @@ export async function GET(request: NextRequest) {
             { AND: [{ sites: { some: {} } }, { sites: { every: { services: { none: {} } } } }] },
           ],
         };
+
+        const mainWhere =
+          andConditions.length > 0 ? { ...baseWhere, AND: andConditions } : { ...baseWhere };
+
         where = {
-          OR: [where, { ...baseForNoProjects, ...noProjectsWhere }],
+          OR: [mainWhere, { ...baseForNoProjects, ...noProjectsWhere }],
         };
+      } else {
+        where = andConditions.length > 0 ? { ...baseWhere, AND: andConditions } : { ...baseWhere };
+      }
+
+      if (sellerId) {
+        where = { ...where, sellerEmployeeId: sellerId };
       }
     }
 
@@ -125,6 +148,7 @@ export async function POST(request: NextRequest) {
     const keyClientStatusComment = opt(body.keyClientStatusComment);
     const returningClientStatusComment = opt(body.returningClientStatusComment);
     const workStartDate = body.workStartDate != null && String(body.workStartDate).trim() !== '' ? new Date(String(body.workStartDate).trim()) : null;
+    const isArchived = body.isArchived === true;
     const clientContacts = Array.isArray(body.clientContacts) ? body.clientContacts : undefined;
 
     if (!name || !sellerEmployeeId) {
@@ -170,6 +194,7 @@ export async function POST(request: NextRequest) {
         keyClientStatusComment,
         returningClientStatusComment,
         workStartDate,
+        isArchived,
       },
       include: {
         legalEntity: true,
