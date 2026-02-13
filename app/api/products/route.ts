@@ -10,8 +10,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const canView = await hasPermission(user, 'products', 'view');
-    if (!canView) {
+    const canViewProducts = await hasPermission(user, 'products', 'view');
+    const canViewServices = await hasPermission(user, 'services', 'view');
+    const canCreateServices = await hasPermission(user, 'services', 'create');
+    const canAccessProducts =
+      canViewProducts || canViewServices || canCreateServices;
+    if (!canAccessProducts) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
