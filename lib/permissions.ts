@@ -154,6 +154,10 @@ export async function canDeleteClient(user: SessionUser): Promise<boolean> {
   return hasPermission(user, 'clients', 'delete');
 }
 
+export async function canDeleteService(user: SessionUser): Promise<boolean> {
+  return hasPermission(user, 'services', 'delete');
+}
+
 // Может ли пользователь работать с периодами/счетами/оплатами по данной услуге (по сайту и клиенту)
 export async function canAccessServiceForPeriods(
   user: SessionUser,

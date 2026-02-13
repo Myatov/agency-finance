@@ -51,6 +51,7 @@ export default function ServicesListAll() {
     siteId: '',
   });
   const [sites, setSites] = useState<Array<{ id: string; title: string }>>([]);
+  const [canDeleteService, setCanDeleteService] = useState(false);
 
   useEffect(() => {
     fetchUser();
@@ -65,6 +66,27 @@ export default function ServicesListAll() {
       setUser(data.user);
     }
   };
+
+  useEffect(() => {
+    const checkDeletePermission = async () => {
+      if (!user) return;
+
+      try {
+        const res = await fetch('/api/permissions/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ section: 'services', permission: 'delete' }),
+        });
+        const data = await res.json();
+        setCanDeleteService(Boolean(data.hasPermission));
+      } catch (e) {
+        console.error('Error checking delete permission for services', e);
+        setCanDeleteService(false);
+      }
+    };
+
+    checkDeletePermission();
+  }, [user]);
 
   const fetchSites = async () => {
     const res = await fetch('/api/sites/available');
@@ -155,12 +177,9 @@ export default function ServicesListAll() {
     return labels[type] || type;
   };
 
-  // Check if user can add/edit/delete services
-  // OWNER and CEO have full access (no restrictions)
+  // Check if user can add/edit services (логика как раньше по ролям)
   const canAdd = user && (user.roleCode === 'OWNER' || user.roleCode === 'CEO' || user.roleCode === 'ACCOUNT_MANAGER' || user.roleCode === 'SELLER');
   const canEdit = user && (user.roleCode === 'OWNER' || user.roleCode === 'CEO' || user.roleCode === 'ACCOUNT_MANAGER' || user.roleCode === 'SELLER');
-  // Only OWNER and CEO can delete services
-  const canDelete = user && (user.roleCode === 'OWNER' || user.roleCode === 'CEO');
 
   if (loading) {
     return <div className="text-center py-8">Загрузка...</div>;
@@ -315,7 +334,7 @@ export default function ServicesListAll() {
                         Редактировать
                       </button>
                     )}
-                    {canDelete && (
+                    {canDeleteService && (
                       <button
                         onClick={() => handleDelete(service)}
                         className="text-red-600 hover:text-red-900"

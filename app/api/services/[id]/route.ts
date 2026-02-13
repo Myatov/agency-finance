@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { canDeleteService } from '@/lib/permissions';
 import { ServiceStatus, BillingType } from '@prisma/client';
 
 export async function GET(
@@ -231,6 +232,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const allowedByPermission = await canDeleteService(user);
+    if (!allowedByPermission) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     // Get existing service to check permissions
     const existingService = await prisma.service.findUnique({
       where: { id: params.id },
@@ -247,25 +253,28 @@ export async function DELETE(
       return NextResponse.json({ error: 'Service not found' }, { status: 404 });
     }
 
-    // Permission check: OWNER, CEO can delete any service
-    // ACCOUNT_MANAGER can delete services only for sites where they are account manager
-    // SELLER can delete services only for sites of their clients
-    if (user.roleCode !== 'OWNER' && user.roleCode !== 'CEO') {
-      if (user.roleCode === 'ACCOUNT_MANAGER') {
-        if (existingService.site.accountManagerId !== user.id) {
-          return NextResponse.json({ error: 'Forbidden: You can only delete services for sites you manage' }, { status: 403 });
-        }
-      } else if (user.roleCode === 'SELLER') {
-        // Need to fetch client to check seller
-        const siteWithClient = await prisma.site.findUnique({
-          where: { id: existingService.site.id },
-          include: { client: true },
-        });
-        if (!siteWithClient || siteWithClient.client.sellerEmployeeId !== user.id) {
-          return NextResponse.json({ error: 'Forbidden: You can only delete services for your clients' }, { status: 403 });
-        }
-      } else {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Permission check по роли и привязкам:
+    // - OWNER, CEO: могут удалять любые услуги (уже прошли проверку по праву)
+    // - ACCOUNT_MANAGER: только для сайтов, где они аккаунт-менеджеры
+    // - SELLER: только для сайтов клиентов, за которыми они закреплены
+    // - Другие роли: если есть право на удаление услуги, ограничений по сайту нет
+    if (user.roleCode === 'ACCOUNT_MANAGER') {
+      if (existingService.site.accountManagerId !== user.id) {
+        return NextResponse.json(
+          { error: 'Forbidden: You can only delete services for sites you manage' },
+          { status: 403 }
+        );
+      }
+    } else if (user.roleCode === 'SELLER') {
+      const siteWithClient = await prisma.site.findUnique({
+        where: { id: existingService.site.id },
+        include: { client: true },
+      });
+      if (!siteWithClient || siteWithClient.client.sellerEmployeeId !== user.id) {
+        return NextResponse.json(
+          { error: 'Forbidden: You can only delete services for your clients' },
+          { status: 403 }
+        );
       }
     }
 

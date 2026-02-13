@@ -55,6 +55,7 @@ export default function ServicesList({
   const [site, setSite] = useState<any>(null);
   const [canAdd, setCanAdd] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
 
   const fetchUser = async () => {
     const res = await fetch('/api/auth/me');
@@ -87,12 +88,13 @@ export default function ServicesList({
     if (user.roleCode === 'OWNER' || user.roleCode === 'CEO') {
       setCanAdd(true);
       setCanEdit(true);
+      setCanDelete(true);
       return;
     }
 
     // Check permissions via API
     try {
-      const [createRes, editRes] = await Promise.all([
+      const [createRes, editRes, deleteRes] = await Promise.all([
         fetch('/api/permissions/check', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -103,31 +105,42 @@ export default function ServicesList({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ section: 'services', permission: 'edit' }),
         }),
+        fetch('/api/permissions/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ section: 'services', permission: 'delete' }),
+        }),
       ]);
 
       const createData = await createRes.json();
       const editData = await editRes.json();
+      const deleteData = await deleteRes.json();
 
       // Additional checks for ACCOUNT_MANAGER and SELLER
       let canAddService = createData.hasPermission || false;
       let canEditService = editData.hasPermission || false;
+      let canDeleteService = deleteData.hasPermission || false;
 
       if (user.roleCode === 'ACCOUNT_MANAGER') {
         // Can only add/edit services for sites they manage
         canAddService = canAddService && site.accountManagerId === user.id;
         canEditService = canEditService && site.accountManagerId === user.id;
+        canDeleteService = canDeleteService && site.accountManagerId === user.id;
       } else if (user.roleCode === 'SELLER') {
         // Can only add/edit services for sites of their clients
         canAddService = canAddService && site.client?.sellerEmployeeId === user.id;
         canEditService = canEditService && site.client?.sellerEmployeeId === user.id;
+        canDeleteService = canDeleteService && site.client?.sellerEmployeeId === user.id;
       }
 
       setCanAdd(canAddService);
       setCanEdit(canEditService);
+      setCanDelete(canDeleteService);
     } catch (error) {
       console.error('Error checking permissions:', error);
       setCanAdd(false);
       setCanEdit(false);
+      setCanDelete(false);
     }
   };
 
@@ -326,7 +339,7 @@ export default function ServicesList({
                           Редактировать
                         </button>
                       )}
-                      {user && (user.roleCode === 'OWNER' || user.roleCode === 'CEO') && (
+                      {canDelete && (
                         <button
                           onClick={() => handleDelete(service)}
                           className="text-red-600 hover:text-red-900"
