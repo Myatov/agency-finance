@@ -16,6 +16,7 @@ model Department {
   head      User?    @relation("DepartmentHead", fields: [headId], references: [id])
   employees User[]   @relation("DepartmentEmployees")
   paymentSchedule DepartmentPaymentSchedule?
+  expenseItemTemplates ExpenseItemTemplate[]
 }
 
 model Role {
@@ -91,6 +92,7 @@ model User {
   createdPeriodInvoiceNotes PeriodInvoiceNote[] @relation("PeriodInvoiceNoteCreator")
   fixedSalaryHistory  UserFixedSalaryHistory[]
   motivations         UserMotivation[]
+  responsibleExpenseItems ServiceExpenseItem[] @relation("ExpenseItemResponsible")
 
   @@index([departmentId])
   @@index([roleId])
@@ -792,15 +794,18 @@ enum BillingType {
 
 // ——— Справочник «Статьи ожидаемых расходов» ———
 model ExpenseItemTemplate {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String      @id @default(uuid())
+  name         String      @unique
+  departmentId String?     // Связь с отделом — для автоматического назначения ответственных
+  sortOrder    Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  department   Department? @relation(fields: [departmentId], references: [id])
   productItems ProductExpenseItem[]
   serviceItems ServiceExpenseItem[]
 
   @@index([sortOrder])
+  @@index([departmentId])
 }
 
 // ——— Статьи расходов для каждого Продукта (шаблоны) ———
@@ -860,6 +865,7 @@ model ServiceExpenseItem {
   id                    String              @id @default(uuid())
   serviceId             String
   expenseItemTemplateId String?
+  responsibleUserId     String?             // Ответственный сотрудник за эту статью расходов
   name                  String              // Название (копируется из шаблона)
   valueType             ExpenseItemValueType @default(PERCENT)
   value                 Float               @default(0) // Фактическое значение
@@ -868,8 +874,10 @@ model ServiceExpenseItem {
   updatedAt             DateTime            @updatedAt
   service               Service             @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   template              ExpenseItemTemplate? @relation(fields: [expenseItemTemplateId], references: [id])
+  responsible           User?               @relation("ExpenseItemResponsible", fields: [responsibleUserId], references: [id])
 
   @@index([serviceId])
+  @@index([responsibleUserId])
 }
 
 // ——— История фикса сотрудника ———

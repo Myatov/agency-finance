@@ -103,6 +103,11 @@ export async function POST(request: NextRequest) {
       autoRenew,
       responsibleUserId,
       comment,
+      isFromPartner,
+      sellerCommissionPercent,
+      accountManagerCommissionPercent,
+      accountManagerFeeAmount,
+      expenseItems: expenseItemsPayload,
     } = body;
 
     if (!siteId || !productId || !startDate || !billingType) {
@@ -155,6 +160,8 @@ export async function POST(request: NextRequest) {
     const validPrepayment = ['FULL_PREPAY', 'PARTIAL_PREPAY', 'POSTPAY'];
     const prepay = prepaymentType && validPrepayment.includes(prepaymentType) ? prepaymentType : 'POSTPAY';
 
+    const priceKopecks = price ? BigInt(Math.round(parseFloat(price) * 100)) : null;
+
     const service = await prisma.service.create({
       data: {
         siteId,
@@ -164,10 +171,14 @@ export async function POST(request: NextRequest) {
         endDate: endDate ? new Date(endDate) : null,
         billingType: billingType as BillingType,
         prepaymentType: prepay as import('@prisma/client').PrepaymentType,
-        price: price ? BigInt(Math.round(parseFloat(price) * 100)) : null,
+        price: priceKopecks,
         autoRenew: autoRenew !== undefined ? Boolean(autoRenew) : false,
         responsibleUserId: responsibleUserId || null,
         comment: comment || null,
+        isFromPartner: isFromPartner !== undefined ? Boolean(isFromPartner) : false,
+        sellerCommissionPercent: sellerCommissionPercent != null ? parseFloat(sellerCommissionPercent) : null,
+        accountManagerCommissionPercent: accountManagerCommissionPercent != null ? parseFloat(accountManagerCommissionPercent) : null,
+        accountManagerFeeAmount: accountManagerFeeAmount != null ? BigInt(accountManagerFeeAmount) : null,
       },
       include: {
         site: {
@@ -194,6 +205,27 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    // Create expense items if provided
+    if (expenseItemsPayload && Array.isArray(expenseItemsPayload) && expenseItemsPayload.length > 0) {
+      try {
+        await prisma.serviceExpenseItem.createMany({
+          data: expenseItemsPayload.map((item: any) => ({
+            serviceId: service.id,
+            expenseItemTemplateId: item.expenseItemTemplateId || null,
+            responsibleUserId: item.responsibleUserId || null,
+            name: item.name || 'Без названия',
+            valueType: item.valueType || 'PERCENT',
+            value: item.value != null ? parseFloat(item.value) : 0,
+            calculatedAmount: priceKopecks && item.valueType === 'PERCENT'
+              ? BigInt(Math.round(Number(priceKopecks) * parseFloat(item.value) / 100))
+              : item.valueType === 'FIXED' ? BigInt(Math.round(parseFloat(item.value) * 100)) : null,
+          })),
+        });
+      } catch (e) {
+        console.error('Error creating service expense items:', e);
+      }
+    }
 
     const expectedPeriods = getExpectedPeriods(
       new Date(startDate),

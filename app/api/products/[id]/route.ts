@@ -5,7 +5,13 @@ import { canManageProducts, hasPermission } from '@/lib/permissions';
 
 const productInclude = {
   expenseItems: {
-    include: { template: true },
+    include: {
+      template: {
+        include: {
+          department: { select: { id: true, name: true } },
+        },
+      },
+    },
     orderBy: { sortOrder: 'asc' as const },
   },
   commissions: true,

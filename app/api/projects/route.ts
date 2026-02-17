@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     const accountManagerId = searchParams.get('accountManagerId');
     const productId = searchParams.get('productId');
     const unassigned = searchParams.get('unassigned');
+    const activeOnly = searchParams.get('activeOnly');
 
     const whereClause: any = {};
 
@@ -57,6 +58,13 @@ export async function GET(request: NextRequest) {
 
     if (productId) {
       whereClause.productId = productId;
+    }
+
+    if (activeOnly === 'true') {
+      whereClause.site = {
+        ...whereClause.site,
+        client: { ...whereClause.site?.client, isArchived: false },
+      };
     }
 
     // Permission-based filtering — проверяем ТОЛЬКО projects view_all

@@ -2,10 +2,17 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
+interface Department {
+  id: string;
+  name: string;
+}
+
 interface ExpenseItemTemplate {
   id: string;
   name: string;
   sortOrder: number;
+  departmentId: string | null;
+  department: Department | null;
 }
 
 interface ProductExpenseItem {
@@ -64,6 +71,8 @@ export default function ProductsList() {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ExpenseItemTemplate | null>(null);
   const [templateFormName, setTemplateFormName] = useState('');
+  const [templateFormDepartmentId, setTemplateFormDepartmentId] = useState('');
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsProduct, setSettingsProduct] = useState<Product | null>(null);
   const [settingsForm, setSettingsForm] = useState<{
@@ -73,8 +82,6 @@ export default function ProductsList() {
       defaultValue: number;
       description: string;
     }>;
-    sellerCommission: { standardPercent: number; partnerPercent: number; calculationBase: string; description: string };
-    amCommission: { standardPercent: number; partnerPercent: number; calculationBase: string; description: string };
     accountManagerFees: Array<{
       conditionField: string;
       conditionMin: string;
@@ -84,17 +91,45 @@ export default function ProductsList() {
     }>;
   }>({
     expenseItems: [],
-    sellerCommission: { standardPercent: 0, partnerPercent: 0, calculationBase: '', description: '' },
-    amCommission: { standardPercent: 0, partnerPercent: 0, calculationBase: '', description: '' },
     accountManagerFees: [],
   });
   const [savingSettings, setSavingSettings] = useState(false);
+  const [showGlobalCommissions, setShowGlobalCommissions] = useState(false);
+  const [globalCommissions, setGlobalCommissions] = useState({
+    sellerCommission: { standardPercent: 0, partnerPercent: 0, description: '' },
+    amCommission: { standardPercent: 0, partnerPercent: 0, description: '' },
+  });
+  const [savingGlobalCommissions, setSavingGlobalCommissions] = useState(false);
+  const [globalCommissionsError, setGlobalCommissionsError] = useState('');
+  const [globalCommissionsSuccess, setGlobalCommissionsSuccess] = useState('');
 
   useEffect(() => {
     fetchUser();
     fetchProducts();
     fetchTemplates();
+    fetchDepartments();
   }, []);
+
+  // Initialize global commissions from the first product that has commissions
+  useEffect(() => {
+    const productWithComm = products.find((p) => p.commissions.length > 0);
+    if (productWithComm) {
+      const sellerComm = productWithComm.commissions.find((c) => c.role === 'SELLER');
+      const amComm = productWithComm.commissions.find((c) => c.role === 'ACCOUNT_MANAGER');
+      setGlobalCommissions({
+        sellerCommission: {
+          standardPercent: sellerComm?.standardPercent ?? 0,
+          partnerPercent: sellerComm?.partnerPercent ?? 0,
+          description: sellerComm?.description ?? '',
+        },
+        amCommission: {
+          standardPercent: amComm?.standardPercent ?? 0,
+          partnerPercent: amComm?.partnerPercent ?? 0,
+          description: amComm?.description ?? '',
+        },
+      });
+    }
+  }, [products]);
 
   const fetchUser = async () => {
     const res = await fetch('/api/auth/me');
@@ -121,6 +156,14 @@ export default function ProductsList() {
       const res = await fetch('/api/expense-item-templates');
       const data = await res.json();
       if (res.ok) setTemplates(data.expenseItemTemplates || []);
+    } catch { /* ignore */ }
+  };
+
+  const fetchDepartments = async () => {
+    try {
+      const res = await fetch('/api/departments');
+      const data = await res.json();
+      if (res.ok) setDepartments(data.departments || []);
     } catch { /* ignore */ }
   };
 
@@ -152,8 +195,6 @@ export default function ProductsList() {
 
   const handleOpenSettings = (product: Product) => {
     setSettingsProduct(product);
-    const sellerComm = product.commissions.find((c) => c.role === 'SELLER');
-    const amComm = product.commissions.find((c) => c.role === 'ACCOUNT_MANAGER');
 
     setSettingsForm({
       expenseItems: product.expenseItems.map((ei) => ({
@@ -162,18 +203,6 @@ export default function ProductsList() {
         defaultValue: ei.defaultValue,
         description: ei.description || '',
       })),
-      sellerCommission: {
-        standardPercent: sellerComm?.standardPercent ?? 0,
-        partnerPercent: sellerComm?.partnerPercent ?? 0,
-        calculationBase: sellerComm?.calculationBase ?? '',
-        description: sellerComm?.description ?? '',
-      },
-      amCommission: {
-        standardPercent: amComm?.standardPercent ?? 0,
-        partnerPercent: amComm?.partnerPercent ?? 0,
-        calculationBase: amComm?.calculationBase ?? '',
-        description: amComm?.description ?? '',
-      },
       accountManagerFees: product.accountManagerFees.map((f) => ({
         conditionField: f.conditionField || '',
         conditionMin: f.conditionMin != null ? String(f.conditionMin) : '',
@@ -200,27 +229,11 @@ export default function ProductsList() {
           description: ei.description || null,
           sortOrder: idx,
         })),
-        commissions: [
-          {
-            role: 'SELLER',
-            standardPercent: settingsForm.sellerCommission.standardPercent,
-            partnerPercent: settingsForm.sellerCommission.partnerPercent,
-            calculationBase: settingsForm.sellerCommission.calculationBase || null,
-            description: settingsForm.sellerCommission.description || null,
-          },
-          {
-            role: 'ACCOUNT_MANAGER',
-            standardPercent: settingsForm.amCommission.standardPercent,
-            partnerPercent: settingsForm.amCommission.partnerPercent,
-            calculationBase: settingsForm.amCommission.calculationBase || null,
-            description: settingsForm.amCommission.description || null,
-          },
-        ],
         accountManagerFees: settingsForm.accountManagerFees.map((f, idx) => ({
           conditionField: f.conditionField || null,
           conditionMin: f.conditionMin ? parseFloat(f.conditionMin) : null,
           conditionMax: f.conditionMax ? parseFloat(f.conditionMax) : null,
-          feeAmount: Math.round(parseFloat(f.feeAmount || '0') * 100),
+          feeAmount: Math.round(parseFloat(f.feeAmount) * 100) || 0,
           description: f.description || null,
           sortOrder: idx,
         })),
@@ -245,6 +258,34 @@ export default function ProductsList() {
       setError('Ошибка соединения');
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  const handleSaveGlobalCommissions = async () => {
+    setSavingGlobalCommissions(true);
+    setGlobalCommissionsError('');
+    setGlobalCommissionsSuccess('');
+
+    try {
+      const res = await fetch('/api/products/global-commissions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(globalCommissions),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setGlobalCommissionsError(data.error || 'Ошибка сохранения');
+        return;
+      }
+
+      setGlobalCommissionsSuccess('Комиссии сохранены для всех продуктов');
+      fetchProducts();
+      setTimeout(() => setGlobalCommissionsSuccess(''), 3000);
+    } catch {
+      setGlobalCommissionsError('Ошибка соединения');
+    } finally {
+      setSavingGlobalCommissions(false);
     }
   };
 
@@ -311,12 +352,14 @@ export default function ProductsList() {
   const handleAddTemplate = () => {
     setEditingTemplate(null);
     setTemplateFormName('');
+    setTemplateFormDepartmentId('');
     setShowTemplateModal(true);
   };
 
   const handleEditTemplate = (template: ExpenseItemTemplate) => {
     setEditingTemplate(template);
     setTemplateFormName(template.name);
+    setTemplateFormDepartmentId(template.departmentId || '');
     setShowTemplateModal(true);
   };
 
@@ -337,7 +380,7 @@ export default function ProductsList() {
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: templateFormName }),
+      body: JSON.stringify({ name: templateFormName, departmentId: templateFormDepartmentId || null }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -468,6 +511,9 @@ export default function ProductsList() {
             {templates.map((t) => (
               <div key={t.id} className="bg-white border rounded-md px-3 py-1.5 text-sm flex items-center gap-2">
                 <span>{t.name}</span>
+                {t.department && (
+                  <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{t.department.name}</span>
+                )}
                 <button onClick={() => handleEditTemplate(t)} className="text-blue-500 hover:text-blue-700 text-xs">
                   ✎
                 </button>
@@ -477,6 +523,113 @@ export default function ProductsList() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Global Commissions (collapsible) */}
+      {canManage && (
+        <div className="bg-white rounded-lg shadow mb-6">
+          <button
+            onClick={() => setShowGlobalCommissions(!showGlobalCommissions)}
+            className="w-full flex justify-between items-center px-6 py-4 text-left hover:bg-gray-50 transition-colors"
+          >
+            <h2 className="text-lg font-semibold">Глобальные комиссии с продажи</h2>
+            <span className="text-gray-400 text-xl">{showGlobalCommissions ? '▲' : '▼'}</span>
+          </button>
+          {showGlobalCommissions && (
+            <div className="px-6 pb-6">
+              <p className="text-sm text-gray-500 mb-4">
+                Эти комиссии применяются ко всем продуктам одновременно.
+              </p>
+              <div className="grid grid-cols-2 gap-6">
+                {/* Seller */}
+                <div>
+                  <h4 className="font-medium mb-2">Продавец</h4>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-xs text-gray-500">Обычный случай, %</label>
+                      <input type="number" step="0.01"
+                        value={globalCommissions.sellerCommission.standardPercent}
+                        onChange={(e) => setGlobalCommissions((prev) => ({
+                          ...prev, sellerCommission: { ...prev.sellerCommission, standardPercent: parseFloat(e.target.value) || 0 },
+                        }))}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500">Лид от партнёра, %</label>
+                      <input type="number" step="0.01"
+                        value={globalCommissions.sellerCommission.partnerPercent}
+                        onChange={(e) => setGlobalCommissions((prev) => ({
+                          ...prev, sellerCommission: { ...prev.sellerCommission, partnerPercent: parseFloat(e.target.value) || 0 },
+                        }))}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500">Описание формулы</label>
+                      <textarea
+                        value={globalCommissions.sellerCommission.description}
+                        onChange={(e) => setGlobalCommissions((prev) => ({
+                          ...prev, sellerCommission: { ...prev.sellerCommission, description: e.target.value },
+                        }))}
+                        rows={2} placeholder="(Продажа - себес(Подрядчик+АМ+Налог)) * 23%"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" />
+                    </div>
+                  </div>
+                </div>
+                {/* Account Manager */}
+                <div>
+                  <h4 className="font-medium mb-2">Аккаунт-менеджер</h4>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-xs text-gray-500">Обычный случай, %</label>
+                      <input type="number" step="0.01"
+                        value={globalCommissions.amCommission.standardPercent}
+                        onChange={(e) => setGlobalCommissions((prev) => ({
+                          ...prev, amCommission: { ...prev.amCommission, standardPercent: parseFloat(e.target.value) || 0 },
+                        }))}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500">Лид от партнёра, %</label>
+                      <input type="number" step="0.01"
+                        value={globalCommissions.amCommission.partnerPercent}
+                        onChange={(e) => setGlobalCommissions((prev) => ({
+                          ...prev, amCommission: { ...prev.amCommission, partnerPercent: parseFloat(e.target.value) || 0 },
+                        }))}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500">Описание формулы</label>
+                      <textarea
+                        value={globalCommissions.amCommission.description}
+                        onChange={(e) => setGlobalCommissions((prev) => ({
+                          ...prev, amCommission: { ...prev.amCommission, description: e.target.value },
+                        }))}
+                        rows={2}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {globalCommissionsError && (
+                <div className="text-red-600 text-sm mt-4">{globalCommissionsError}</div>
+              )}
+              {globalCommissionsSuccess && (
+                <div className="text-green-600 text-sm mt-4">{globalCommissionsSuccess}</div>
+              )}
+
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={handleSaveGlobalCommissions}
+                  disabled={savingGlobalCommissions}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 font-medium"
+                >
+                  {savingGlobalCommissions ? 'Сохранение...' : 'Сохранить'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -615,6 +768,22 @@ export default function ProductsList() {
                 <input type="text" required value={templateFormName} onChange={(e) => setTemplateFormName(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md" autoFocus />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Отдел (для назначения ответственных)</label>
+                <select
+                  value={templateFormDepartmentId}
+                  onChange={(e) => setTemplateFormDepartmentId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="">Не привязан</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  При создании проекта будет предложено назначить ответственного из этого отдела
+                </p>
+              </div>
               <div className="flex justify-end space-x-4">
                 <button type="button" onClick={() => setShowTemplateModal(false)}
                   className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">Отмена</button>
@@ -630,7 +799,7 @@ export default function ProductsList() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-1">Настройки: {settingsProduct.name}</h2>
-            <p className="text-sm text-gray-500 mb-6">Настройка статей расходов, комиссий и ведения проекта</p>
+            <p className="text-sm text-gray-500 mb-6">Настройка статей расходов и ведения проекта</p>
 
             {/* Expense Items */}
             <div className="border rounded-lg p-4 mb-6">
@@ -681,101 +850,6 @@ export default function ProductsList() {
                     <button onClick={() => removeExpenseItem(idx)} className="text-red-500 hover:text-red-700">✕</button>
                   </div>
                 ))}
-              </div>
-            </div>
-
-            {/* Commissions */}
-            <div className="border rounded-lg p-4 mb-6">
-              <h3 className="text-lg font-semibold mb-3">Комиссии с продажи</h3>
-              <div className="grid grid-cols-2 gap-6">
-                {/* Seller */}
-                <div>
-                  <h4 className="font-medium mb-2">Продавец</h4>
-                  <div className="space-y-2">
-                    <div>
-                      <label className="text-xs text-gray-500">Обычный случай, %</label>
-                      <input type="number" step="0.01"
-                        value={settingsForm.sellerCommission.standardPercent}
-                        onChange={(e) => setSettingsForm((prev) => ({
-                          ...prev, sellerCommission: { ...prev.sellerCommission, standardPercent: parseFloat(e.target.value) || 0 },
-                        }))}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500">Лид от партнёра, %</label>
-                      <input type="number" step="0.01"
-                        value={settingsForm.sellerCommission.partnerPercent}
-                        onChange={(e) => setSettingsForm((prev) => ({
-                          ...prev, sellerCommission: { ...prev.sellerCommission, partnerPercent: parseFloat(e.target.value) || 0 },
-                        }))}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500">Формула расчёта базы (JSON)</label>
-                      <textarea
-                        value={settingsForm.sellerCommission.calculationBase}
-                        onChange={(e) => setSettingsForm((prev) => ({
-                          ...prev, sellerCommission: { ...prev.sellerCommission, calculationBase: e.target.value },
-                        }))}
-                        rows={2} placeholder='{"base":"price","subtract":["Подрядчик","Аккаунт","Налог"]}'
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm font-mono" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500">Описание формулы</label>
-                      <textarea
-                        value={settingsForm.sellerCommission.description}
-                        onChange={(e) => setSettingsForm((prev) => ({
-                          ...prev, sellerCommission: { ...prev.sellerCommission, description: e.target.value },
-                        }))}
-                        rows={2} placeholder="(Продажа - себес(Подрядчик+АМ+Налог)) * 23%"
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" />
-                    </div>
-                  </div>
-                </div>
-                {/* Account Manager */}
-                <div>
-                  <h4 className="font-medium mb-2">Аккаунт-менеджер</h4>
-                  <div className="space-y-2">
-                    <div>
-                      <label className="text-xs text-gray-500">Обычный случай, %</label>
-                      <input type="number" step="0.01"
-                        value={settingsForm.amCommission.standardPercent}
-                        onChange={(e) => setSettingsForm((prev) => ({
-                          ...prev, amCommission: { ...prev.amCommission, standardPercent: parseFloat(e.target.value) || 0 },
-                        }))}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500">Лид от партнёра, %</label>
-                      <input type="number" step="0.01"
-                        value={settingsForm.amCommission.partnerPercent}
-                        onChange={(e) => setSettingsForm((prev) => ({
-                          ...prev, amCommission: { ...prev.amCommission, partnerPercent: parseFloat(e.target.value) || 0 },
-                        }))}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500">Формула расчёта базы (JSON)</label>
-                      <textarea
-                        value={settingsForm.amCommission.calculationBase}
-                        onChange={(e) => setSettingsForm((prev) => ({
-                          ...prev, amCommission: { ...prev.amCommission, calculationBase: e.target.value },
-                        }))}
-                        rows={2}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm font-mono" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500">Описание формулы</label>
-                      <textarea
-                        value={settingsForm.amCommission.description}
-                        onChange={(e) => setSettingsForm((prev) => ({
-                          ...prev, amCommission: { ...prev.amCommission, description: e.target.value },
-                        }))}
-                        rows={2}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" />
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
 

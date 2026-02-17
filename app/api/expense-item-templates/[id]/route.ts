@@ -18,7 +18,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name } = body;
+    const { name, departmentId } = body;
 
     if (!name || typeof name !== 'string') {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
@@ -26,7 +26,13 @@ export async function PUT(
 
     const expenseItemTemplate = await prisma.expenseItemTemplate.update({
       where: { id: params.id },
-      data: { name },
+      data: {
+        name,
+        departmentId: departmentId !== undefined ? (departmentId || null) : undefined,
+      },
+      include: {
+        department: { select: { id: true, name: true } },
+      },
     });
 
     return NextResponse.json({ expenseItemTemplate });

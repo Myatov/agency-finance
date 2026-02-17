@@ -23,7 +23,13 @@ export async function GET() {
       orderBy: { sortOrder: 'asc' },
       include: {
         expenseItems: {
-          include: { template: true },
+          include: {
+            template: {
+              include: {
+                department: { select: { id: true, name: true } },
+              },
+            },
+          },
           orderBy: { sortOrder: 'asc' },
         },
         commissions: true,

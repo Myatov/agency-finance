@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface Product {
   id: string;
@@ -8,7 +8,12 @@ interface Product {
   expenseItems: Array<{
     id: string;
     expenseItemTemplateId: string;
-    template: { id: string; name: string };
+    template: {
+      id: string;
+      name: string;
+      departmentId: string | null;
+      department: { id: string; name: string } | null;
+    };
     valueType: string;
     defaultValue: number;
     description: string | null;
@@ -29,6 +34,12 @@ interface Product {
   }>;
 }
 
+interface DepartmentEmployee {
+  id: string;
+  fullName: string;
+  departmentId: string | null;
+}
+
 interface ClientOption {
   id: string;
   name: string;
@@ -39,6 +50,45 @@ interface SiteOption {
   title: string;
   websiteUrl: string | null;
   clientId: string;
+}
+
+interface ClientDetail {
+  id: string;
+  name: string;
+  sellerEmployeeId: string;
+  accountManagerId: string | null;
+  agentId: string | null;
+  legalEntityId: string | null;
+  legalEntityName: string | null;
+  legalAddress: string | null;
+  inn: string | null;
+  kpp: string | null;
+  ogrn: string | null;
+  rs: string | null;
+  bankName: string | null;
+  bik: string | null;
+  ks: string | null;
+  paymentRequisites: string | null;
+  contacts: string | null;
+  isReturningClient: boolean;
+  isKeyClient: boolean;
+  keyClientStatusComment: string | null;
+  returningClientStatusComment: string | null;
+  workStartDate: string | null;
+  isArchived: boolean;
+  isSystem: boolean;
+  [key: string]: unknown;
+}
+
+interface ContractDoc {
+  id: string;
+  originalName: string;
+  docNumber: string | null;
+  docDate: string | null;
+  uploadedAt: string | null;
+  type: string;
+  status: string;
+  comment: string | null;
 }
 
 interface EditProject {
@@ -104,9 +154,21 @@ export default function ProjectModal({
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [employees, setEmployees] = useState<Array<{ id: string; fullName: string }>>([]);
   const [clientSearch, setClientSearch] = useState('');
   const [siteSearch, setSiteSearch] = useState('');
+
+  const [selectedClient, setSelectedClient] = useState<ClientDetail | null>(null);
+  const [showRequisites, setShowRequisites] = useState(false);
+  const [requisitesForm, setRequisitesForm] = useState({
+    inn: '', kpp: '', ogrn: '', legalAddress: '', rs: '', bankName: '', bik: '', ks: '',
+  });
+  const [savingRequisites, setSavingRequisites] = useState(false);
+  const [contracts, setContracts] = useState<ContractDoc[]>([]);
+  const [contractsLoading, setContractsLoading] = useState(false);
+  const [uploadingContract, setUploadingContract] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [allEmployees, setAllEmployees] = useState<DepartmentEmployee[]>([]);
+  const [expenseItemResponsibles, setExpenseItemResponsibles] = useState<Record<string, string>>({});
 
   const [formData, setFormData] = useState({
     clientId: '',
@@ -119,7 +181,6 @@ export default function ProjectModal({
     price: '',
     autoRenew: false,
     isFromPartner: false,
-    responsibleUserId: '',
     comment: '',
   });
 
@@ -130,14 +191,19 @@ export default function ProjectModal({
   useEffect(() => {
     fetchClients();
     fetchProducts();
-    fetchEmployees();
+    fetchAllEmployees();
   }, []);
 
   useEffect(() => {
     if (formData.clientId) {
       fetchSites(formData.clientId);
+      fetchClientDetail(formData.clientId);
+      fetchContracts(formData.clientId);
     } else {
       setSites([]);
+      setSelectedClient(null);
+      setContracts([]);
+      setShowRequisites(false);
     }
   }, [formData.clientId]);
 
@@ -154,7 +220,6 @@ export default function ProjectModal({
         price: project.price ? (Number(project.price) / 100).toString() : '',
         autoRenew: project.autoRenew,
         isFromPartner: project.isFromPartner,
-        responsibleUserId: project.responsibleUserId || '',
         comment: project.comment || '',
       });
     }
@@ -184,12 +249,146 @@ export default function ProjectModal({
     } catch { /* ignore */ }
   };
 
-  const fetchEmployees = async () => {
+  const fetchAllEmployees = async () => {
     try {
-      const res = await fetch('/api/users/with-departments');
+      const res = await fetch('/api/employees?limit=500');
       const data = await res.json();
-      setEmployees(data.users || []);
+      setAllEmployees((data.employees || []).map((e: any) => ({
+        id: e.id,
+        fullName: e.fullName,
+        departmentId: e.departmentId || null,
+      })));
     } catch { /* ignore */ }
+  };
+
+  const fetchClientDetail = async (clientId: string) => {
+    setSelectedClient(null);
+    setShowRequisites(false);
+    try {
+      const res = await fetch(`/api/clients/${clientId}`);
+      const data = await res.json();
+      if (data.client) {
+        setSelectedClient(data.client);
+        setRequisitesForm({
+          inn: data.client.inn || '',
+          kpp: data.client.kpp || '',
+          ogrn: data.client.ogrn || '',
+          legalAddress: data.client.legalAddress || '',
+          rs: data.client.rs || '',
+          bankName: data.client.bankName || '',
+          bik: data.client.bik || '',
+          ks: data.client.ks || '',
+        });
+      }
+    } catch { /* ignore */ }
+  };
+
+  const fetchContracts = async (clientId: string) => {
+    setContractsLoading(true);
+    try {
+      const res = await fetch(`/api/contracts?clientId=${clientId}`);
+      const data = await res.json();
+      setContracts(data.contracts || []);
+    } catch { /* ignore */ }
+    finally { setContractsLoading(false); }
+  };
+
+  const getClientPayload = (overrides: Record<string, unknown> = {}) => {
+    if (!selectedClient) return {};
+    return {
+      name: selectedClient.name,
+      sellerEmployeeId: selectedClient.sellerEmployeeId,
+      accountManagerId: selectedClient.accountManagerId || null,
+      agentId: selectedClient.agentId || null,
+      legalEntityId: selectedClient.legalEntityId || null,
+      legalEntityName: selectedClient.legalEntityName || null,
+      legalAddress: selectedClient.legalAddress || null,
+      inn: selectedClient.inn || null,
+      kpp: selectedClient.kpp || null,
+      ogrn: selectedClient.ogrn || null,
+      rs: selectedClient.rs || null,
+      bankName: selectedClient.bankName || null,
+      bik: selectedClient.bik || null,
+      ks: selectedClient.ks || null,
+      paymentRequisites: selectedClient.paymentRequisites || null,
+      contacts: selectedClient.contacts || null,
+      isReturningClient: selectedClient.isReturningClient || false,
+      isKeyClient: selectedClient.isKeyClient || false,
+      keyClientStatusComment: selectedClient.keyClientStatusComment || null,
+      returningClientStatusComment: selectedClient.returningClientStatusComment || null,
+      workStartDate: selectedClient.workStartDate || null,
+      isArchived: selectedClient.isArchived || false,
+      ...overrides,
+    };
+  };
+
+  const handleToggleActive = async (checked: boolean) => {
+    if (!selectedClient) return;
+    try {
+      const res = await fetch(`/api/clients/${selectedClient.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getClientPayload({ isArchived: !checked })),
+      });
+      if (res.ok) {
+        setSelectedClient(prev => prev ? { ...prev, isArchived: !checked } : null);
+      }
+    } catch { /* ignore */ }
+  };
+
+  const handleSaveRequisites = async () => {
+    if (!selectedClient) return;
+    setSavingRequisites(true);
+    try {
+      const res = await fetch(`/api/clients/${selectedClient.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getClientPayload({
+          inn: requisitesForm.inn || null,
+          kpp: requisitesForm.kpp || null,
+          ogrn: requisitesForm.ogrn || null,
+          legalAddress: requisitesForm.legalAddress || null,
+          rs: requisitesForm.rs || null,
+          bankName: requisitesForm.bankName || null,
+          bik: requisitesForm.bik || null,
+          ks: requisitesForm.ks || null,
+        })),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.client) {
+          setSelectedClient(data.client);
+        }
+        setShowRequisites(false);
+      }
+    } catch { /* ignore */ }
+    finally { setSavingRequisites(false); }
+  };
+
+  const handleUploadContract = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !formData.clientId) return;
+    setUploadingContract(true);
+    try {
+      const uploadData = new FormData();
+      uploadData.append('file', file);
+      uploadData.append('clientId', formData.clientId);
+      const res = await fetch('/api/contracts', {
+        method: 'POST',
+        body: uploadData,
+      });
+      if (res.ok) {
+        await fetchContracts(formData.clientId);
+      } else {
+        const data = await res.json();
+        setError(data.error || 'Ошибка загрузки файла');
+      }
+    } catch {
+      setError('Ошибка загрузки файла');
+    } finally {
+      setUploadingContract(false);
+      e.target.value = '';
+    }
   };
 
   const selectedProduct = products.find((p) => p.id === formData.productId);
@@ -306,13 +505,22 @@ export default function ProjectModal({
         price: formData.price || null,
         autoRenew: formData.autoRenew,
         isFromPartner: formData.isFromPartner,
-        responsibleUserId: formData.responsibleUserId || null,
         comment: formData.comment || null,
       };
 
       if (sellerPercent != null) payload.sellerCommissionPercent = sellerPercent;
       if (amPercent != null) payload.accountManagerCommissionPercent = amPercent;
       if (amFee != null) payload.accountManagerFeeAmount = Math.round(amFee * 100);
+
+      if (selectedProduct && selectedProduct.expenseItems.length > 0) {
+        payload.expenseItems = selectedProduct.expenseItems.map((item) => ({
+          expenseItemTemplateId: item.expenseItemTemplateId,
+          name: item.template.name,
+          valueType: item.valueType,
+          value: item.defaultValue,
+          responsibleUserId: expenseItemResponsibles[item.expenseItemTemplateId] || null,
+        }));
+      }
 
       const url = project ? `/api/services/${project.id}` : '/api/services';
       const method = project ? 'PUT' : 'POST';
@@ -460,6 +668,178 @@ export default function ProjectModal({
               </button>
             </div>
           </div>
+
+          {/* Client: Active checkbox + Edit requisites */}
+          {formData.clientId && selectedClient && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!selectedClient.isArchived}
+                    onChange={(e) => handleToggleActive(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Активный клиент</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowRequisites(!showRequisites)}
+                  className="text-sm text-blue-600 hover:text-blue-800 underline"
+                >
+                  {showRequisites ? 'Скрыть реквизиты' : 'Редактировать реквизиты'}
+                </button>
+              </div>
+
+              {/* Requisites editing section (collapsible) */}
+              {showRequisites && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Реквизиты клиента</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">ИНН</label>
+                      <input
+                        type="text"
+                        value={requisitesForm.inn}
+                        onChange={(e) => setRequisitesForm({ ...requisitesForm, inn: e.target.value })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">КПП</label>
+                      <input
+                        type="text"
+                        value={requisitesForm.kpp}
+                        onChange={(e) => setRequisitesForm({ ...requisitesForm, kpp: e.target.value })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">ОГРН</label>
+                      <input
+                        type="text"
+                        value={requisitesForm.ogrn}
+                        onChange={(e) => setRequisitesForm({ ...requisitesForm, ogrn: e.target.value })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Юридический адрес</label>
+                      <input
+                        type="text"
+                        value={requisitesForm.legalAddress}
+                        onChange={(e) => setRequisitesForm({ ...requisitesForm, legalAddress: e.target.value })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Расчетный счет</label>
+                      <input
+                        type="text"
+                        value={requisitesForm.rs}
+                        onChange={(e) => setRequisitesForm({ ...requisitesForm, rs: e.target.value })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Банк</label>
+                      <input
+                        type="text"
+                        value={requisitesForm.bankName}
+                        onChange={(e) => setRequisitesForm({ ...requisitesForm, bankName: e.target.value })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">БИК</label>
+                      <input
+                        type="text"
+                        value={requisitesForm.bik}
+                        onChange={(e) => setRequisitesForm({ ...requisitesForm, bik: e.target.value })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Кор.счет</label>
+                      <input
+                        type="text"
+                        value={requisitesForm.ks}
+                        onChange={(e) => setRequisitesForm({ ...requisitesForm, ks: e.target.value })}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveRequisites}
+                      disabled={savingRequisites}
+                      className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm"
+                    >
+                      {savingRequisites ? 'Сохранение...' : 'Сохранить реквизиты'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Contracts section */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Договора</h3>
+                {contractsLoading ? (
+                  <p className="text-sm text-gray-500">Загрузка...</p>
+                ) : (
+                  <>
+                    {contracts.length > 0 ? (
+                      <ul className="space-y-1 mb-3">
+                        {contracts.map((c) => (
+                          <li key={c.id} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
+                                {c.type === 'CONTRACT' ? 'Договор' : c.type === 'ADDENDUM' ? 'Доп.согл.' : c.type === 'NDA' ? 'NDA' : 'Другое'}
+                              </span>
+                              <a
+                                href={`/api/contracts/${c.id}/download`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 underline truncate"
+                                title={c.originalName}
+                              >
+                                {c.originalName}
+                              </a>
+                              {c.docNumber && <span className="text-gray-400 text-xs">№{c.docNumber}</span>}
+                            </div>
+                            {c.uploadedAt && (
+                              <span className="text-xs text-gray-400 ml-2 whitespace-nowrap">
+                                {new Date(c.uploadedAt).toLocaleDateString('ru-RU')}
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-gray-400 mb-3">Нет договоров</p>
+                    )}
+                    <div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        onChange={handleUploadContract}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingContract}
+                        className="px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-sm disabled:opacity-50"
+                      >
+                        {uploadingContract ? 'Загрузка...' : 'Загрузить документ'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Site Selection */}
           <div>
@@ -613,21 +993,6 @@ export default function ProjectModal({
             </label>
           </div>
 
-          {/* Responsible */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ответственный</label>
-            <select
-              value={formData.responsibleUserId}
-              onChange={(e) => setFormData({ ...formData, responsibleUserId: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            >
-              <option value="">Не выбран</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>{emp.fullName}</option>
-              ))}
-            </select>
-          </div>
-
           {/* Commissions (auto-calculated, read-only for non-owners) */}
           {selectedProduct && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -667,23 +1032,49 @@ export default function ProjectModal({
             </div>
           )}
 
-          {/* Expense Items from Product */}
+          {/* Expense Items from Product with Responsible assignment */}
           {selectedProduct && selectedProduct.expenseItems.length > 0 && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Статьи ожидаемых расходов</h3>
-              <div className="space-y-2">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Статьи ожидаемых расходов и ответственные</h3>
+              <div className="space-y-3">
                 {selectedProduct.expenseItems.map((item) => {
                   const priceVal = formData.price ? parseFloat(formData.price) : 0;
                   const calculated = item.valueType === 'PERCENT'
                     ? (priceVal * item.defaultValue / 100).toFixed(0)
                     : (item.defaultValue / 100).toFixed(0);
+                  const deptId = item.template.departmentId;
+                  const deptEmployees = deptId
+                    ? allEmployees.filter((e) => e.departmentId === deptId)
+                    : allEmployees;
                   return (
-                    <div key={item.id} className="flex justify-between items-center text-sm">
-                      <span className="text-gray-700">{item.template.name}</span>
-                      <span className="text-gray-500">
-                        {item.valueType === 'PERCENT' ? `${item.defaultValue}%` : `${(item.defaultValue / 100).toFixed(0)} руб.`}
-                        {priceVal > 0 && ` ≈ ${Number(calculated).toLocaleString('ru-RU')} руб.`}
-                      </span>
+                    <div key={item.id} className="flex items-center gap-3 bg-white rounded p-2 border border-gray-100">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-700">{item.template.name}</span>
+                          {item.template.department && (
+                            <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                              {item.template.department.name}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {item.valueType === 'PERCENT' ? `${item.defaultValue}%` : `${(item.defaultValue / 100).toFixed(0)} руб.`}
+                          {priceVal > 0 && ` ≈ ${Number(calculated).toLocaleString('ru-RU')} руб.`}
+                        </span>
+                      </div>
+                      <select
+                        value={expenseItemResponsibles[item.expenseItemTemplateId] || ''}
+                        onChange={(e) => setExpenseItemResponsibles((prev) => ({
+                          ...prev,
+                          [item.expenseItemTemplateId]: e.target.value,
+                        }))}
+                        className="w-48 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      >
+                        <option value="">Ответственный</option>
+                        {deptEmployees.map((emp) => (
+                          <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+                        ))}
+                      </select>
                     </div>
                   );
                 })}

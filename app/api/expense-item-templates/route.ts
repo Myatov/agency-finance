@@ -19,6 +19,9 @@ export async function GET() {
     }
 
     const expenseItemTemplates = await prisma.expenseItemTemplate.findMany({
+      include: {
+        department: { select: { id: true, name: true } },
+      },
       orderBy: { sortOrder: 'asc' },
     });
 
@@ -41,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name } = body;
+    const { name, departmentId } = body;
 
     if (!name || typeof name !== 'string') {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
@@ -54,7 +57,14 @@ export async function POST(request: NextRequest) {
     });
 
     const expenseItemTemplate = await prisma.expenseItemTemplate.create({
-      data: { name, sortOrder: (maxOrder?.sortOrder ?? -1) + 1 },
+      data: {
+        name,
+        departmentId: departmentId || null,
+        sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+      },
+      include: {
+        department: { select: { id: true, name: true } },
+      },
     });
 
     return NextResponse.json({ expenseItemTemplate });

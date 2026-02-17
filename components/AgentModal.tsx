@@ -84,6 +84,7 @@ export default function AgentModal({
   const [formData, setFormData] = useState<FormData>(initialForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
   const [duplicateConfirm, setDuplicateConfirm] = useState(false);
   const [pendingDuplicates, setPendingDuplicates] = useState<Agent[] | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -409,9 +410,22 @@ export default function AgentModal({
               </button>
             </div>
             {formData.portalToken && (
-              <p className="text-xs text-gray-500 mt-1">
-                Ссылка для входа: <code className="bg-gray-100 px-1 rounded">/agent-portal/enter?token={formData.portalToken}</code>
-              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-xs text-gray-500 min-w-0">
+                  Ссылка для входа: <code className="bg-gray-100 px-1 rounded text-xs break-all">https://a.seo-performance.ru/agent-portal/enter?token={formData.portalToken}</code>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`https://a.seo-performance.ru/agent-portal/enter?token=${formData.portalToken}`);
+                    setLinkCopied(true);
+                    setTimeout(() => setLinkCopied(false), 2000);
+                  }}
+                  className="px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 whitespace-nowrap flex-shrink-0"
+                >
+                  {linkCopied ? 'Скопировано!' : 'Копировать'}
+                </button>
+              </div>
             )}
           </div>
 
