@@ -38,8 +38,10 @@ jobs:
             npm ci --include=dev || npm ci || npm install
             echo "🔄 Generating Prisma Client..."
             npm run db:generate
+            echo "🔄 PRE-MIGRATION: Fixing schema issues and migrating data..."
+            npx prisma db execute --file prisma/major-restructuring-v2.sql || true
             echo "🔄 Applying DB schema changes..."
-            npx prisma db push --skip-generate || echo "⚠️ DB push failed, continuing..."
+            npx prisma db push --accept-data-loss --skip-generate || echo "⚠️ DB push failed, continuing..."
             echo "🔄 Applying DB migration (Expense.legalEntityId) if needed..."
             npx prisma db execute --file prisma/add-expense-legal-entity.sql || true
             echo "🔄 Applying DB migration (LegalEntity fullName, contactInfo) if needed..."
