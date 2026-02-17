@@ -84,13 +84,14 @@ export async function PUT(
 
     const site = await prisma.site.findUnique({
       where: { id: params.id },
+      include: { client: true },
     });
 
     if (!site) {
       return NextResponse.json({ error: 'Site not found' }, { status: 404 });
     }
 
-    if (!canEditSite(user, site.creatorId, site.accountManagerId || undefined)) {
+    if (!canEditSite(user, site.creatorId, site.client?.accountManagerId || undefined)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

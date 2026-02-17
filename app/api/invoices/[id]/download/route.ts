@@ -168,14 +168,14 @@ export async function GET(
 
     let canAccess = await canAccessServiceForPeriods(
       user,
-      invoice.workPeriod.service.site.accountManagerId,
+      invoice.workPeriod.service.site.client.accountManagerId,
       invoice.workPeriod.service.site.client.sellerEmployeeId
     );
     if (!canAccess && invoice.lines.length > 0) {
       for (const l of invoice.lines) {
         canAccess = await canAccessServiceForPeriods(
           user,
-          l.workPeriod.service.site.accountManagerId,
+          l.workPeriod.service.site.client.accountManagerId,
           l.workPeriod.service.site.client.sellerEmployeeId
         );
         if (canAccess) break;

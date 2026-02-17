@@ -122,10 +122,10 @@ export default function ServicesList({
       let canDeleteService = deleteData.hasPermission || false;
 
       if (user.roleCode === 'ACCOUNT_MANAGER') {
-        // Can only add/edit services for sites they manage
-        canAddService = canAddService && site.accountManagerId === user.id;
-        canEditService = canEditService && site.accountManagerId === user.id;
-        canDeleteService = canDeleteService && site.accountManagerId === user.id;
+        // Can only add/edit services for clients they manage
+        canAddService = canAddService && site.client?.accountManagerId === user.id;
+        canEditService = canEditService && site.client?.accountManagerId === user.id;
+        canDeleteService = canDeleteService && site.client?.accountManagerId === user.id;
       } else if (user.roleCode === 'SELLER') {
         // Can only add/edit services for sites of their clients
         canAddService = canAddService && site.client?.sellerEmployeeId === user.id;

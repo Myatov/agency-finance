@@ -32,7 +32,7 @@ export async function GET(
 
     const canAccess = await canAccessServiceForPeriods(
       user,
-      payment.invoice.workPeriod.service.site.accountManagerId,
+      payment.invoice.workPeriod.service.site.client.accountManagerId,
       payment.invoice.workPeriod.service.site.client.sellerEmployeeId
     );
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -73,7 +73,7 @@ export async function DELETE(
 
     const canAccess = await canAccessServiceForPeriods(
       user,
-      payment.invoice.workPeriod.service.site.accountManagerId,
+      payment.invoice.workPeriod.service.site.client.accountManagerId,
       payment.invoice.workPeriod.service.site.client.sellerEmployeeId
     );
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

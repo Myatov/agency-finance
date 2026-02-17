@@ -119,7 +119,7 @@ export async function PUT(
     const existingService = await prisma.service.findUnique({
       where: { id: params.id },
       include: {
-        site: true,
+        site: { include: { client: true } },
       },
     });
 
@@ -132,7 +132,7 @@ export async function PUT(
     // SELLER can edit services only for sites of their clients
     if (user.roleCode !== 'OWNER' && user.roleCode !== 'CEO') {
       if (user.roleCode === 'ACCOUNT_MANAGER') {
-        if (existingService.site.accountManagerId !== user.id) {
+        if (existingService.site.client.accountManagerId !== user.id) {
           return NextResponse.json({ error: 'Forbidden: You can only edit services for sites you manage' }, { status: 403 });
         }
       } else if (user.roleCode === 'SELLER') {
@@ -241,7 +241,7 @@ export async function DELETE(
     const existingService = await prisma.service.findUnique({
       where: { id: params.id },
       include: {
-        site: true,
+        site: { include: { client: true } },
         incomes: {
           select: { id: true },
           take: 1,
@@ -259,18 +259,14 @@ export async function DELETE(
     // - SELLER: только для сайтов клиентов, за которыми они закреплены
     // - Другие роли: если есть право на удаление услуги, ограничений по сайту нет
     if (user.roleCode === 'ACCOUNT_MANAGER') {
-      if (existingService.site.accountManagerId !== user.id) {
+      if (existingService.site.client.accountManagerId !== user.id) {
         return NextResponse.json(
           { error: 'Forbidden: You can only delete services for sites you manage' },
           { status: 403 }
         );
       }
     } else if (user.roleCode === 'SELLER') {
-      const siteWithClient = await prisma.site.findUnique({
-        where: { id: existingService.site.id },
-        include: { client: true },
-      });
-      if (!siteWithClient || siteWithClient.client.sellerEmployeeId !== user.id) {
+      if (existingService.site.client.sellerEmployeeId !== user.id) {
         return NextResponse.json(
           { error: 'Forbidden: You can only delete services for your clients' },
           { status: 403 }

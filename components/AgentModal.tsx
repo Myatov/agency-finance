@@ -31,6 +31,7 @@ export interface Agent {
   description?: string | null;
   source?: string | null;
   status?: string | null;
+  portalToken?: string | null;
 }
 
 type FormData = {
@@ -48,6 +49,7 @@ type FormData = {
   description: string;
   source: string;
   status: string;
+  portalToken: string;
 };
 
 const initialForm: FormData = {
@@ -65,6 +67,7 @@ const initialForm: FormData = {
   description: '',
   source: '',
   status: 'ACTIVE',
+  portalToken: '',
 };
 
 export default function AgentModal({
@@ -102,6 +105,7 @@ export default function AgentModal({
         description: agent.description ?? '',
         source: agent.source ?? '',
         status: agent.status ?? 'ACTIVE',
+        portalToken: agent.portalToken ?? '',
       });
     } else {
       setFormData(initialForm);
@@ -190,6 +194,7 @@ export default function AgentModal({
         description: opt(formData.description) ?? null,
         source: opt(formData.source) ?? null,
         status: formData.status || 'ACTIVE',
+        portalToken: opt(formData.portalToken) ?? null,
       };
 
       const url = agent ? `/api/agents/${agent.id}` : '/api/agents';
@@ -374,6 +379,40 @@ export default function AgentModal({
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Portal Access */}
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">Доступ в кабинет агента</h3>
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Токен доступа</label>
+                <input
+                  type="text"
+                  value={formData.portalToken}
+                  onChange={(e) => updateField('portalToken', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                  placeholder="Сгенерируйте или введите токен"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const token = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+                    .map((b) => b.toString(16).padStart(2, '0'))
+                    .join('');
+                  updateField('portalToken', token);
+                }}
+                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm whitespace-nowrap"
+              >
+                Сгенерировать
+              </button>
+            </div>
+            {formData.portalToken && (
+              <p className="text-xs text-gray-500 mt-1">
+                Ссылка для входа: <code className="bg-gray-100 px-1 rounded">/agent-portal/enter?token={formData.portalToken}</code>
+              </p>
+            )}
           </div>
 
           {pendingDuplicates != null && pendingDuplicates.length > 0 && (

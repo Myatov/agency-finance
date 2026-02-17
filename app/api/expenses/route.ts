@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       where.OR = [
         { createdByUserId: user.id },
         { employeeId: user.id },
-        { site: { accountManagerId: user.id } },
+        { site: { client: { accountManagerId: user.id } } },
         { site: { creatorId: user.id } },
       ];
     }

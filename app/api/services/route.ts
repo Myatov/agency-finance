@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const viewAll = await hasViewAllPermission(user, 'services');
     if (!viewAll) {
       where.OR = [
-        { site: { accountManagerId: user.id } },
+        { site: { client: { accountManagerId: user.id } } },
         { site: { creatorId: user.id } },
         { responsibleUserId: user.id },
         { site: { client: { sellerEmployeeId: user.id } } },
@@ -140,8 +140,8 @@ export async function POST(request: NextRequest) {
     // SELLER can create services only for sites of their clients
     if (user.roleCode !== 'OWNER' && user.roleCode !== 'CEO') {
       if (user.roleCode === 'ACCOUNT_MANAGER') {
-        if (site.accountManagerId !== user.id) {
-          return NextResponse.json({ error: 'Forbidden: You can only create services for sites you manage' }, { status: 403 });
+        if (site.client.accountManagerId !== user.id) {
+          return NextResponse.json({ error: 'Forbidden: You can only create services for clients you manage' }, { status: 403 });
         }
       } else if (user.roleCode === 'SELLER') {
         if (site.client.sellerEmployeeId !== user.id) {

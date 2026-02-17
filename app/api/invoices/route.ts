@@ -10,7 +10,7 @@ const invoiceListInclude = {
       workPeriod: {
         include: {
           service: {
-            include: { site: { include: { client: { select: { sellerEmployeeId: true } } } } },
+            include: { site: { include: { client: { select: { accountManagerId: true, sellerEmployeeId: true } } } } },
           },
         },
       },
@@ -20,7 +20,7 @@ const invoiceListInclude = {
   workPeriod: {
     include: {
       service: {
-        include: { site: { include: { client: { select: { id: true, name: true, sellerEmployeeId: true } } } } },
+        include: { site: { include: { client: { select: { id: true, name: true, accountManagerId: true, sellerEmployeeId: true } } } } },
       },
     },
   },
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
 
       const canAccess = await canAccessServiceForPeriods(
         user,
-        period.service.site.accountManagerId,
+        period.service.site.client.accountManagerId,
         period.service.site.client.sellerEmployeeId
       );
       if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
     for (const inv of all) {
       const canMain = await canAccessServiceForPeriods(
         user,
-        inv.workPeriod.service.site.accountManagerId,
+        inv.workPeriod.service.site.client.accountManagerId,
         inv.workPeriod.service.site.client.sellerEmployeeId
       );
       if (canMain) {
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       for (const l of inv.lines) {
         const can = await canAccessServiceForPeriods(
           user,
-          l.workPeriod.service.site.accountManagerId,
+          l.workPeriod.service.site.client.accountManagerId,
           l.workPeriod.service.site.client.sellerEmployeeId
         );
         if (can) {
@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
         if (!period) return NextResponse.json({ error: `Период ${wpId} не найден` }, { status: 404 });
         const canAccess = await canAccessServiceForPeriods(
           user,
-          period.service.site.accountManagerId,
+          period.service.site.client.accountManagerId,
           period.service.site.client.sellerEmployeeId
         );
         if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -268,7 +268,7 @@ export async function POST(request: NextRequest) {
 
     const canAccess = await canAccessServiceForPeriods(
       user,
-      period.service.site.accountManagerId,
+      period.service.site.client.accountManagerId,
       period.service.site.client.sellerEmployeeId
     );
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

@@ -59,11 +59,10 @@ export async function GET(request: NextRequest) {
       whereClause.productId = productId;
     }
 
-    // Permission-based filtering
+    // Permission-based filtering — проверяем ТОЛЬКО projects view_all
     const viewAllProjects = await hasViewAllPermission(user, 'projects');
-    const viewAllServices = await hasViewAllPermission(user, 'services');
 
-    if (!viewAllProjects && !viewAllServices) {
+    if (!viewAllProjects) {
       if (user.roleCode === 'ACCOUNT_MANAGER') {
         whereClause.site = {
           ...whereClause.site,

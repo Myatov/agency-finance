@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       if (workPeriod && workPeriod.service.site.client.id === clientId) {
         const access = await canAccessServiceForPeriods(
           user,
-          workPeriod.service.site.accountManagerId,
+          workPeriod.service.site.client.accountManagerId,
           workPeriod.service.site.client.sellerEmployeeId
         );
         if (access) canUpload = true;

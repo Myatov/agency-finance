@@ -76,6 +76,7 @@ export async function PUT(
       ? body.source : null;
     const status = body.status && ['ACTIVE', 'PAUSED', 'ARCHIVED'].includes(String(body.status))
       ? body.status : 'ACTIVE';
+    const portalToken = opt(body.portalToken);
 
     const agent = await prisma.agent.update({
       where: { id },
@@ -94,6 +95,7 @@ export async function PUT(
         description,
         source,
         status,
+        portalToken,
       },
     });
 

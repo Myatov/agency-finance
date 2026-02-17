@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import ProjectModal from './ProjectModal';
 
 interface Project {
   id: string;
@@ -120,6 +121,8 @@ export default function ProjectsList() {
   const [assigningClient, setAssigningClient] = useState<string | null>(null);
   const [assignAMId, setAssignAMId] = useState('');
   const [error, setError] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [editingProject, setEditingProject] = useState<any>(null);
 
   useEffect(() => {
     fetchUser();
@@ -197,6 +200,32 @@ export default function ProjectsList() {
     }
   };
 
+  const handleEdit = (project: Project) => {
+    setEditingProject(project);
+    setShowModal(true);
+  };
+
+  const handleDelete = async (projectId: string, projectName: string) => {
+    if (!confirm(`Удалить проект "${projectName}"? Это действие нельзя отменить.`)) return;
+    try {
+      const res = await fetch(`/api/services/${projectId}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchProjects();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Ошибка удаления');
+      }
+    } catch {
+      alert('Ошибка соединения');
+    }
+  };
+
+  const handleModalSuccess = () => {
+    setShowModal(false);
+    setEditingProject(null);
+    fetchProjects();
+  };
+
   const handleFilterChange = (field: string, value: string) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
@@ -229,12 +258,12 @@ export default function ProjectsList() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Проекты</h1>
-        <Link
-          href="/projects/new"
+        <button
+          onClick={() => { setEditingProject(null); setShowModal(true); }}
           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg font-medium"
         >
           + Добавить проект
-        </Link>
+        </button>
       </div>
 
       {/* Unassigned clients warning */}
@@ -482,12 +511,26 @@ export default function ProjectsList() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        <Link
-                          href={`/services/${p.id}/periods`}
-                          className="text-blue-600 hover:text-blue-900 text-xs mr-2"
-                        >
-                          Периоды
-                        </Link>
+                        <div className="flex flex-col gap-1">
+                          <Link
+                            href={`/services/${p.id}/periods`}
+                            className="text-blue-600 hover:text-blue-900 text-xs"
+                          >
+                            Периоды
+                          </Link>
+                          <button
+                            onClick={() => handleEdit(p)}
+                            className="text-blue-600 hover:text-blue-900 text-xs text-left"
+                          >
+                            Редактировать
+                          </button>
+                          <button
+                            onClick={() => handleDelete(p.id, `${p.site.title} — ${p.product.name}`)}
+                            className="text-red-600 hover:text-red-900 text-xs text-left"
+                          >
+                            Удалить
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -504,6 +547,15 @@ export default function ProjectsList() {
             Всего: {filteredProjects.length} проект(ов)
           </div>
         </div>
+      )}
+
+      {showModal && (
+        <ProjectModal
+          project={editingProject}
+          onClose={() => { setShowModal(false); setEditingProject(null); }}
+          onSuccess={handleModalSuccess}
+          user={user}
+        />
       )}
     </div>
   );

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     if (!viewAll) {
       where.OR = [
         { createdByUserId: user.id },
-        { service: { site: { accountManagerId: user.id } } },
+        { service: { site: { client: { accountManagerId: user.id } } } },
         { service: { site: { creatorId: user.id } } },
         { service: { site: { client: { sellerEmployeeId: user.id } } } },
       ];
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         ...where.service,
         site: {
           ...where.service?.site,
-          accountManagerId,
+          client: { accountManagerId },
         },
       };
     }
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
     // Check permissions
     const canAdd = await canAddIncome(
       user,
-      service.site.accountManagerId || undefined,
+      service.site.client.accountManagerId || undefined,
       service.site.client.sellerEmployeeId
     );
 

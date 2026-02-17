@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
       ? body.source : null;
     const status = body.status && ['ACTIVE', 'PAUSED', 'ARCHIVED'].includes(String(body.status))
       ? body.status : 'ACTIVE';
+    const portalToken = opt(body.portalToken);
 
     const agent = await prisma.agent.create({
       data: {
@@ -96,6 +97,7 @@ export async function POST(request: NextRequest) {
         description,
         source,
         status,
+        portalToken,
       },
     });
 

@@ -33,7 +33,7 @@ async function getInvoiceWithAccess(user: SessionUser, id: string) {
   if (!invoice) return null;
   const canAccess = await canAccessServiceForPeriods(
     user,
-    invoice.workPeriod.service.site.accountManagerId,
+    invoice.workPeriod.service.site.client.accountManagerId,
     invoice.workPeriod.service.site.client.sellerEmployeeId
   );
   return canAccess ? invoice : undefined;

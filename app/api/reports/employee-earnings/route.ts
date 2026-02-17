@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
       if (periodsInRange === 0) continue;
 
       const sellerId = svc.site.client.sellerEmployeeId;
-      const amId = svc.site.client.accountManagerId || svc.site.accountManagerId;
+      const amId = svc.site.client.accountManagerId;
 
       // Seller commission
       if (sellerId && svc.sellerCommissionAmount != null) {

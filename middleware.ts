@@ -24,6 +24,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Agent portal: enter page is public
+  if (pathname.startsWith('/agent-portal/enter')) {
+    return NextResponse.next();
+  }
+
+  // Agent portal: dashboard requires agent session
+  if (pathname.startsWith('/agent-portal')) {
+    const agentPortal = request.cookies.get('agentPortal')?.value;
+    if (!agentPortal) {
+      const enterUrl = new URL('/agent-portal/enter', request.url);
+      return NextResponse.redirect(enterUrl);
+    }
+    return NextResponse.next();
+  }
+
   // CRM: require staff session
   const sessionId = request.cookies.get('session')?.value;
   if (!sessionId) {

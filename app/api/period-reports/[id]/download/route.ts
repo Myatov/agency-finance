@@ -29,7 +29,7 @@ export async function GET(
 
     const canAccess = await canAccessServiceForPeriods(
       user,
-      report.workPeriod.service.site.accountManagerId,
+      report.workPeriod.service.site.client.accountManagerId,
       report.workPeriod.service.site.client.sellerEmployeeId
     );
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

@@ -36,7 +36,7 @@ export async function POST(
               include: {
                 site: {
                   include: {
-                    client: { select: { sellerEmployeeId: true } },
+                    client: { select: { accountManagerId: true, sellerEmployeeId: true } },
                   },
                 },
               },
@@ -51,7 +51,7 @@ export async function POST(
                   include: {
                     site: {
                       include: {
-                        client: { select: { sellerEmployeeId: true } },
+                        client: { select: { accountManagerId: true, sellerEmployeeId: true } },
                       },
                     },
                   },
@@ -66,14 +66,14 @@ export async function POST(
 
     let canAccess = await canAccessServiceForPeriods(
       user,
-      invoice.workPeriod.service.site.accountManagerId,
+      invoice.workPeriod.service.site.client.accountManagerId,
       invoice.workPeriod.service.site.client.sellerEmployeeId
     );
     if (!canAccess && invoice.lines?.length) {
       for (const l of invoice.lines) {
         canAccess = await canAccessServiceForPeriods(
           user,
-          l.workPeriod.service.site.accountManagerId,
+          l.workPeriod.service.site.client.accountManagerId,
           l.workPeriod.service.site.client.sellerEmployeeId
         );
         if (canAccess) break;

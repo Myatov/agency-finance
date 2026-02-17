@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     const canAccess = await canAccessServiceForPeriods(
       user,
-      invoice.workPeriod.service.site.accountManagerId,
+      invoice.workPeriod.service.site.client.accountManagerId,
       invoice.workPeriod.service.site.client.sellerEmployeeId
     );
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     const canAccess = await canAccessServiceForPeriods(
       user,
-      invoice.workPeriod.service.site.accountManagerId,
+      invoice.workPeriod.service.site.client.accountManagerId,
       invoice.workPeriod.service.site.client.sellerEmployeeId
     );
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

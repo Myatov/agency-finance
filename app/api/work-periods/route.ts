@@ -17,13 +17,13 @@ export async function GET(request: NextRequest) {
 
     const service = await prisma.service.findUnique({
       where: { id: serviceId },
-      include: { site: { include: { client: { select: { id: true, name: true, sellerEmployeeId: true, legalEntityId: true } } } } },
+      include: { site: { include: { client: { select: { id: true, name: true, sellerEmployeeId: true, accountManagerId: true, legalEntityId: true } } } } },
     });
     if (!service) return NextResponse.json({ error: 'Service not found' }, { status: 404 });
 
     const canAccess = await canAccessServiceForPeriods(
       user,
-      service.site.accountManagerId,
+      service.site.client.accountManagerId,
       service.site.client.sellerEmployeeId
     );
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
 
     const canAccess = await canAccessServiceForPeriods(
       user,
-      service.site.accountManagerId,
+      service.site.client.accountManagerId,
       service.site.client.sellerEmployeeId
     );
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

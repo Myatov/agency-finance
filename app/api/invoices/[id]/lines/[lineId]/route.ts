@@ -32,14 +32,14 @@ async function canAccessInvoiceLine(user: SessionUser, invoiceId: string): Promi
   if (!invoice) return false;
   const canMain = await canAccessServiceForPeriods(
     user,
-    invoice.workPeriod.service.site.accountManagerId,
+    invoice.workPeriod.service.site.client.accountManagerId,
     invoice.workPeriod.service.site.client.sellerEmployeeId
   );
   if (canMain) return true;
   for (const l of invoice.lines) {
     const can = await canAccessServiceForPeriods(
       user,
-      l.workPeriod.service.site.accountManagerId,
+      l.workPeriod.service.site.client.accountManagerId,
       l.workPeriod.service.site.client.sellerEmployeeId
     );
     if (can) return true;

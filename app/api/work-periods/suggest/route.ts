@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     const canAccess = await canAccessServiceForPeriods(
       user,
-      service.site.accountManagerId,
+      service.site.client.accountManagerId,
       service.site.client.sellerEmployeeId
     );
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

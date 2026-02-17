@@ -43,6 +43,10 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
   const [periods, setPeriods] = useState<WorkPeriod[]>([]);
   const [clientGenerateClosingDocs, setClientGenerateClosingDocs] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [editingPeriodId, setEditingPeriodId] = useState<string | null>(null);
+  const [editDateTo, setEditDateTo] = useState('');
+  const [cascadeFollowing, setCascadeFollowing] = useState(true);
+  const [adjusting, setAdjusting] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -87,6 +91,40 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
     else {
       const err = await createRes.json();
       alert(err.error || 'Ошибка создания периода');
+    }
+  };
+
+  const startEditPeriod = (period: WorkPeriod) => {
+    setEditingPeriodId(period.id);
+    setEditDateTo(new Date(period.dateTo).toISOString().split('T')[0]);
+    setCascadeFollowing(true);
+  };
+
+  const handleAdjustPeriod = async (periodId: string) => {
+    if (!editDateTo) return;
+    setAdjusting(true);
+    try {
+      const res = await fetch('/api/work-periods/adjust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceId,
+          periodId,
+          newDateTo: editDateTo,
+          cascadeFollowing,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setEditingPeriodId(null);
+        load();
+      } else {
+        alert(data.error || 'Ошибка изменения периода');
+      }
+    } catch {
+      alert('Ошибка соединения');
+    } finally {
+      setAdjusting(false);
     }
   };
 
@@ -183,10 +221,61 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
                     ))}
                   </ul>
                 )}
+                {/* Period date adjustment */}
+                {editingPeriodId === p.id ? (
+                  <div className="mt-3 bg-blue-50 border border-blue-200 rounded-md p-3">
+                    <div className="flex items-end gap-3 flex-wrap">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Новая дата окончания</label>
+                        <input
+                          type="date"
+                          value={editDateTo}
+                          onChange={(e) => setEditDateTo(e.target.value)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-md text-sm"
+                        />
+                      </div>
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={cascadeFollowing}
+                          onChange={(e) => setCascadeFollowing(e.target.checked)}
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                        />
+                        <span>Сдвигать последующие периоды</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleAdjustPeriod(p.id)}
+                        disabled={adjusting}
+                        className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {adjusting ? 'Сохранение...' : 'Применить'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingPeriodId(null)}
+                        className="px-3 py-1.5 text-gray-600 hover:text-gray-800 text-sm"
+                      >
+                        Отмена
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      При сдвиге последующих периодов все даты будут скорректированы на разницу между старой и новой датой окончания.
+                    </p>
+                  </div>
+                ) : null}
+
                 <div className="mt-2 flex gap-2 text-sm items-center flex-wrap">
                   <Link href={`/periods/${p.id}`} className="text-blue-600 hover:underline">
                     Счета и оплаты →
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => startEditPeriod(p)}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Изменить даты
+                  </button>
                   <button
                     type="button"
                     onClick={async () => {
