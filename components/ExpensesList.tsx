@@ -42,6 +42,7 @@ interface Expense {
   } | null;
   legalEntityId: string | null;
   legalEntity: { id: string; name: string } | null;
+  isWithdrawal?: boolean;
   comment: string | null;
   creator: {
     id: string;
@@ -120,6 +121,8 @@ export default function ExpensesList() {
     paymentAt: new Date().toISOString().slice(0, 16),
     comment: '',
   });
+  const [sortBy, setSortBy] = useState('paymentAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filters, setFilters] = useState({
     dateFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     dateTo: new Date().toISOString().split('T')[0],
@@ -130,6 +133,7 @@ export default function ExpensesList() {
     siteId: '',
     serviceId: '',
     clientId: '',
+    legalEntityId: '',
   });
 
   useEffect(() => {
@@ -139,7 +143,7 @@ export default function ExpensesList() {
     fetchSites();
     fetchLegalEntities();
     fetchExpenses();
-  }, [filters]);
+  }, [filters, sortBy, sortOrder]);
 
   useEffect(() => {
     if (legalEntities.length && !quickAdd.legalEntityId) {
@@ -216,6 +220,8 @@ export default function ExpensesList() {
     Object.entries(filters).forEach(([key, value]) => {
       if (value) params.set(key, value);
     });
+    params.set('sortBy', sortBy);
+    params.set('sortOrder', sortOrder);
 
     const res = await fetch(`/api/expenses?${params}`);
     const data = await res.json();
@@ -276,6 +282,20 @@ export default function ExpensesList() {
       console.error('Network error adding expense:', error);
       alert('Ошибка соединения с сервером. Проверьте, что сервер запущен и доступен.');
     }
+  };
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('desc');
+    }
+  };
+
+  const renderSortIcon = (field: string) => {
+    if (sortBy !== field) return <span className="ml-1 text-gray-300">↕</span>;
+    return <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
   };
 
   const handleEdit = (expense: Expense) => {
@@ -546,19 +566,134 @@ export default function ExpensesList() {
               })()}
             </select>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Тип расхода
+            </label>
+            <select
+              value={filters.costItemId}
+              onChange={(e) => setFilters({ ...filters, costItemId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            >
+              <option value="">Все</option>
+              {(() => {
+                const byCategory = new Map<string, CostItem[]>();
+                for (const item of costItems) {
+                  const catId = item.costCategory?.id ?? '';
+                  if (!byCategory.has(catId)) byCategory.set(catId, []);
+                  byCategory.get(catId)!.push(item);
+                }
+                const categories = Array.from(byCategory.entries())
+                  .map(([catId, items]) => ({
+                    id: catId,
+                    name: items[0]?.costCategory?.name ?? '',
+                    sortOrder: items[0]?.costCategory?.sortOrder ?? 0,
+                    items: items.slice().sort((a, b) => a.sortOrder - b.sortOrder),
+                  }))
+                  .sort((a, b) => a.sortOrder - b.sortOrder);
+                return categories.map((cat) => (
+                  <optgroup key={cat.id} label={cat.name}>
+                    {cat.items.map((item) => (
+                      <option key={item.id} value={item.id}>{item.title}</option>
+                    ))}
+                  </optgroup>
+                ));
+              })()}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Сотрудник
+            </label>
+            <select
+              value={filters.employeeId}
+              onChange={(e) => setFilters({ ...filters, employeeId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            >
+              <option value="">Все</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.fullName} {emp.department ? `(${emp.department.name})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Отдел
+            </label>
+            <select
+              value={filters.departmentId}
+              onChange={(e) => setFilters({ ...filters, departmentId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            >
+              <option value="">Все</option>
+              {(() => {
+                const seen = new Set<string>();
+                const depts: { id: string; name: string }[] = [];
+                for (const emp of employees) {
+                  if (emp.department && !seen.has(emp.department.id)) {
+                    seen.add(emp.department.id);
+                    depts.push(emp.department);
+                  }
+                }
+                depts.sort((a, b) => a.name.localeCompare(b.name));
+                return depts.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ));
+              })()}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Сайт
+            </label>
+            <select
+              value={filters.siteId}
+              onChange={(e) => setFilters({ ...filters, siteId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            >
+              <option value="">Все</option>
+              {sites.map((site) => (
+                <option key={site.id} value={site.id}>
+                  {site.title} ({site.client.name})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Юрлицо
+            </label>
+            <select
+              value={filters.legalEntityId}
+              onChange={(e) => setFilters({ ...filters, legalEntityId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            >
+              <option value="">Все</option>
+              {legalEntities.map((le) => (
+                <option key={le.id} value={le.id}>{le.name}</option>
+              ))}
+            </select>
+          </div>
           <div className="flex items-end">
             <button
-              onClick={() => setFilters({
-                dateFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                dateTo: new Date().toISOString().split('T')[0],
-                category: '',
-                costItemId: '',
-                departmentId: '',
-                employeeId: '',
-                siteId: '',
-    serviceId: '',
-                clientId: '',
-              })}
+              onClick={() => {
+                setFilters({
+                  dateFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                  dateTo: new Date().toISOString().split('T')[0],
+                  category: '',
+                  costItemId: '',
+                  departmentId: '',
+                  employeeId: '',
+                  siteId: '',
+                  serviceId: '',
+                  clientId: '',
+                  legalEntityId: '',
+                });
+                setSortBy('paymentAt');
+                setSortOrder('desc');
+              }}
               className="w-full px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
             >
               Сбросить фильтры
@@ -573,17 +708,26 @@ export default function ExpensesList() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Дата платежа
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700 select-none"
+                  onClick={() => handleSort('paymentAt')}
+                >
+                  Дата платежа{renderSortIcon('paymentAt')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Сумма
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700 select-none"
+                  onClick={() => handleSort('amount')}
+                >
+                  Сумма{renderSortIcon('amount')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Категория
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Тип расхода
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700 select-none"
+                  onClick={() => handleSort('title')}
+                >
+                  Тип расхода{renderSortIcon('title')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Сотрудник
@@ -603,8 +747,11 @@ export default function ExpensesList() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Клиент
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Кто внес
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700 select-none"
+                  onClick={() => handleSort('createdAt')}
+                >
+                  Кто внес{renderSortIcon('createdAt')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Комментарий
@@ -621,7 +768,12 @@ export default function ExpensesList() {
                     {formatDate(expense.paymentAt)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {formatAmount(expense.amount)}
+                    <span>{formatAmount(expense.amount)}</span>
+                    {expense.isWithdrawal && (
+                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                        Снятие
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {expense.costItem?.costCategory?.name ?? '-'}

@@ -9,7 +9,6 @@ interface Site {
   description: string | null;
   niche: string;
   clientId: string;
-  accountManagerId: string | null;
   isActive: boolean;
 }
 
@@ -24,11 +23,6 @@ interface Niche {
 interface Client {
   id: string;
   name: string;
-}
-
-interface AccountManager {
-  id: string;
-  fullName: string;
 }
 
 interface User {
@@ -52,11 +46,9 @@ export default function SiteModal({
     niche: '',
     nicheId: '',
     clientId: '',
-    accountManagerId: '',
     isActive: false,
   });
   const [clients, setClients] = useState<Client[]>([]);
-  const [accountManagers, setAccountManagers] = useState<AccountManager[]>([]);
   const [niches, setNiches] = useState<Niche[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
@@ -64,7 +56,6 @@ export default function SiteModal({
 
   useEffect(() => {
     fetchClients();
-    fetchAccountManagers();
     fetchNiches();
     fetchUser();
 
@@ -77,7 +68,6 @@ export default function SiteModal({
         niche: site.niche,
         nicheId: '',
         clientId: site.clientId,
-        accountManagerId: site.accountManagerId || '',
         isActive: site.isActive,
       }));
     }
@@ -100,12 +90,6 @@ export default function SiteModal({
     setClients(data.clients || []);
   };
 
-  const fetchAccountManagers = async () => {
-    const res = await fetch('/api/users/account-managers');
-    const data = await res.json();
-    setAccountManagers(data.accountManagers || []);
-  };
-
   const fetchNiches = async () => {
     try {
       const res = await fetch('/api/niches');
@@ -123,22 +107,6 @@ export default function SiteModal({
       setUser(data.user);
     }
   };
-
-  // Автоматически назначаем ACCOUNT_MANAGER при создании нового сайта
-  useEffect(() => {
-    if (!site && user && user.roleCode === 'ACCOUNT_MANAGER' && accountManagers.length > 0 && user.id) {
-      const currentUserAsAM = accountManagers.find((am) => am.id === user.id);
-      if (currentUserAsAM) {
-        setFormData((prev) => {
-          // Устанавливаем только если еще не установлено
-          if (!prev.accountManagerId) {
-            return { ...prev, accountManagerId: user.id };
-          }
-          return prev;
-        });
-      }
-    }
-  }, [user, accountManagers, site]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,19 +136,6 @@ export default function SiteModal({
         isActive: formData.isActive,
       };
 
-      // Include accountManagerId if:
-      // 1. User can assign (OWNER, CEO, FINANCE)
-      // 2. User is ACCOUNT_MANAGER creating a new site (can assign themselves)
-      if (
-        user &&
-        (user.roleCode === 'OWNER' ||
-          user.roleCode === 'CEO' ||
-          user.roleCode === 'FINANCE' ||
-          (user.roleCode === 'ACCOUNT_MANAGER' && !site))
-      ) {
-        payload.accountManagerId = formData.accountManagerId || null;
-      }
-
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -208,13 +163,6 @@ export default function SiteModal({
       setLoading(false);
     }
   };
-
-  const canAssignAccountManager =
-    user &&
-    (user.roleCode === 'OWNER' ||
-      user.roleCode === 'CEO' ||
-      user.roleCode === 'FINANCE' ||
-      (user.roleCode === 'ACCOUNT_MANAGER' && !site)); // ACCOUNT_MANAGER can assign themselves when creating
 
   // Auto-fill title from client name
   const handleClientChange = (clientId: string) => {
@@ -340,40 +288,6 @@ export default function SiteModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             />
           </div>
-
-          {canAssignAccountManager && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Аккаунт-менеджер
-              </label>
-              <select
-                value={formData.accountManagerId}
-                onChange={(e) =>
-                  setFormData({ ...formData, accountManagerId: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              >
-                <option value="">Не назначен</option>
-                {user && user.roleCode === 'ACCOUNT_MANAGER' && !site ? (
-                  // ACCOUNT_MANAGER при создании может выбрать только себя
-                  accountManagers
-                    .filter((am) => am.id === user.id)
-                    .map((am) => (
-                      <option key={am.id} value={am.id}>
-                        {am.fullName}
-                      </option>
-                    ))
-                ) : (
-                  // OWNER/CEO/FINANCE видят всех аккаунт-менеджеров
-                  accountManagers.map((am) => (
-                    <option key={am.id} value={am.id}>
-                      {am.fullName}
-                    </option>
-                  ))
-                )}
-              </select>
-            </div>
-          )}
 
           <div className="flex items-center">
             <input

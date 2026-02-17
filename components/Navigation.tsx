@@ -36,14 +36,14 @@ export default function Navigation() {
           // OWNER видит всё, CEO — всё кроме Ролей и Юрлиц
       if (user.roleCode === 'OWNER') {
         setAccessibleSections([
-          '/sites', '/services', '/clients', '/contracts', '/invoices', '/closeout', '/storage',
+          '/projects', '/sites', '/services', '/clients', '/contracts', '/invoices', '/closeout', '/storage',
           '/incomes', '/expenses', '/payments', '/employees', '/products', '/reports', '/roles', '/legal-entities', '/niches', '/contacts', '/agents',
         ]);
         return;
       }
       if (user.roleCode === 'CEO') {
         setAccessibleSections([
-          '/sites', '/services', '/clients', '/contracts', '/invoices', '/closeout', '/storage',
+          '/projects', '/sites', '/services', '/clients', '/contracts', '/invoices', '/closeout', '/storage',
           '/incomes', '/expenses', '/payments', '/employees', '/products', '/reports', '/roles', '/niches', '/contacts', '/agents',
         ]);
         return;
@@ -51,6 +51,7 @@ export default function Navigation() {
 
       // For other users, check permissions
       const sections = [
+        { href: '/projects', section: 'projects' },
         { href: '/sites', section: 'sites' },
         { href: '/services', section: 'services' },
         { href: '/clients', section: 'clients' },
@@ -149,6 +150,7 @@ export default function Navigation() {
       : workSubmenuAll.filter((item) => accessibleSections.includes(item.href));
 
   const baseNavItems = [
+    { href: '/projects', label: 'Проекты' },
     { href: '#work', label: 'Клиенты и документы', isDropdown: true, submenu: workSubmenu },
     { href: '/incomes', label: 'Доходы' },
     { href: '/expenses', label: 'Расходы' },

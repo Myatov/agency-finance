@@ -52,10 +52,16 @@ export async function GET(request: NextRequest) {
       select: { startDate: true, endDate: true, billingType: true, price: true },
     });
     if (serviceForExpected) {
+      const existingForCalc = periods.map((p) => ({
+        dateFrom: p.dateFrom.toISOString().slice(0, 10),
+        dateTo: p.dateTo.toISOString().slice(0, 10),
+        periodType: p.periodType,
+      }));
       const expected = getExpectedPeriods(
         new Date(serviceForExpected.startDate),
         serviceForExpected.billingType as BillingType,
-        serviceForExpected.endDate ? new Date(serviceForExpected.endDate) : undefined
+        serviceForExpected.endDate ? new Date(serviceForExpected.endDate) : undefined,
+        existingForCalc
       );
       const existingKeys = new Set(periods.map((p) => `${p.dateFrom.toISOString().slice(0, 10)}:${p.dateTo.toISOString().slice(0, 10)}`));
       let anyCreated = false;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { canAssignAccountManager, canDeleteSite, hasViewAllPermission } from '@/lib/permissions';
+import { canDeleteSite, hasViewAllPermission } from '@/lib/permissions';
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     if (!viewAll) {
       additionalFilters.push({
         OR: [
-          { accountManagerId: user.id },
+          { client: { accountManagerId: user.id } },
           { creatorId: user.id },
         ],
       });
@@ -35,11 +35,11 @@ export async function GET(request: NextRequest) {
     else if (isActive === 'false') where.isActive = false;
 
     if (accountManagerId) {
-      where.accountManagerId = accountManagerId;
+      where.client = { ...where.client, accountManagerId };
     }
 
     if (sellerId) {
-      where.client = { sellerEmployeeId: sellerId };
+      where.client = { ...where.client, sellerEmployeeId: sellerId };
     }
 
     if (dateFrom || dateTo) {
@@ -152,7 +152,6 @@ export async function POST(request: NextRequest) {
       niche,
       nicheId,
       clientId,
-      accountManagerId,
       isActive,
     } = body;
 
@@ -184,15 +183,6 @@ export async function POST(request: NextRequest) {
     }
     nicheName = nicheName.trim();
 
-    const canAssign = await canAssignAccountManager(user);
-    const isAccountManagerAssigningSelf = user.roleCode === 'ACCOUNT_MANAGER' && accountManagerId === user.id;
-    if (accountManagerId && !canAssign && !isAccountManagerAssigningSelf) {
-      return NextResponse.json(
-        { error: 'You cannot assign account manager' },
-        { status: 403 }
-      );
-    }
-
     const site = await prisma.site.create({
       data: {
         title: title.trim(),
@@ -200,7 +190,6 @@ export async function POST(request: NextRequest) {
         description: description ? String(description).trim() || null : null,
         niche: nicheName,
         clientId: String(clientId).trim(),
-        accountManagerId: accountManagerId ? String(accountManagerId).trim() || null : null,
         creatorId: user.id,
         isActive: Boolean(isActive),
       },

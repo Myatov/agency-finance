@@ -1,7 +1,7 @@
 import { prisma } from './db';
 import { SessionUser } from './auth';
 
-const SECTIONS_VIEW_ALL = ['sites', 'services', 'clients', 'incomes', 'expenses', 'employees', 'contracts', 'invoices', 'closeout', 'storage', 'payments'] as const;
+const SECTIONS_VIEW_ALL = ['sites', 'services', 'clients', 'incomes', 'expenses', 'employees', 'contracts', 'invoices', 'closeout', 'storage', 'payments', 'projects'] as const;
 
 // Проверка: может ли пользователь видеть все элементы раздела (иначе — только свои/назначенные)
 export async function hasViewAllPermission(
@@ -154,6 +154,14 @@ export async function canDeleteClient(user: SessionUser): Promise<boolean> {
   return hasPermission(user, 'clients', 'delete');
 }
 
+export async function canViewProjects(user: SessionUser): Promise<boolean> {
+  return hasPermission(user, 'projects', 'view');
+}
+
+export async function canViewAllProjects(user: SessionUser): Promise<boolean> {
+  return hasViewAllPermission(user, 'projects');
+}
+
 export async function canDeleteService(user: SessionUser): Promise<boolean> {
   return hasPermission(user, 'services', 'delete');
 }
@@ -247,12 +255,12 @@ export async function getDefaultRoute(user: SessionUser): Promise<string> {
   }
 
   if (user.roleCode === 'ACCOUNT_MANAGER') {
-    return '/services';
+    return '/projects';
   }
 
   if (user.roleCode === 'SELLER') {
-    return '/clients';
+    return '/projects';
   }
 
-  return '/services';
+  return '/projects';
 }

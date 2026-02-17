@@ -13,29 +13,18 @@ export async function GET() {
     const canViewProducts = await hasPermission(user, 'products', 'view');
     const canViewServices = await hasPermission(user, 'services', 'view');
     const canCreateServices = await hasPermission(user, 'services', 'create');
-    const canAccessProducts =
-      canViewProducts || canViewServices || canCreateServices;
-    if (!canAccessProducts) {
+    const canAccess = canViewProducts || canViewServices || canCreateServices;
+    if (!canAccess) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const products = await prisma.product.findMany({
+    const expenseItemTemplates = await prisma.expenseItemTemplate.findMany({
       orderBy: { sortOrder: 'asc' },
-      include: {
-        expenseItems: {
-          include: { template: true },
-          orderBy: { sortOrder: 'asc' },
-        },
-        commissions: true,
-        accountManagerFees: {
-          orderBy: { sortOrder: 'asc' },
-        },
-      },
     });
 
-    return NextResponse.json({ products });
+    return NextResponse.json({ expenseItemTemplates });
   } catch (error) {
-    console.error('Error fetching products:', error);
+    console.error('Error fetching expense item templates:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -58,22 +47,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
-    // Get max sortOrder and add 1 for new product
-    const maxOrder = await prisma.product.findFirst({
+    // Get max sortOrder and add 1 for new template
+    const maxOrder = await prisma.expenseItemTemplate.findFirst({
       orderBy: { sortOrder: 'desc' },
       select: { sortOrder: true },
     });
 
-    const product = await prisma.product.create({
+    const expenseItemTemplate = await prisma.expenseItemTemplate.create({
       data: { name, sortOrder: (maxOrder?.sortOrder ?? -1) + 1 },
     });
 
-    return NextResponse.json({ product });
+    return NextResponse.json({ expenseItemTemplate });
   } catch (error: any) {
     if (error.code === 'P2002') {
-      return NextResponse.json({ error: 'Product already exists' }, { status: 400 });
+      return NextResponse.json({ error: 'Expense item template already exists' }, { status: 400 });
     }
-    console.error('Error creating product:', error);
+    console.error('Error creating expense item template:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

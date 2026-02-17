@@ -41,6 +41,51 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    const employeeIds = employees.map((e) => e.id);
+
+    // Get active services with commission data for seller/AM roles
+    const servicesWithCommissions = await prisma.service.findMany({
+      where: {
+        status: 'ACTIVE',
+        OR: [
+          { site: { client: { sellerEmployeeId: { in: employeeIds } } } },
+          { site: { client: { accountManagerId: { in: employeeIds } } } },
+        ],
+      },
+      include: {
+        site: {
+          include: {
+            client: {
+              select: {
+                sellerEmployeeId: true,
+                accountManagerId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Aggregate commissions per employee
+    const sellerCommissionMap = new Map<string, bigint>();
+    const amCommissionMap = new Map<string, bigint>();
+    for (const svc of servicesWithCommissions) {
+      const sellerId = svc.site.client.sellerEmployeeId;
+      const amId = svc.site.client.accountManagerId;
+      if (sellerId && svc.sellerCommissionAmount != null) {
+        sellerCommissionMap.set(
+          sellerId,
+          (sellerCommissionMap.get(sellerId) || BigInt(0)) + svc.sellerCommissionAmount
+        );
+      }
+      if (amId && svc.accountManagerCommissionAmount != null) {
+        amCommissionMap.set(
+          amId,
+          (amCommissionMap.get(amId) || BigInt(0)) + svc.accountManagerCommissionAmount
+        );
+      }
+    }
+
     // Get income aggregates per employee in one query
     // Use incomeDate for filtering, not createdAt
     const incomeAggregates = await prisma.income.groupBy({
@@ -105,11 +150,16 @@ export async function GET(request: NextRequest) {
                   name: emp.department.name,
                 }
               : null,
+            fixedSalary: emp.fixedSalary != null ? emp.fixedSalary.toString() : null,
+            officialSalary: emp.officialSalary != null ? emp.officialSalary.toString() : null,
+            salaryTaxPercent: emp.salaryTaxPercent,
           },
           incomeCount: incomeData.count,
           incomeTotal: incomeTotal.toString(),
           expenseCount: expenseData.count,
           expenseTotal: expenseTotal.toString(),
+          sellerCommissionAmount: (Number(sellerCommissionMap.get(emp.id) || BigInt(0))).toString(),
+          accountManagerCommissionAmount: (Number(amCommissionMap.get(emp.id) || BigInt(0))).toString(),
           difference: (incomeTotal - expenseTotal).toString(),
         };
       })

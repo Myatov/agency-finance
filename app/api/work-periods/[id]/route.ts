@@ -141,8 +141,39 @@ export async function PUT(
       },
     });
 
+    // Cascade date shift to subsequent periods when dateTo is extended
+    const cascade = request.nextUrl.searchParams.get('cascade') === 'true';
+    let cascadedPeriods: any[] = [];
+    if (cascade && dateTo !== undefined) {
+      const oldDateTo = period.dateTo.getTime();
+      const newDateTo = updated.dateTo.getTime();
+      const diffMs = newDateTo - oldDateTo;
+      if (diffMs > 0) {
+        const following = await prisma.workPeriod.findMany({
+          where: {
+            serviceId: period.serviceId,
+            dateFrom: { gt: period.dateTo },
+          },
+          orderBy: { dateFrom: 'asc' },
+        });
+        for (const fp of following) {
+          const shifted = await prisma.workPeriod.update({
+            where: { id: fp.id },
+            data: {
+              dateFrom: new Date(fp.dateFrom.getTime() + diffMs),
+              dateTo: new Date(fp.dateTo.getTime() + diffMs),
+            },
+          });
+          cascadedPeriods.push(shifted);
+        }
+      }
+    }
+
     const out = JSON.parse(JSON.stringify(updated, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
-    return NextResponse.json({ workPeriod: out });
+    const cascadedOut = cascadedPeriods.length > 0
+      ? JSON.parse(JSON.stringify(cascadedPeriods, (_, v) => (typeof v === 'bigint' ? v.toString() : v)))
+      : [];
+    return NextResponse.json({ workPeriod: out, cascadedPeriods: cascadedOut });
   } catch (e: any) {
     console.error('PUT work-periods/[id]', e);
     return NextResponse.json({ error: 'Internal server error', details: e?.message }, { status: 500 });

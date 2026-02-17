@@ -15,6 +15,7 @@ model Department {
   updatedAt DateTime @updatedAt
   head      User?    @relation("DepartmentHead", fields: [headId], references: [id])
   employees User[]   @relation("DepartmentEmployees")
+  paymentSchedule DepartmentPaymentSchedule?
 }
 
 model Role {
@@ -63,9 +64,13 @@ model User {
   hasChildren         Boolean?
   childrenCount       Int?
   childrenBirthDates   String?
+  fixedSalary         BigInt?     // Текущий фикс (копейки)
+  officialSalary      BigInt?     // Офиц ЗП (копейки)
+  salaryTaxPercent    Float?      // Налог на ЗП (%)
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
   clientSales         Client[]    @relation("ClientSeller")
+  managedClients      Client[]    @relation("ClientAccountManager")
   managedDepartment   Department? @relation("DepartmentHead")
   createdExpenses     Expense[]   @relation("ExpenseCreator")
   expenseEmployee     Expense[]   @relation("ExpenseEmployee")
@@ -73,7 +78,7 @@ model User {
   createdIncomes      Income[]    @relation("IncomeCreator")
   updatedIncomes      Income[]    @relation("IncomeUpdater")
   responsibleServices Service[]   @relation("ServiceResponsible")
-  managedSites        Site[]      @relation("SiteAccountManager")
+  managedSites        Site[]      @relation("SiteAccountManager") // DEPRECATED: будет удалён после миграции
   createdSites        Site[]      @relation("SiteCreator")
   department          Department? @relation("DepartmentEmployees", fields: [departmentId], references: [id])
   role                Role        @relation(fields: [roleId], references: [id])
@@ -84,6 +89,8 @@ model User {
   createdPayments         Payment[]            @relation("PaymentCreator")
   createdClientPortals    ClientPortalAccess[]  @relation("ClientPortalCreator")
   createdPeriodInvoiceNotes PeriodInvoiceNote[] @relation("PeriodInvoiceNoteCreator")
+  fixedSalaryHistory  UserFixedSalaryHistory[]
+  motivations         UserMotivation[]
 
   @@index([departmentId])
   @@index([roleId])
@@ -136,6 +143,16 @@ enum AgentStatus {
   ARCHIVED
 }
 
+enum CommissionRoleType {
+  SELLER
+  ACCOUNT_MANAGER
+}
+
+enum ExpenseItemValueType {
+  PERCENT
+  FIXED
+}
+
 model Agent {
   id                      String       @id @default(uuid())
   name                    String
@@ -167,9 +184,9 @@ model Client {
   name              String
   legalEntityId     String?
   sellerEmployeeId  String
+  accountManagerId  String?         // Аккаунт-менеджер назначается на уровне клиента (1 клиент = 1 АМ)
   agentId           String?
   legalEntityName   String?
-  contractBasis     String?
   legalAddress     String?
   inn               String?
   kpp               String?
@@ -191,6 +208,7 @@ model Client {
   updatedAt         DateTime        @updatedAt
   legalEntity       LegalEntity?    @relation(fields: [legalEntityId], references: [id])
   seller            User            @relation("ClientSeller", fields: [sellerEmployeeId], references: [id])
+  accountManager    User?           @relation("ClientAccountManager", fields: [accountManagerId], references: [id])
   agent             Agent?          @relation(fields: [agentId], references: [id], onDelete: SetNull)
   sites             Site[]
   contractDocuments ContractDocument[]
@@ -201,6 +219,7 @@ model Client {
 
   @@index([sellerEmployeeId])
   @@index([legalEntityId])
+  @@index([accountManagerId])
   @@index([agentId])
   @@index([sellerEmployeeId, isSystem])
 }
@@ -271,6 +290,9 @@ model Product {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   services  Service[]
+  expenseItems       ProductExpenseItem[]
+  commissions        ProductCommission[]
+  accountManagerFees ProductAccountManagerFee[]
 
   @@index([sortOrder])
 }
@@ -283,7 +305,7 @@ model Site {
   isActive         Boolean   @default(false)
   niche            String
   clientId         String
-  accountManagerId String?
+  accountManagerId String?   // DEPRECATED: будет удалён после миграции на Client.accountManagerId
   creatorId        String
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -323,6 +345,12 @@ model Service {
   autoRenew         Boolean         @default(false)
   responsibleUserId String?
   comment           String?
+  isFromPartner     Boolean         @default(false) // Лид от партнёра/агента — влияет на комиссии
+  sellerCommissionPercent     Float?   // Рассчитанный % комиссии продавца
+  sellerCommissionAmount      BigInt?  // Рассчитанная сумма комиссии продавца (копейки)
+  accountManagerCommissionPercent Float? // Рассчитанный % комиссии АМ
+  accountManagerCommissionAmount  BigInt? // Рассчитанная сумма комиссии АМ (копейки)
+  accountManagerFeeAmount     BigInt?  // Сумма ведения проекта АМ (копейки)
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   expenses          Expense[]
@@ -332,6 +360,7 @@ model Service {
   site              Site          @relation(fields: [siteId], references: [id], onDelete: Cascade)
   closeoutPackages  CloseoutPackage[]
   workPeriods      WorkPeriod[]
+  expenseItems     ServiceExpenseItem[]
 
   @@index([siteId])
   @@index([productId])
@@ -574,6 +603,7 @@ model Expense {
   serviceId        String?
   legalEntityId    String?
   comment          String?
+  isWithdrawal     Boolean      @default(false) // Галочка «снятие» — снятие средств с юрлица
   createdByUserId  String
   createdAt        DateTime     @default(now())
   paymentAt        DateTime     @default(now())
@@ -756,4 +786,127 @@ enum BillingType {
   MONTHLY
   QUARTERLY
   YEARLY
+}
+
+// ——— Справочник «Статьи ожидаемых расходов» ———
+model ExpenseItemTemplate {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  productItems ProductExpenseItem[]
+  serviceItems ServiceExpenseItem[]
+
+  @@index([sortOrder])
+}
+
+// ——— Статьи расходов для каждого Продукта (шаблоны) ———
+model ProductExpenseItem {
+  id                    String              @id @default(uuid())
+  productId             String
+  expenseItemTemplateId String
+  valueType             ExpenseItemValueType @default(PERCENT)
+  defaultValue          Float               @default(0) // e.g. 6 для 6% или 5000 для фикса
+  description           String?
+  sortOrder             Int                 @default(0)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  product               Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  template              ExpenseItemTemplate @relation(fields: [expenseItemTemplateId], references: [id])
+
+  @@unique([productId, expenseItemTemplateId])
+  @@index([productId])
+}
+
+// ——— Настройки комиссий продавца и АМ для каждого Продукта ———
+model ProductCommission {
+  id              String             @id @default(uuid())
+  productId       String
+  role            CommissionRoleType
+  standardPercent Float              @default(0) // Обычный случай, %
+  partnerPercent  Float              @default(0) // Лид от агента/партнёра, %
+  calculationBase String?            // JSON: описание формулы расчёта базы (от чего считать %)
+  description     String?            // Человекочитаемое описание формулы
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  product         Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, role])
+  @@index([productId])
+}
+
+// ——— Ставки ведения проекта АМ (условия по каждому Продукту) ———
+model ProductAccountManagerFee {
+  id             String   @id @default(uuid())
+  productId      String
+  conditionField String?  // Поле условия: "keyCount", "price", etc.
+  conditionMin   Float?   // Минимальное значение условия
+  conditionMax   Float?   // Максимальное значение условия (null = без ограничения)
+  feeAmount      BigInt   // Сумма ведения (копейки)
+  description    String?  // Описание условия
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+// ——— Фактические статьи расходов для конкретной Услуги ———
+model ServiceExpenseItem {
+  id                    String              @id @default(uuid())
+  serviceId             String
+  expenseItemTemplateId String?
+  name                  String              // Название (копируется из шаблона)
+  valueType             ExpenseItemValueType @default(PERCENT)
+  value                 Float               @default(0) // Фактическое значение
+  calculatedAmount      BigInt?             // Расчётная сумма (копейки)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  service               Service             @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  template              ExpenseItemTemplate? @relation(fields: [expenseItemTemplateId], references: [id])
+
+  @@index([serviceId])
+}
+
+// ——— История фикса сотрудника ———
+model UserFixedSalaryHistory {
+  id            String   @id @default(uuid())
+  userId        String
+  amount        BigInt   // Сумма фикса (копейки)
+  effectiveFrom DateTime // С какой даты действует
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([effectiveFrom])
+}
+
+// ——— Мотивация сотрудника за период ———
+model UserMotivation {
+  id           String    @id @default(uuid())
+  userId       String
+  periodFrom   DateTime
+  periodTo     DateTime
+  targetAmount BigInt?   // Цель (оборот, копейки)
+  bonusAmount  BigInt?   // Бонус при достижении цели (копейки)
+  description  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([periodFrom, periodTo])
+}
+
+// ——— График выплат по отделам (зарплата раз в 2 недели) ———
+model DepartmentPaymentSchedule {
+  id           String     @id @default(uuid())
+  departmentId String     @unique
+  payDay1      Int        @default(1)  // Первый день выплаты в месяце
+  payDay2      Int        @default(15) // Второй день выплаты в месяце
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 }

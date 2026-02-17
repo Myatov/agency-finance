@@ -19,6 +19,12 @@ export async function GET(
       include: {
         department: true,
         role: true,
+        fixedSalaryHistory: {
+          orderBy: { effectiveFrom: 'desc' },
+        },
+        motivations: {
+          orderBy: { periodFrom: 'desc' },
+        },
       },
     });
 
@@ -26,7 +32,8 @@ export async function GET(
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ employee });
+    const out = JSON.parse(JSON.stringify(employee, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
+    return NextResponse.json({ employee: out });
   } catch (error) {
     console.error('Error fetching employee:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -77,6 +84,9 @@ export async function PUT(
       hasChildren,
       childrenCount,
       childrenBirthDates,
+      fixedSalary,
+      officialSalary,
+      salaryTaxPercent,
     } = body;
 
     // Verify role exists if provided
@@ -105,17 +115,42 @@ export async function PUT(
     if (hasChildren === true || hasChildren === false) updateData.hasChildren = hasChildren;
     if (childrenCount !== undefined && childrenCount !== null && childrenCount !== '') updateData.childrenCount = Number(childrenCount);
     if (childrenBirthDates !== undefined) updateData.childrenBirthDates = childrenBirthDates || null;
+    if (fixedSalary !== undefined) updateData.fixedSalary = fixedSalary !== null && fixedSalary !== '' ? BigInt(fixedSalary) : null;
+    if (officialSalary !== undefined) updateData.officialSalary = officialSalary !== null && officialSalary !== '' ? BigInt(officialSalary) : null;
+    if (salaryTaxPercent !== undefined) updateData.salaryTaxPercent = salaryTaxPercent !== null && salaryTaxPercent !== '' ? Number(salaryTaxPercent) : null;
 
-    const updated = await prisma.user.update({
-      where: { id: params.id },
-      data: updateData,
-      include: {
-        department: true,
-        role: true,
-      },
+    // Check if fixedSalary changed — create history record
+    const newFixedSalary = fixedSalary !== undefined && fixedSalary !== null && fixedSalary !== ''
+      ? BigInt(fixedSalary)
+      : undefined;
+    const oldFixedSalary = targetEmployee.fixedSalary;
+    const fixedSalaryChanged = newFixedSalary !== undefined && newFixedSalary !== oldFixedSalary;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.user.update({
+        where: { id: params.id },
+        data: updateData,
+        include: {
+          department: true,
+          role: true,
+        },
+      });
+
+      if (fixedSalaryChanged && newFixedSalary !== undefined) {
+        await tx.userFixedSalaryHistory.create({
+          data: {
+            userId: params.id,
+            amount: newFixedSalary,
+            effectiveFrom: new Date(),
+          },
+        });
+      }
+
+      return result;
     });
 
-    return NextResponse.json({ employee: updated });
+    const out = JSON.parse(JSON.stringify(updated, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
+    return NextResponse.json({ employee: out });
   } catch (error) {
     console.error('Error updating employee:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

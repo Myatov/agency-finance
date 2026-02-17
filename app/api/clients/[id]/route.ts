@@ -23,6 +23,12 @@ export async function GET(
             fullName: true,
           },
         },
+        accountManager: {
+          select: {
+            id: true,
+            fullName: true,
+          },
+        },
         agent: {
           select: {
             id: true,
@@ -77,9 +83,9 @@ export async function PUT(
     const name = body.name != null ? String(body.name).trim() : '';
     const legalEntityId = body.legalEntityId != null && String(body.legalEntityId).trim() !== '' ? String(body.legalEntityId).trim() : null;
     const sellerEmployeeId = body.sellerEmployeeId != null ? String(body.sellerEmployeeId).trim() : '';
+    const accountManagerId = body.accountManagerId != null && String(body.accountManagerId).trim() !== '' ? String(body.accountManagerId).trim() : null;
     const agentId = body.agentId != null && String(body.agentId).trim() !== '' ? String(body.agentId).trim() : null;
     const legalEntityName = opt(body.legalEntityName);
-    const contractBasis = opt(body.contractBasis);
     const legalAddress = opt(body.legalAddress);
     const inn = opt(body.inn);
     const kpp = opt(body.kpp);
@@ -115,16 +121,13 @@ export async function PUT(
       }
     }
 
-    const skipContractBasisFor = ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'];
-    const skipContractBasis = legalEntity && skipContractBasisFor.includes(legalEntity.name);
-
-    const updateData = {
+    const updateData: any = {
       name,
       legalEntityId,
       sellerEmployeeId,
+      accountManagerId,
       agentId,
       legalEntityName,
-      contractBasis: skipContractBasis ? null : contractBasis,
       legalAddress,
       inn,
       kpp,
@@ -173,6 +176,12 @@ export async function PUT(
       include: {
         legalEntity: true,
         seller: {
+          select: {
+            id: true,
+            fullName: true,
+          },
+        },
+        accountManager: {
           select: {
             id: true,
             fullName: true,

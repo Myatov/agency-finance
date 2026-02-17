@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import AgentModal, { type Agent } from './AgentModal';
 
 interface AgentWithCount extends Agent {
@@ -117,7 +118,11 @@ export default function AgentsList() {
             <tbody className="bg-white divide-y divide-gray-200">
               {agents.map((a) => (
                 <tr key={a.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{a.name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap font-medium">
+                    <Link href={`/agents/${a.id}`} className="text-blue-600 hover:text-blue-900 hover:underline">
+                      {a.name}
+                    </Link>
+                  </td>
                   <td className="px-6 py-4 text-sm text-gray-500">{a.companyName || '—'}</td>
                   <td className="px-6 py-4 text-sm text-gray-500 max-w-[180px] truncate" title={a.professionalActivity || undefined}>
                     {a.professionalActivity || '—'}

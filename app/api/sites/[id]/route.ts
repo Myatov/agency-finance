@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { canEditSite, canDeleteSite, canAssignAccountManager } from '@/lib/permissions';
+import { canEditSite, canDeleteSite } from '@/lib/permissions';
 
 export async function GET(
   request: NextRequest,
@@ -102,7 +102,6 @@ export async function PUT(
       niche,
       nicheId,
       clientId,
-      accountManagerId,
       isActive,
     } = body;
 
@@ -132,11 +131,6 @@ export async function PUT(
       clientId,
       isActive: isActive !== undefined ? isActive : site.isActive,
     };
-
-    const canAssign = await canAssignAccountManager(user);
-    if (canAssign && accountManagerId !== undefined) {
-      updateData.accountManagerId = accountManagerId || null;
-    }
 
     const updated = await prisma.site.update({
       where: { id: params.id },

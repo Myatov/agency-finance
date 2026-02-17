@@ -130,6 +130,34 @@ export async function notifyExpense(
 }
 
 /**
+ * Уведомление о новом клиенте в специальный чат.
+ */
+export async function notifyNewClient(client: {
+  name: string;
+  seller?: { fullName: string } | null;
+  agent?: { name: string } | null;
+}): Promise<void> {
+  if (!process.env.TELEGRAM_BOT_TOKEN?.trim()) {
+    console.warn('[Telegram] notifyNewClient: TELEGRAM_BOT_TOKEN не задан, пропуск');
+    return;
+  }
+  const chatId = '-585982975';
+  const lines: string[] = [
+    'Новый клиент добавлен!',
+    `Название: ${d(client.name)}`,
+    `Продавец: ${d(client.seller?.fullName)}`,
+  ];
+  if (client.agent?.name) {
+    lines.push(`Агент: ${client.agent.name}`);
+  }
+  const text = lines.join('\n');
+  const ok = await sendTelegramMessage(chatId, text);
+  if (!ok) {
+    console.error('[Telegram] notifyNewClient: не удалось отправить в чат', chatId);
+  }
+}
+
+/**
  * Одно уведомление о массовом формировании налоговых расходов (в группу «Расходы»).
  */
 export async function notifyBulkTaxExpenses(

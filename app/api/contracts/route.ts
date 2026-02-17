@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     const siteId = searchParams.get('siteId') || undefined;
     const status = searchParams.get('status') as 'ACTIVE' | 'CLOSED' | undefined;
     const legalEntityId = searchParams.get('legalEntityId') || undefined;
+    const groupByClient = searchParams.get('groupByClient') === 'true';
 
     const viewAll = await hasViewAllPermission(user, 'contracts');
     const where: any = {};
@@ -30,6 +31,42 @@ export async function GET(request: NextRequest) {
     if (!viewAll) clientWhere.sellerEmployeeId = user.id;
     if (legalEntityId) clientWhere.legalEntityId = legalEntityId;
     if (Object.keys(clientWhere).length) where.client = clientWhere;
+
+    if (groupByClient) {
+      const contracts = await prisma.contractDocument.findMany({
+        where: { ...where, parentId: null },
+        include: {
+          client: { select: { id: true, name: true } },
+          uploader: { select: { id: true, fullName: true } },
+          site: { select: { id: true, title: true } },
+        },
+        orderBy: { uploadedAt: 'desc' },
+      });
+
+      const groupMap = new Map<string, { client: { id: string; name: string }; documents: typeof contracts }>();
+      for (const c of contracts) {
+        const cId = c.clientId;
+        if (!groupMap.has(cId)) {
+          groupMap.set(cId, {
+            client: c.client ?? { id: cId, name: cId },
+            documents: [],
+          });
+        }
+        groupMap.get(cId)!.documents.push(c);
+      }
+
+      const clientGroups = Array.from(groupMap.values()).map((g) => ({
+        client: g.client,
+        documents: g.documents.map((c) => ({
+          ...c,
+          docDate: c.docDate?.toISOString?.() ?? null,
+          endDate: c.endDate?.toISOString?.() ?? null,
+          uploadedAt: c.uploadedAt?.toISOString?.() ?? null,
+        })),
+      }));
+
+      return NextResponse.json({ clientGroups });
+    }
 
     const contracts = await prisma.contractDocument.findMany({
       where: { ...where, parentId: null },

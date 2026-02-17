@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { canAddClient, hasViewAllPermission, hasPermission } from '@/lib/permissions';
+import { notifyNewClient } from '@/lib/telegram';
 
 const clientInclude = {
   legalEntity: true,
   seller: { select: { id: true, fullName: true } },
+  accountManager: { select: { id: true, fullName: true } },
   agent: { select: { id: true, name: true, phone: true, telegram: true } },
   sites: { select: { id: true, title: true, niche: true } },
   clientContacts: { include: { contact: true } },
@@ -34,7 +36,7 @@ export async function GET(request: NextRequest) {
       if (!canViewCloseout) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
-      where = { sites: { some: { accountManagerId: user.id } } };
+      where = { accountManagerId: user.id };
     } else if (forPayments) {
       const canViewPayments = await hasPermission(user, 'payments', 'view');
       if (!canViewPayments) {
@@ -44,7 +46,7 @@ export async function GET(request: NextRequest) {
       if (viewAllPayments) {
         where = { sites: { some: { services: { some: { status: 'ACTIVE' } } } } };
       } else {
-        where = { sites: { some: { accountManagerId: user.id } } };
+        where = { accountManagerId: user.id };
       }
     } else {
       const viewAll = await hasViewAllPermission(user, 'clients');
@@ -70,8 +72,7 @@ export async function GET(request: NextRequest) {
       }
 
       if (accountManagerId) {
-        // Клиенты, у которых есть хотя бы один сайт с указанным аккаунт-менеджером
-        andConditions.push({ sites: { some: { accountManagerId } } });
+        andConditions.push({ accountManagerId });
       }
 
       if (includeNoProjects) {
@@ -130,9 +131,9 @@ export async function POST(request: NextRequest) {
     const name = body.name != null ? String(body.name).trim() : '';
     const legalEntityId = body.legalEntityId != null && String(body.legalEntityId).trim() !== '' ? String(body.legalEntityId).trim() : null;
     const sellerEmployeeId = body.sellerEmployeeId != null ? String(body.sellerEmployeeId).trim() : '';
+    const accountManagerId = body.accountManagerId != null && String(body.accountManagerId).trim() !== '' ? String(body.accountManagerId).trim() : null;
     const agentId = body.agentId != null && String(body.agentId).trim() !== '' ? String(body.agentId).trim() : null;
     const legalEntityName = opt(body.legalEntityName);
-    const contractBasis = opt(body.contractBasis);
     const legalAddress = opt(body.legalAddress);
     const inn = opt(body.inn);
     const kpp = opt(body.kpp);
@@ -168,17 +169,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const skipContractBasisFor = ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'];
-    const skipContractBasis = legalEntity && skipContractBasisFor.includes(legalEntity.name);
-
     const client = await prisma.client.create({
       data: {
         name,
         legalEntityId,
         sellerEmployeeId,
+        accountManagerId,
         agentId,
         legalEntityName,
-        contractBasis: skipContractBasis ? null : contractBasis,
         legalAddress,
         inn,
         kpp,
@@ -199,6 +197,12 @@ export async function POST(request: NextRequest) {
       include: {
         legalEntity: true,
         seller: {
+          select: {
+            id: true,
+            fullName: true,
+          },
+        },
+        accountManager: {
           select: {
             id: true,
             fullName: true,
@@ -230,10 +234,18 @@ export async function POST(request: NextRequest) {
       include: {
         legalEntity: true,
         seller: { select: { id: true, fullName: true } },
+        accountManager: { select: { id: true, fullName: true } },
         agent: { select: { id: true, name: true, phone: true, telegram: true } },
         clientContacts: { include: { contact: true } },
       },
     });
+
+    // Telegram notification (fire-and-forget)
+    notifyNewClient({
+      name,
+      seller: client.seller,
+      agent: clientWithContacts?.agent ?? null,
+    }).catch((e) => console.error('[Telegram] notifyNewClient error:', e));
 
     return NextResponse.json({ client: clientWithContacts ?? client });
   } catch (error) {

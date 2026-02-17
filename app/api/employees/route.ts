@@ -26,7 +26,8 @@ export async function GET() {
       ],
     });
 
-    return NextResponse.json({ employees });
+    const out = JSON.parse(JSON.stringify(employees, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
+    return NextResponse.json({ employees: out });
   } catch (error) {
     console.error('Error fetching employees:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -58,6 +59,9 @@ export async function POST(request: NextRequest) {
       hasChildren,
       childrenCount,
       childrenBirthDates,
+      fixedSalary,
+      officialSalary,
+      salaryTaxPercent,
     } = body;
 
     if (!fullName || !roleId || !password) {
@@ -92,33 +96,55 @@ export async function POST(request: NextRequest) {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const employee = await prisma.user.create({
-      data: {
-        fullName,
-        departmentId: departmentId || null,
-        roleId,
-        passwordHash,
-        isActive: true,
-        birthDate: birthDate ? new Date(birthDate) : undefined,
-        workStartDate: workStartDate ? new Date(workStartDate) : undefined,
-        emailWork: emailWork || undefined,
-        emailGoogle: emailGoogle || undefined,
-        phonePersonal: phonePersonal || undefined,
-        phoneWork: phoneWork || undefined,
-        telegramPersonal: telegramPersonal || undefined,
-        telegramWork: telegramWork || undefined,
-        hasSpouse: hasSpouse === true || hasSpouse === false ? hasSpouse : undefined,
-        hasChildren: hasChildren === true || hasChildren === false ? hasChildren : undefined,
-        childrenCount: childrenCount !== undefined && childrenCount !== null && childrenCount !== '' ? Number(childrenCount) : undefined,
-        childrenBirthDates: childrenBirthDates || undefined,
-      },
-      include: {
-        department: true,
-        role: true,
-      },
+    const fixedSalaryBigInt = fixedSalary !== undefined && fixedSalary !== null && fixedSalary !== '' ? BigInt(fixedSalary) : undefined;
+    const officialSalaryBigInt = officialSalary !== undefined && officialSalary !== null && officialSalary !== '' ? BigInt(officialSalary) : undefined;
+    const salaryTaxPercentNum = salaryTaxPercent !== undefined && salaryTaxPercent !== null && salaryTaxPercent !== '' ? Number(salaryTaxPercent) : undefined;
+
+    const employee = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          fullName,
+          departmentId: departmentId || null,
+          roleId,
+          passwordHash,
+          isActive: true,
+          birthDate: birthDate ? new Date(birthDate) : undefined,
+          workStartDate: workStartDate ? new Date(workStartDate) : undefined,
+          emailWork: emailWork || undefined,
+          emailGoogle: emailGoogle || undefined,
+          phonePersonal: phonePersonal || undefined,
+          phoneWork: phoneWork || undefined,
+          telegramPersonal: telegramPersonal || undefined,
+          telegramWork: telegramWork || undefined,
+          hasSpouse: hasSpouse === true || hasSpouse === false ? hasSpouse : undefined,
+          hasChildren: hasChildren === true || hasChildren === false ? hasChildren : undefined,
+          childrenCount: childrenCount !== undefined && childrenCount !== null && childrenCount !== '' ? Number(childrenCount) : undefined,
+          childrenBirthDates: childrenBirthDates || undefined,
+          fixedSalary: fixedSalaryBigInt,
+          officialSalary: officialSalaryBigInt,
+          salaryTaxPercent: salaryTaxPercentNum,
+        },
+        include: {
+          department: true,
+          role: true,
+        },
+      });
+
+      if (fixedSalaryBigInt !== undefined) {
+        await tx.userFixedSalaryHistory.create({
+          data: {
+            userId: created.id,
+            amount: fixedSalaryBigInt,
+            effectiveFrom: new Date(),
+          },
+        });
+      }
+
+      return created;
     });
 
-    return NextResponse.json({ employee });
+    const out = JSON.parse(JSON.stringify(employee, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
+    return NextResponse.json({ employee: out });
   } catch (error) {
     console.error('Error creating employee:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

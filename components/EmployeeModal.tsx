@@ -29,6 +29,9 @@ interface Employee {
   hasChildren?: boolean | null;
   childrenCount?: number | null;
   childrenBirthDates?: string | null;
+  fixedSalary?: string | number | null;
+  officialSalary?: string | number | null;
+  salaryTaxPercent?: number | null;
 }
 
 interface Department {
@@ -75,6 +78,9 @@ export default function EmployeeModal({
     hasChildren: false,
     childrenCount: '' as string | number,
     childrenBirthDates: '',
+    fixedSalary: '' as string | number,
+    officialSalary: '' as string | number,
+    salaryTaxPercent: '' as string | number,
   });
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(false);
@@ -134,6 +140,9 @@ export default function EmployeeModal({
         hasChildren: employee.hasChildren ?? false,
         childrenCount: employee.childrenCount ?? '',
         childrenBirthDates: employee.childrenBirthDates || '',
+        fixedSalary: employee.fixedSalary ? Number(employee.fixedSalary) / 100 : '',
+        officialSalary: employee.officialSalary ? Number(employee.officialSalary) / 100 : '',
+        salaryTaxPercent: employee.salaryTaxPercent ?? '',
       });
     } else {
       setFormData({
@@ -154,6 +163,9 @@ export default function EmployeeModal({
         hasChildren: false,
         childrenCount: '',
         childrenBirthDates: '',
+        fixedSalary: '',
+        officialSalary: '',
+        salaryTaxPercent: '',
       });
     }
   }, [employee]);
@@ -199,6 +211,9 @@ export default function EmployeeModal({
         hasChildren: formData.hasChildren,
         childrenCount: formData.childrenCount === '' ? null : Number(formData.childrenCount),
         childrenBirthDates: formData.childrenBirthDates || null,
+        fixedSalary: formData.fixedSalary === '' ? null : Math.round(Number(formData.fixedSalary) * 100),
+        officialSalary: formData.officialSalary === '' ? null : Math.round(Number(formData.officialSalary) * 100),
+        salaryTaxPercent: formData.salaryTaxPercent === '' ? null : Number(formData.salaryTaxPercent),
       };
 
       if (!employee) {
@@ -427,6 +442,46 @@ export default function EmployeeModal({
                   value={formData.childrenBirthDates}
                   onChange={(e) => setFormData({ ...formData, childrenBirthDates: e.target.value })}
                   placeholder="Например: 01.05.2020, 15.03.2022"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t pt-4 mt-4">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Финансы</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Фикс (руб)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={formData.fixedSalary}
+                  onChange={(e) => setFormData({ ...formData, fixedSalary: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Офиц ЗП (руб)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={formData.officialSalary}
+                  onChange={(e) => setFormData({ ...formData, officialSalary: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Налог на ЗП (%)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  max={100}
+                  value={formData.salaryTaxPercent}
+                  onChange={(e) => setFormData({ ...formData, salaryTaxPercent: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>

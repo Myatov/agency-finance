@@ -10,6 +10,7 @@ interface Expense {
   siteId: string | null;
   serviceId: string | null;
   legalEntityId: string | null;
+  isWithdrawal?: boolean;
   paymentAt: Date | string;
   comment: string | null;
 }
@@ -74,6 +75,7 @@ export default function ExpenseModal({
     siteId: '',
     serviceId: '',
     legalEntityId: '',
+    isWithdrawal: false,
     paymentAt: new Date().toISOString().slice(0, 16),
     comment: '',
   });
@@ -108,6 +110,7 @@ export default function ExpenseModal({
         siteId: expense.siteId || '',
         serviceId: expense.serviceId || '',
         legalEntityId: expense.legalEntityId || defaultLegalEntityId,
+        isWithdrawal: expense.isWithdrawal || false,
         paymentAt: paymentDate,
         comment: expense.comment || '',
       });
@@ -122,6 +125,7 @@ export default function ExpenseModal({
         siteId: '',
         serviceId: '',
         legalEntityId: defaultLegalEntityId,
+        isWithdrawal: false,
         paymentAt: new Date().toISOString().slice(0, 16),
         comment: '',
       });
@@ -183,6 +187,7 @@ export default function ExpenseModal({
         siteId: formData.siteId || null,
         serviceId: formData.serviceId || null,
         legalEntityId: formData.legalEntityId || null,
+        isWithdrawal: formData.isWithdrawal,
         paymentAt: formData.paymentAt,
         comment: formData.comment && formData.comment.trim() ? formData.comment.trim() : null,
       };
@@ -352,6 +357,22 @@ export default function ExpenseModal({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="isWithdrawal"
+              checked={formData.isWithdrawal}
+              onChange={(e) => setFormData({ ...formData, isWithdrawal: e.target.checked })}
+              className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+            />
+            <div>
+              <label htmlFor="isWithdrawal" className="text-sm font-medium text-gray-700">
+                Снятие
+              </label>
+              <p className="text-xs text-gray-500">Снятие средств с юрлица</p>
+            </div>
           </div>
 
           <div>

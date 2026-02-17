@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
     const siteId = searchParams.get('siteId');
     const serviceId = searchParams.get('serviceId');
     const clientId = searchParams.get('clientId');
+    const legalEntityId = searchParams.get('legalEntityId');
 
     let where: any = {
       paymentAt: {
@@ -74,6 +75,18 @@ export async function GET(request: NextRequest) {
       where.site = { clientId };
     }
 
+    if (legalEntityId) {
+      where.legalEntityId = legalEntityId;
+    }
+
+    const sortBy = searchParams.get('sortBy') || 'paymentAt';
+    const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';
+
+    const allowedSortFields = [
+      'paymentAt', 'amount', 'createdAt', 'updatedAt', 'title',
+    ];
+    const orderByField = allowedSortFields.includes(sortBy) ? sortBy : 'paymentAt';
+
     const expenses = await prisma.expense.findMany({
       where,
       include: {
@@ -118,12 +131,13 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: { paymentAt: 'desc' },
+      orderBy: { [orderByField]: sortOrder },
     });
 
     const serialized = expenses.map((e) => ({
       ...e,
       amount: e.amount.toString(),
+      isWithdrawal: e.isWithdrawal,
       ...(e.service && {
         service: {
           ...e.service,
@@ -147,10 +161,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { amount, costItemId, employeeId, siteId, serviceId, legalEntityId, paymentAt, comment } = body;
+    const { amount, costItemId, employeeId, siteId, serviceId, legalEntityId, isWithdrawal, paymentAt, comment } = body;
     
     // Normalize comment: empty string or undefined becomes null
     const normalizedComment = comment && comment.trim() ? comment.trim() : null;
+    // Normalize legalEntityId: empty string becomes null
+    const normalizedLegalEntityId = legalEntityId && legalEntityId.trim() ? legalEntityId : null;
 
     if (!amount || !costItemId) {
       return NextResponse.json(
@@ -193,7 +209,8 @@ export async function POST(request: NextRequest) {
         employeeId: employeeId || null,
         siteId: siteId || null,
         serviceId: serviceId || null,
-        legalEntityId: legalEntityId || null,
+        legalEntityId: normalizedLegalEntityId,
+        isWithdrawal: isWithdrawal === true,
         comment: normalizedComment,
         createdByUserId: user.id,
         paymentAt: paymentAt ? new Date(paymentAt) : new Date(),

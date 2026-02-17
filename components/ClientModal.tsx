@@ -26,8 +26,9 @@ interface Client {
   sellerEmployeeId: string;
   agentId?: string | null;
   agent?: { id: string; name: string; phone?: string | null; telegram?: string | null } | null;
+  accountManagerId?: string | null;
+  accountManager?: { id: string; fullName: string } | null;
   legalEntityName?: string | null;
-  contractBasis?: string | null;
   legalAddress?: string | null;
   inn?: string | null;
   kpp?: string | null;
@@ -59,6 +60,16 @@ interface LegalEntity {
   isActive: boolean;
 }
 
+interface AccountManager {
+  id: string;
+  fullName: string;
+}
+
+interface CurrentUser {
+  id: string;
+  roleCode: string;
+}
+
 interface User {
   id: string;
   fullName: string;
@@ -77,9 +88,9 @@ export default function ClientModal({
     name: '',
     legalEntityId: '',
     sellerEmployeeId: '',
+    accountManagerId: '',
     agentId: '',
     legalEntityName: '',
-    contractBasis: '',
     legalAddress: '',
     inn: '',
     kpp: '',
@@ -98,6 +109,9 @@ export default function ClientModal({
     isArchived: false,
   });
   const [users, setUsers] = useState<User[]>([]);
+  const [accountManagers, setAccountManagers] = useState<AccountManager[]>([]);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [showRequisitesExpanded, setShowRequisitesExpanded] = useState(false);
   const [legalEntities, setLegalEntities] = useState<LegalEntity[]>([]);
   const [clientContactsLinks, setClientContactsLinks] = useState<ClientContactLink[]>([]);
   const [contactSearch, setContactSearch] = useState('');
@@ -119,6 +133,8 @@ export default function ClientModal({
   useEffect(() => {
     fetchUsers();
     fetchLegalEntities();
+    fetchAccountManagers();
+    fetchCurrentUser();
   }, []);
 
   useEffect(() => {
@@ -129,9 +145,9 @@ export default function ClientModal({
         name: c.name ?? '',
         legalEntityId: c.legalEntityId ?? c.legalEntity?.id ?? '',
         sellerEmployeeId: c.sellerEmployeeId ?? c.seller?.id ?? '',
+        accountManagerId: c.accountManagerId ?? c.accountManager?.id ?? '',
         agentId: aid,
         legalEntityName: c.legalEntityName ?? c.legalEntity?.name ?? '',
-        contractBasis: c.contractBasis ?? '',
         legalAddress: c.legalAddress ?? '',
         inn: c.inn ?? '',
         kpp: c.kpp ?? '',
@@ -172,6 +188,20 @@ export default function ClientModal({
     const res = await fetch('/api/users');
     const data = await res.json();
     setUsers(data.users || []);
+  };
+
+  const fetchAccountManagers = async () => {
+    const res = await fetch('/api/users/account-managers');
+    const data = await res.json();
+    setAccountManagers(data.accountManagers || []);
+  };
+
+  const fetchCurrentUser = async () => {
+    const res = await fetch('/api/auth/me');
+    const data = await res.json();
+    if (data.user) {
+      setCurrentUser({ id: data.user.id, roleCode: data.user.roleCode });
+    }
   };
 
   useEffect(() => {
@@ -260,9 +290,11 @@ export default function ClientModal({
     }
   };
 
-  const selectedLegalEntity = legalEntities.find((le) => le.id === formData.legalEntityId);
-  const showRequisitesBlock = true;
-  const hideContractBasis = selectedLegalEntity && ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'].includes(selectedLegalEntity.name);
+  const canAssignAccountManager =
+    currentUser &&
+    (currentUser.roleCode === 'OWNER' ||
+      currentUser.roleCode === 'CEO' ||
+      currentUser.roleCode === 'FINANCE');
 
   const toNull = (s: string | null | undefined) => (s != null && String(s).trim() !== '' ? String(s).trim() : null);
 
@@ -277,19 +309,16 @@ export default function ClientModal({
     setLoading(true);
 
     const latest = formDataRef.current;
-    const selectedLE = legalEntities.find((le) => le.id === latest.legalEntityId);
-    const hideBasis = selectedLE && ['ИП Мятов Сбербанк', 'ИП Мятов ВТБ', 'ООО Велюр Груп'].includes(selectedLE.name);
 
     try {
       const url = client ? `/api/clients/${client.id}` : '/api/clients';
       const method = client ? 'PUT' : 'POST';
 
-      const payload = {
+      const payload: Record<string, unknown> = {
         name: (latest.name ?? '').trim(),
         legalEntityId: (latest.legalEntityId ?? '').trim() || null,
         sellerEmployeeId: (latest.sellerEmployeeId ?? '').trim(),
         legalEntityName: toNull(latest.legalEntityName),
-        contractBasis: hideBasis ? null : toNull(latest.contractBasis),
         legalAddress: toNull(latest.legalAddress),
         inn: toNull(latest.inn),
         kpp: toNull(latest.kpp),
@@ -309,6 +338,10 @@ export default function ClientModal({
         clientContacts: clientContactsLinks.map((l) => ({ contactId: l.contactId, role: l.role, isPrimary: l.isPrimary })),
         isArchived: Boolean(latest.isArchived),
       };
+
+      if (canAssignAccountManager) {
+        payload.accountManagerId = (latest.accountManagerId ?? '').trim() || null;
+      }
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -396,6 +429,31 @@ export default function ClientModal({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Аккаунт-менеджер
+            </label>
+            {canAssignAccountManager ? (
+              <select
+                name="accountManagerId"
+                value={formData.accountManagerId}
+                onChange={(e) => updateField('accountManagerId', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="">Не назначен</option>
+                {accountManagers.map((am) => (
+                  <option key={am.id} value={am.id}>
+                    {am.fullName}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="px-3 py-2 text-gray-700 bg-gray-50 rounded-md">
+                {accountManagers.find((am) => am.id === formData.accountManagerId)?.fullName || 'Не назначен'}
+              </p>
+            )}
           </div>
 
           <div>
@@ -545,146 +603,140 @@ export default function ClientModal({
             </div>
           </div>
 
-          {showRequisitesBlock && (
-            <>
-              <div className="border-t pt-4 mt-4">
-                <h3 className="text-lg font-semibold mb-4">Реквизиты юридического лица</h3>
-              </div>
+          <div className="border-t pt-4 mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">Реквизиты юридического лица</h3>
+              <button
+                type="button"
+                onClick={() => setShowRequisitesExpanded((prev) => !prev)}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                {showRequisitesExpanded ? 'Свернуть' : 'Развернуть'}
+              </button>
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Форма юрлица
-                </label>
-                <input
-                  name="legalEntityName"
-                  type="text"
-                  value={formData.legalEntityName}
-                  onChange={(e) => updateField('legalEntityName', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
-
-              {!hideContractBasis && (
+            {showRequisitesExpanded && (
+              <div className="space-y-4 mt-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Основание договора
+                    Форма юрлица
                   </label>
                   <input
-                    name="contractBasis"
+                    name="legalEntityName"
                     type="text"
-                    value={formData.contractBasis}
-                    onChange={(e) => updateField('contractBasis', e.target.value)}
+                    value={formData.legalEntityName}
+                    onChange={(e) => updateField('legalEntityName', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
-              )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Юридический адрес
-                </label>
-                <input
-                  name="legalAddress"
-                  type="text"
-                  value={formData.legalAddress}
-                  onChange={(e) => updateField('legalAddress', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ИНН
+                    Юридический адрес
                   </label>
                   <input
-                    name="inn"
+                    name="legalAddress"
                     type="text"
-                    value={formData.inn}
-                    onChange={(e) => updateField('inn', e.target.value)}
+                    value={formData.legalAddress}
+                    onChange={(e) => updateField('legalAddress', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    КПП
-                  </label>
-                  <input
-                    name="kpp"
-                    type="text"
-                    value={formData.kpp}
-                    onChange={(e) => updateField('kpp', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ОГРН
-                  </label>
-                  <input
-                    name="ogrn"
-                    type="text"
-                    value={formData.ogrn}
-                    onChange={(e) => updateField('ogrn', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Расчетный счет (р/с)
-                </label>
-                <input
-                  name="rs"
-                  type="text"
-                  value={formData.rs}
-                  onChange={(e) => updateField('rs', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      ИНН
+                    </label>
+                    <input
+                      name="inn"
+                      type="text"
+                      value={formData.inn}
+                      onChange={(e) => updateField('inn', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      КПП
+                    </label>
+                    <input
+                      name="kpp"
+                      type="text"
+                      value={formData.kpp}
+                      onChange={(e) => updateField('kpp', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      ОГРН
+                    </label>
+                    <input
+                      name="ogrn"
+                      type="text"
+                      value={formData.ogrn}
+                      onChange={(e) => updateField('ogrn', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Банк
-                </label>
-                <input
-                  name="bankName"
-                  type="text"
-                  value={formData.bankName}
-                  onChange={(e) => updateField('bankName', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    БИК банка
+                    Расчетный счет (р/с)
                   </label>
                   <input
-                    name="bik"
+                    name="rs"
                     type="text"
-                    value={formData.bik}
-                    onChange={(e) => updateField('bik', e.target.value)}
+                    value={formData.rs}
+                    onChange={(e) => updateField('rs', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Корреспондентский счет (к/с)
+                    Банк
                   </label>
                   <input
-                    name="ks"
+                    name="bankName"
                     type="text"
-                    value={formData.ks}
-                    onChange={(e) => updateField('ks', e.target.value)}
+                    value={formData.bankName}
+                    onChange={(e) => updateField('bankName', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      БИК банка
+                    </label>
+                    <input
+                      name="bik"
+                      type="text"
+                      value={formData.bik}
+                      onChange={(e) => updateField('bik', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Корреспондентский счет (к/с)
+                    </label>
+                    <input
+                      name="ks"
+                      type="text"
+                      value={formData.ks}
+                      onChange={(e) => updateField('ks', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                </div>
               </div>
-            </>
-          )}
+            )}
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">

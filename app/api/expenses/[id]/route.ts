@@ -99,7 +99,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { amount, costItemId, employeeId, siteId, serviceId, legalEntityId, paymentAt, comment } = body;
+    const { amount, costItemId, employeeId, siteId, serviceId, legalEntityId, isWithdrawal, paymentAt, comment } = body;
 
     const updateData: any = {
       updatedAt: new Date(),
@@ -143,7 +143,10 @@ export async function PUT(
       updateData.serviceId = serviceId || null;
     }
     if (legalEntityId !== undefined) {
-      updateData.legalEntityId = legalEntityId || null;
+      updateData.legalEntityId = (legalEntityId && typeof legalEntityId === 'string' && legalEntityId.trim()) ? legalEntityId : null;
+    }
+    if (isWithdrawal !== undefined) {
+      updateData.isWithdrawal = isWithdrawal === true;
     }
     // Only OWNER and CEO can change paymentAt date
     if (paymentAt && (user.roleCode === 'OWNER' || user.roleCode === 'CEO')) {

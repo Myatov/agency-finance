@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     if (!viewAll) {
       where.OR = [
         { createdByUserId: user.id },
-        { service: { site: { accountManagerId: user.id } } },
+        { service: { site: { client: { accountManagerId: user.id } } } },
         { service: { site: { creatorId: user.id } } },
         { service: { site: { client: { sellerEmployeeId: user.id } } } },
       ];
@@ -55,7 +55,10 @@ export async function GET(request: NextRequest) {
         ...where.service,
         site: {
           ...where.service?.site,
-          accountManagerId,
+          client: {
+            ...where.service?.site?.client,
+            accountManagerId,
+          },
         },
       };
     }
@@ -65,7 +68,10 @@ export async function GET(request: NextRequest) {
         ...where.service,
         site: {
           ...where.service?.site,
-          client: { sellerEmployeeId: sellerId },
+          client: {
+            ...where.service?.site?.client,
+            sellerEmployeeId: sellerId,
+          },
         },
       };
     }
@@ -119,18 +125,18 @@ export async function GET(request: NextRequest) {
                 include: {
                   client: {
                     include: {
+                      accountManager: {
+                        select: {
+                          id: true,
+                          fullName: true,
+                        },
+                      },
                       seller: {
                         select: {
                           id: true,
                           fullName: true,
                         },
                       },
-                    },
-                  },
-                  accountManager: {
-                    select: {
-                      id: true,
-                      fullName: true,
                     },
                   },
                 },

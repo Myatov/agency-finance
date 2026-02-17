@@ -30,7 +30,8 @@ interface Client {
   createdAt: Date | string;
   updatedAt: Date | string;
   legalEntityName?: string | null;
-  contractBasis?: string | null;
+  accountManagerId?: string | null;
+  accountManager?: { id: string; fullName: string } | null;
   legalAddress?: string | null;
   inn?: string | null;
   kpp?: string | null;

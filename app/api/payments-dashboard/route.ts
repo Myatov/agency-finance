@@ -26,10 +26,10 @@ export async function GET(request: NextRequest) {
     const paymentOverdueOnly = request.nextUrl.searchParams.get('paymentOverdueOnly') === '1';
 
     const andParts: any[] = [];
-    if (accountManagerId) andParts.push({ site: { accountManagerId } });
+    if (accountManagerId) andParts.push({ site: { client: { accountManagerId } } });
     if (clientId) andParts.push({ site: { clientId } });
     if (!viewAllPayments) {
-      andParts.push({ site: { accountManagerId: user.id } });
+      andParts.push({ site: { client: { accountManagerId: user.id } } });
     }
 
     // Период включаем, если он пересекается с диапазоном [dateFrom, dateTo]; все условия в одном AND для стабильной загрузки связей
@@ -76,16 +76,19 @@ export async function GET(request: NextRequest) {
       include: {
         service: {
           include: {
-            site: {
+        site: {
+          include: {
+            client: {
               include: {
-                client: { select: { id: true, name: true } },
                 accountManager: { select: { id: true, fullName: true } },
               },
             },
-            product: { select: { id: true, name: true } },
           },
         },
-        invoices: {
+        product: { select: { id: true, name: true } },
+      },
+    },
+    invoices: {
           include: {
             payments: true,
             legalEntity: { select: { id: true, name: true } },
@@ -156,10 +159,10 @@ export async function GET(request: NextRequest) {
         paymentDueDate: paymentDueDate.toISOString().slice(0, 10),
         periodType: p.periodType,
         invoiceNotRequired: p.invoiceNotRequired,
-        client: p.service.site.client,
+        client: { id: p.service.site.client.id, name: p.service.site.client.name },
         site: { id: p.service.site.id, title: p.service.site.title },
         product: p.service.product,
-        accountManager: p.service.site.accountManager,
+        accountManager: p.service.site.client.accountManager,
         expectedAmount: String(expected),
         totalInvoiced: String(totalInvoiced),
         paid: String(paid),
@@ -182,8 +185,11 @@ export async function GET(request: NextRequest) {
       include: {
         site: {
           include: {
-            client: { select: { id: true, name: true } },
-            accountManager: { select: { id: true, fullName: true } },
+            client: {
+              include: {
+                accountManager: { select: { id: true, fullName: true } },
+              },
+            },
           },
         },
         product: { select: { id: true, name: true } },
@@ -223,10 +229,10 @@ export async function GET(request: NextRequest) {
           paymentDueDate: paymentDueDate.toISOString().slice(0, 10),
           periodType: 'STANDARD',
           invoiceNotRequired: false,
-          client: svc.site.client,
+          client: { id: svc.site.client.id, name: svc.site.client.name },
           site: { id: svc.site.id, title: svc.site.title },
           product: svc.product,
-          accountManager: svc.site.accountManager,
+          accountManager: svc.site.client.accountManager,
           expectedAmount: String(expectedAmount),
           totalInvoiced: '0',
           paid: '0',
