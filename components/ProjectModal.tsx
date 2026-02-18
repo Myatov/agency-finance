@@ -431,21 +431,23 @@ export default function ProjectModal({
     finally { setExistingServicesLoading(false); }
   };
 
+  const serviceToListItem = (s: any) => ({
+    id: s.id,
+    productId: s.productId,
+    product: s.product,
+    status: s.status,
+    price: s.price,
+    billingType: s.billingType,
+    prepaymentType: s.prepaymentType,
+    startDate: s.startDate || null,
+    siteId: s.site?.id ?? s.siteId ?? null,
+  });
+
   const fetchClientServices = async (clientId: string) => {
     try {
-      const res = await fetch(`/api/services?clientId=${clientId}`);
+      const res = await fetch(`/api/services?clientId=${clientId}`, { cache: 'no-store' });
       const data = await res.json();
-      const svcs = (data.services || []).map((s: any) => ({
-        id: s.id,
-        productId: s.productId,
-        product: s.product,
-        status: s.status,
-        price: s.price,
-        billingType: s.billingType,
-        prepaymentType: s.prepaymentType,
-        startDate: s.startDate || null,
-        siteId: s.site?.id ?? s.siteId ?? null,
-      }));
+      const svcs = (data.services || []).map(serviceToListItem);
       setClientServicesAll(svcs);
     } catch { setClientServicesAll([]); }
   };
@@ -824,7 +826,16 @@ export default function ProjectModal({
         return;
       }
 
-      if (formData.clientId) fetchClientServices(formData.clientId);
+      const savedService = data.service;
+      if (savedService && formData.clientId) {
+        const newItem = serviceToListItem(savedService);
+        setClientServicesAll((prev) => {
+          const rest = prev.filter((s) => s.id !== newItem.id);
+          return [...rest, newItem];
+        });
+      } else if (formData.clientId) {
+        fetchClientServices(formData.clientId);
+      }
       if (formData.siteId) fetchSiteServices(formData.siteId);
       setActiveServiceId(undefined);
       setFormData((prev) => ({
