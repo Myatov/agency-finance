@@ -45,6 +45,11 @@ interface DepartmentEmployee {
   departmentId: string | null;
 }
 
+interface AgentOption {
+  id: string;
+  name: string;
+}
+
 interface NicheOption {
   id: string;
   name: string;
@@ -202,6 +207,7 @@ export default function ProjectModal({
   const [existingServicesLoading, setExistingServicesLoading] = useState(false);
   const [showExistingServices, setShowExistingServices] = useState(false);
   const [expenseItemValues, setExpenseItemValues] = useState<Record<string, { valueType: string; value: number }>>({});
+  const [agents, setAgents] = useState<AgentOption[]>([]);
 
   const [formData, setFormData] = useState({
     clientId: '',
@@ -231,6 +237,7 @@ export default function ProjectModal({
     fetchAllEmployees();
     fetchDepartments();
     fetchNiches();
+    fetchAgents();
   }, []);
 
   useEffect(() => {
@@ -328,6 +335,14 @@ export default function ProjectModal({
       const res = await fetch('/api/niches');
       const data = await res.json();
       setNiches((data.niches || []).map((n: any) => ({ id: n.id, name: n.name })));
+    } catch { /* ignore */ }
+  };
+
+  const fetchAgents = async () => {
+    try {
+      const res = await fetch('/api/agents');
+      const data = await res.json();
+      setAgents((data.agents || []).map((a: any) => ({ id: a.id, name: a.name })));
     } catch { /* ignore */ }
   };
 
@@ -882,7 +897,7 @@ export default function ProjectModal({
           {/* Client: Active checkbox + Edit requisites */}
           {formData.clientId && selectedClient && (
             <div className="space-y-3">
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -891,6 +906,32 @@ export default function ProjectModal({
                     className="h-4 w-4 text-blue-600 border-gray-300 rounded"
                   />
                   <span className="text-sm font-medium text-gray-700">Активный клиент</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedClient.isReturningClient || false}
+                    onChange={(e) => {
+                      const val = e.target.checked;
+                      fetch(`/api/clients/${selectedClient.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(getClientPayload({ isReturningClient: val })) })
+                        .then(res => { if (res.ok) fetchClientDetail(selectedClient.id); });
+                    }}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Вернувшийся клиент</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedClient.isKeyClient || false}
+                    onChange={(e) => {
+                      const val = e.target.checked;
+                      fetch(`/api/clients/${selectedClient.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(getClientPayload({ isKeyClient: val })) })
+                        .then(res => { if (res.ok) fetchClientDetail(selectedClient.id); });
+                    }}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Ключевой проект</span>
                 </label>
                 <button
                   type="button"
@@ -901,13 +942,43 @@ export default function ProjectModal({
                 </button>
               </div>
 
-              {selectedClient.agent && (
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium text-purple-700">Партнёр/Агент:</span> {selectedClient.agent.name}
-                  {selectedClient.agent.phone && <span className="ml-2 text-gray-400">{selectedClient.agent.phone}</span>}
-                  {selectedClient.agent.telegram && <span className="ml-2 text-gray-400">@{selectedClient.agent.telegram}</span>}
-                </div>
-              )}
+              <div className="flex items-center gap-3 text-sm">
+                <label className="text-gray-700 font-medium whitespace-nowrap">Дата начала работы:</label>
+                <input
+                  type="date"
+                  value={selectedClient.workStartDate ? new Date(selectedClient.workStartDate).toISOString().split('T')[0] : ''}
+                  onChange={(e) => {
+                    const val = e.target.value || null;
+                    fetch(`/api/clients/${selectedClient.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(getClientPayload({ workStartDate: val })) })
+                      .then(res => { if (res.ok) fetchClientDetail(selectedClient.id); });
+                  }}
+                  className="px-2 py-1 border border-gray-300 rounded text-sm"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-medium text-purple-700">Агент/Партнёр:</span>
+                <select
+                  value={selectedClient.agentId || ''}
+                  onChange={async (e) => {
+                    const newAgentId = e.target.value || null;
+                    try {
+                      const res = await fetch(`/api/clients/${selectedClient.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(getClientPayload({ agentId: newAgentId })),
+                      });
+                      if (res.ok) fetchClientDetail(selectedClient.id);
+                    } catch {}
+                  }}
+                  className="px-2 py-1 border border-gray-300 rounded text-sm"
+                >
+                  <option value="">Не выбран</option>
+                  {agents.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
 
               <div className="flex items-center gap-2 text-sm">
                 <span className="font-medium text-blue-700">Аккаунт-менеджер:</span>
@@ -1518,21 +1589,19 @@ export default function ProjectModal({
                           )}
                         </div>
                       </div>
-                      {item.template.departmentId && (
-                        <select
-                          value={expenseItemResponsibles[item.expenseItemTemplateId] || ''}
-                          onChange={(e) => setExpenseItemResponsibles((prev) => ({
-                            ...prev,
-                            [item.expenseItemTemplateId]: e.target.value,
-                          }))}
-                          className="w-48 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                        >
-                          <option value="">Ответственный</option>
-                          {deptEmployees.map((emp) => (
-                            <option key={emp.id} value={emp.id}>{emp.fullName}</option>
-                          ))}
-                        </select>
-                      )}
+                      <select
+                        value={expenseItemResponsibles[item.expenseItemTemplateId] || ''}
+                        onChange={(e) => setExpenseItemResponsibles((prev) => ({
+                          ...prev,
+                          [item.expenseItemTemplateId]: e.target.value,
+                        }))}
+                        className="w-48 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      >
+                        <option value="">Ответственный</option>
+                        {deptEmployees.map((emp) => (
+                          <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+                        ))}
+                      </select>
                     </div>
                   );
                 })}

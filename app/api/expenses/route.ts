@@ -16,7 +16,6 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get('dateFrom') || '';
     const dateTo = searchParams.get('dateTo') || '';
 
-    console.log('Expenses API - dateFrom:', dateFrom, 'dateTo:', dateTo, 'user:', user.id, 'roleCode:', user.roleCode);
     const category = searchParams.get('category');
     const costItemId = searchParams.get('costItemId');
     const departmentId = searchParams.get('departmentId');
@@ -81,8 +80,6 @@ export async function GET(request: NextRequest) {
       where.legalEntityId = legalEntityId;
     }
 
-    console.log('Expenses WHERE:', JSON.stringify(where));
-
     const sortBy = searchParams.get('sortBy') || 'paymentAt';
     const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';
 
@@ -144,7 +141,8 @@ export async function GET(request: NextRequest) {
       isWithdrawal: e.isWithdrawal,
       ...(e.service && {
         service: {
-          ...e.service,
+          id: e.service.id,
+          product: e.service.product,
           price: e.service.price != null ? e.service.price.toString() : null,
         },
       }),
