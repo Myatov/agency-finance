@@ -236,7 +236,6 @@ export default function ProjectModal({
   const [newClientName, setNewClientName] = useState('');
   const [newClientSellerId, setNewClientSellerId] = useState(user?.id || '');
   const [newSiteTitle, setNewSiteTitle] = useState('');
-  const [newSiteUrl, setNewSiteUrl] = useState('');
   const [newSiteNiche, setNewSiteNiche] = useState('');
 
   useEffect(() => {
@@ -717,7 +716,6 @@ export default function ProjectModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: newSiteTitle.trim(),
-          websiteUrl: newSiteUrl.trim() || null,
           clientId: formData.clientId,
           niche: selectedNiche ? selectedNiche.name : newSiteNiche,
         }),
@@ -730,7 +728,6 @@ export default function ProjectModal({
       await fetchSites(formData.clientId);
       setFormData((prev) => ({ ...prev, siteId: data.site.id }));
       setNewSiteTitle('');
-      setNewSiteUrl('');
       setNewSiteNiche('');
       setStep('main');
     } catch {
@@ -909,16 +906,6 @@ export default function ProjectModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
               placeholder="Название сайта"
               autoFocus
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
-            <input
-              type="text"
-              value={newSiteUrl}
-              onChange={(e) => setNewSiteUrl(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              placeholder="https://example.com"
             />
           </div>
           <div>

@@ -374,7 +374,6 @@ export default function AddProjectPage() {
   const [newClientName, setNewClientName] = useState('');
   const [newClientSellerId, setNewClientSellerId] = useState('');
   const [newSiteTitle, setNewSiteTitle] = useState('');
-  const [newSiteUrl, setNewSiteUrl] = useState('');
   const [newSiteNiche, setNewSiteNiche] = useState('');
 
   const [loading, setLoading] = useState(false);
@@ -514,7 +513,6 @@ export default function AddProjectPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: newSiteTitle.trim(),
-          websiteUrl: newSiteUrl.trim() || null,
           nicheId: newSiteNiche,
           clientId,
         }),
@@ -527,9 +525,8 @@ export default function AddProjectPage() {
         return;
       }
       setSiteId(data.site.id);
-      setSites((prev) => [...prev, { id: data.site.id, title: data.site.title, websiteUrl: data.site.websiteUrl, clientId }]);
+      setSites((prev) => [...prev, { id: data.site.id, title: data.site.title, websiteUrl: data.site.websiteUrl ?? null, clientId }]);
       setNewSiteTitle('');
-      setNewSiteUrl('');
       setNewSiteNiche('');
     } catch (e) {
       log('create site catch', e);
@@ -744,13 +741,6 @@ export default function AddProjectPage() {
                     onChange={(e) => setNewSiteTitle(e.target.value)}
                     placeholder="Название сайта"
                     className="px-3 py-2 border border-gray-300 rounded-md flex-1 min-w-[120px]"
-                  />
-                  <input
-                    type="text"
-                    value={newSiteUrl}
-                    onChange={(e) => setNewSiteUrl(e.target.value)}
-                    placeholder="URL"
-                    className="px-3 py-2 border border-gray-300 rounded-md"
                   />
                   <select
                     value={newSiteNiche}

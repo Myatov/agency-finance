@@ -41,7 +41,6 @@ export default function SiteModal({
 }) {
   const [formData, setFormData] = useState({
     title: '',
-    websiteUrl: '',
     description: '',
     niche: '',
     nicheId: '',
@@ -63,7 +62,6 @@ export default function SiteModal({
       setFormData((prev) => ({
         ...prev,
         title: site.title,
-        websiteUrl: site.websiteUrl || '',
         description: site.description || '',
         niche: site.niche,
         nicheId: '',
@@ -128,7 +126,7 @@ export default function SiteModal({
 
       const payload: any = {
         title: formData.title,
-        websiteUrl: formData.websiteUrl || null,
+        websiteUrl: null,
         description: formData.description || null,
         niche: nicheName,
         nicheId: formData.nicheId || null,
@@ -263,18 +261,6 @@ export default function SiteModal({
                 });
               })()}
             </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Адрес сайта
-            </label>
-            <input
-              type="url"
-              value={formData.websiteUrl}
-              onChange={(e) => setFormData({ ...formData, websiteUrl: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
           </div>
 
           <div>
