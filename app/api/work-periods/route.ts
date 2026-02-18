@@ -65,12 +65,13 @@ export async function GET(request: NextRequest) {
       );
       const existingKeys = new Set(periods.map((p) => `${p.dateFrom.toISOString().slice(0, 10)}:${p.dateTo.toISOString().slice(0, 10)}`));
       let anyCreated = false;
+      const { copyServiceExpenseItemsToWorkPeriod } = await import('@/lib/work-period-expense-items');
       for (const ep of expected) {
         if (existingKeys.has(`${ep.dateFrom}:${ep.dateTo}`)) continue;
         const dateFrom = new Date(ep.dateFrom + 'T00:00:00.000Z');
         const dateTo = new Date(ep.dateTo + 'T00:00:00.000Z');
         try {
-          await prisma.workPeriod.create({
+          const newPeriod = await prisma.workPeriod.create({
             data: {
               serviceId,
               dateFrom,
@@ -80,6 +81,12 @@ export async function GET(request: NextRequest) {
               expectedAmount: serviceForExpected.price ?? undefined,
             },
           });
+          await copyServiceExpenseItemsToWorkPeriod(
+            prisma,
+            newPeriod.id,
+            serviceId,
+            newPeriod.expectedAmount
+          );
           existingKeys.add(`${ep.dateFrom}:${ep.dateTo}`);
           anyCreated = true;
         } catch (e: any) {
@@ -205,6 +212,14 @@ export async function POST(request: NextRequest) {
         periodReport: true,
       },
     });
+
+    const { copyServiceExpenseItemsToWorkPeriod } = await import('@/lib/work-period-expense-items');
+    await copyServiceExpenseItemsToWorkPeriod(
+      prisma,
+      period.id,
+      serviceId,
+      period.expectedAmount
+    );
 
     const out = JSON.parse(JSON.stringify(period, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
     return NextResponse.json({ workPeriod: out });

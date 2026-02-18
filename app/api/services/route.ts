@@ -254,7 +254,7 @@ export async function POST(request: NextRequest) {
     if (expectedPeriods.length > 0) {
       const first = expectedPeriods[0];
       try {
-        await prisma.workPeriod.create({
+        const firstPeriod = await prisma.workPeriod.create({
           data: {
             serviceId: service.id,
             dateFrom: new Date(first.dateFrom),
@@ -263,6 +263,13 @@ export async function POST(request: NextRequest) {
             invoiceNotRequired: false,
           },
         });
+        const { copyServiceExpenseItemsToWorkPeriod } = await import('@/lib/work-period-expense-items');
+        await copyServiceExpenseItemsToWorkPeriod(
+          prisma,
+          firstPeriod.id,
+          service.id,
+          service.price
+        );
       } catch (e) {
         console.error('Create first work period for service', service.id, e);
       }

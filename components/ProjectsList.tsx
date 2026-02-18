@@ -313,12 +313,13 @@ export default function ProjectsList() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Проекты</h1>
-        <Link
-          href="/projects/new"
-          className="inline-flex px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg font-medium"
+        <button
+          type="button"
+          onClick={() => { setEditingProject(null); setShowModal(true); }}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg font-medium"
         >
           + Добавить проект
-        </Link>
+        </button>
       </div>
 
       {/* Unassigned clients warning */}
