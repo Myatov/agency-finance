@@ -80,29 +80,38 @@ export async function PUT(
 
     const body = await request.json();
     const opt = (v: unknown) => (v != null && String(v).trim() !== '' ? String(v).trim() : null);
+    const has = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
 
-    const name = body.name != null ? String(body.name).trim() : '';
-    const legalEntityId = body.legalEntityId != null && String(body.legalEntityId).trim() !== '' ? String(body.legalEntityId).trim() : null;
-    const sellerEmployeeId = body.sellerEmployeeId != null ? String(body.sellerEmployeeId).trim() : '';
-    const accountManagerId = body.accountManagerId != null && String(body.accountManagerId).trim() !== '' ? String(body.accountManagerId).trim() : null;
-    const agentId = body.agentId != null && String(body.agentId).trim() !== '' ? String(body.agentId).trim() : null;
-    const legalEntityName = opt(body.legalEntityName);
-    const legalAddress = opt(body.legalAddress);
-    const inn = opt(body.inn);
-    const kpp = opt(body.kpp);
-    const ogrn = opt(body.ogrn);
-    const rs = opt(body.rs);
-    const bankName = opt(body.bankName);
-    const bik = opt(body.bik);
-    const ks = opt(body.ks);
-    const paymentRequisites = opt(body.paymentRequisites);
-    const contacts = opt(body.contacts);
-    const isReturningClient = body.isReturningClient === true;
-    const isKeyClient = body.isKeyClient === true;
-    const keyClientStatusComment = opt(body.keyClientStatusComment);
-    const returningClientStatusComment = opt(body.returningClientStatusComment);
-    const workStartDate = body.workStartDate != null && String(body.workStartDate).trim() !== '' ? new Date(String(body.workStartDate).trim()) : null;
-    const isArchived = body.isArchived === true;
+    const existingClient = await prisma.client.findUnique({
+      where: { id: params.id },
+      select: { name: true, sellerEmployeeId: true, accountManagerId: true, legalEntityId: true, agentId: true, legalEntityName: true, legalAddress: true, inn: true, kpp: true, ogrn: true, rs: true, bankName: true, bik: true, ks: true, paymentRequisites: true, contacts: true, isReturningClient: true, isKeyClient: true, keyClientStatusComment: true, returningClientStatusComment: true, workStartDate: true, isArchived: true },
+    });
+    if (!existingClient) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+    }
+
+    const name = has('name') ? (body.name != null ? String(body.name).trim() : '') : existingClient.name;
+    const legalEntityId = has('legalEntityId') ? (body.legalEntityId != null && String(body.legalEntityId).trim() !== '' ? String(body.legalEntityId).trim() : null) : existingClient.legalEntityId;
+    const sellerEmployeeId = has('sellerEmployeeId') ? (body.sellerEmployeeId != null ? String(body.sellerEmployeeId).trim() : '') : existingClient.sellerEmployeeId;
+    const accountManagerId = has('accountManagerId') ? (body.accountManagerId != null && String(body.accountManagerId).trim() !== '' ? String(body.accountManagerId).trim() : null) : existingClient.accountManagerId;
+    const agentId = has('agentId') ? (body.agentId != null && String(body.agentId).trim() !== '' ? String(body.agentId).trim() : null) : existingClient.agentId;
+    const legalEntityName = has('legalEntityName') ? opt(body.legalEntityName) : existingClient.legalEntityName;
+    const legalAddress = has('legalAddress') ? opt(body.legalAddress) : existingClient.legalAddress;
+    const inn = has('inn') ? opt(body.inn) : existingClient.inn;
+    const kpp = has('kpp') ? opt(body.kpp) : existingClient.kpp;
+    const ogrn = has('ogrn') ? opt(body.ogrn) : existingClient.ogrn;
+    const rs = has('rs') ? opt(body.rs) : existingClient.rs;
+    const bankName = has('bankName') ? opt(body.bankName) : existingClient.bankName;
+    const bik = has('bik') ? opt(body.bik) : existingClient.bik;
+    const ks = has('ks') ? opt(body.ks) : existingClient.ks;
+    const paymentRequisites = has('paymentRequisites') ? opt(body.paymentRequisites) : existingClient.paymentRequisites;
+    const contacts = has('contacts') ? opt(body.contacts) : existingClient.contacts;
+    const isReturningClient = has('isReturningClient') ? body.isReturningClient === true : existingClient.isReturningClient;
+    const isKeyClient = has('isKeyClient') ? body.isKeyClient === true : existingClient.isKeyClient;
+    const keyClientStatusComment = has('keyClientStatusComment') ? opt(body.keyClientStatusComment) : existingClient.keyClientStatusComment;
+    const returningClientStatusComment = has('returningClientStatusComment') ? opt(body.returningClientStatusComment) : existingClient.returningClientStatusComment;
+    const workStartDate = has('workStartDate') ? (body.workStartDate != null && String(body.workStartDate).trim() !== '' ? new Date(String(body.workStartDate).trim()) : null) : existingClient.workStartDate;
+    const isArchived = has('isArchived') ? body.isArchived === true : existingClient.isArchived;
     const clientContacts = Array.isArray(body.clientContacts) ? body.clientContacts : undefined;
 
     if (!name || !sellerEmployeeId) {
@@ -146,11 +155,6 @@ export async function PUT(
       workStartDate,
       isArchived,
     };
-
-    const existingClient = await prisma.client.findUnique({
-      where: { id: params.id },
-      select: { accountManagerId: true, name: true },
-    });
 
     await prisma.$transaction(async (tx) => {
       await tx.client.update({

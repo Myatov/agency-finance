@@ -201,6 +201,7 @@ export default function ProjectModal({
   const [uploadingContract, setUploadingContract] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [allEmployees, setAllEmployees] = useState<DepartmentEmployee[]>([]);
+  const [expenseItemEmployees, setExpenseItemEmployees] = useState<DepartmentEmployee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [expenseItemResponsibles, setExpenseItemResponsibles] = useState<Record<string, string>>({});
   const [existingSiteServices, setExistingSiteServices] = useState<ExistingSiteService[]>([]);
@@ -235,6 +236,7 @@ export default function ProjectModal({
     fetchClients();
     fetchProducts();
     fetchAllEmployees();
+    fetchExpenseItemEmployees();
     fetchDepartments();
     fetchNiches();
     fetchAgents();
@@ -318,6 +320,18 @@ export default function ProjectModal({
         id: e.id,
         fullName: e.fullName,
         departmentId: e.departmentId || null,
+      })));
+    } catch { /* ignore */ }
+  };
+
+  const fetchExpenseItemEmployees = async () => {
+    try {
+      const res = await fetch('/api/users/with-departments');
+      const data = await res.json();
+      setExpenseItemEmployees((data.users || []).map((u: any) => ({
+        id: u.id,
+        fullName: u.fullName,
+        departmentId: u.department?.id ?? null,
       })));
     } catch { /* ignore */ }
   };
@@ -1544,8 +1558,8 @@ export default function ProjectModal({
                     : currentVals.value.toFixed(0);
                   const deptId = item.template?.departmentId ?? null;
                   const deptEmployees = deptId
-                    ? allEmployees.filter((e) => e.departmentId === deptId)
-                    : allEmployees;
+                    ? expenseItemEmployees.filter((e) => e.departmentId === deptId)
+                    : expenseItemEmployees;
                   return (
                     <div key={item.id} className="flex items-center gap-3 bg-white rounded p-2 border border-gray-100">
                       <div className="flex-1 min-w-0">
