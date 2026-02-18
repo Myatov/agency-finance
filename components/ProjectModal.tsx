@@ -218,6 +218,7 @@ export default function ProjectModal({
   const [expenseItemValues, setExpenseItemValues] = useState<Record<string, { valueType: string; value: number }>>({});
   const [agents, setAgents] = useState<AgentOption[]>([]);
   const serviceFormRef = useRef<HTMLDivElement>(null);
+  const initializedForProjectIdRef = useRef<string | null>(null);
 
   const [formData, setFormData] = useState({
     clientId: '',
@@ -306,23 +307,31 @@ export default function ProjectModal({
 
   useEffect(() => {
     if (project) {
-      setActiveServiceId(project.id);
-      const clientId = project.site?.clientId || project.site?.client?.id;
-      setFormData({
-        clientId: clientId || '',
-        siteId: project.siteId || project.site?.id || '',
-        productId: project.productId,
-        status: project.status,
-        startDate: project.startDate ? new Date(project.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        billingType: project.billingType,
-        prepaymentType: project.prepaymentType || 'POSTPAY',
-        price: project.price ? (Number(project.price) / 100).toString() : '',
-        autoRenew: project.autoRenew,
-        isFromPartner: project.isFromPartner,
-        comment: project.comment || '',
-        soldByUserId: project.responsibleUserId || project.site?.client?.sellerEmployeeId || project.site?.client?.accountManagerId || '',
-      });
-      if (clientId) fetchClientServices(clientId);
+      // Инициализируем только при первом открытии модалки для этого project,
+      // чтобы не перезаписывать activeServiceId и formData после нажатия «+ Услуга»
+      const projectId = project.id;
+      if (initializedForProjectIdRef.current !== projectId) {
+        initializedForProjectIdRef.current = projectId;
+        setActiveServiceId(project.id);
+        const clientId = project.site?.clientId || project.site?.client?.id;
+        setFormData({
+          clientId: clientId || '',
+          siteId: project.siteId || project.site?.id || '',
+          productId: project.productId,
+          status: project.status,
+          startDate: project.startDate ? new Date(project.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          billingType: project.billingType,
+          prepaymentType: project.prepaymentType || 'POSTPAY',
+          price: project.price ? (Number(project.price) / 100).toString() : '',
+          autoRenew: project.autoRenew,
+          isFromPartner: project.isFromPartner,
+          comment: project.comment || '',
+          soldByUserId: project.responsibleUserId || project.site?.client?.sellerEmployeeId || project.site?.client?.accountManagerId || '',
+        });
+        if (clientId) fetchClientServices(clientId);
+      }
+    } else {
+      initializedForProjectIdRef.current = null;
     }
   }, [project]);
 
