@@ -72,11 +72,8 @@ export async function GET(request: NextRequest) {
       ],
     });
 
-    // Convert BigInt to string for JSON serialization
-    const servicesResponse = services.map(service => ({
-      ...service,
-      price: service.price !== null ? service.price.toString() : null,
-    }));
+    // Convert BigInt to string for JSON serialization (price, sellerCommissionAmount, accountManagerCommissionAmount, accountManagerFeeAmount, expenseItems[].calculatedAmount)
+    const servicesResponse = services.map(s => JSON.parse(JSON.stringify(s, (_, v) => (typeof v === 'bigint' ? v.toString() : v))));
 
     return NextResponse.json({ services: servicesResponse });
   } catch (error: any) {
@@ -110,7 +107,9 @@ export async function POST(request: NextRequest) {
       comment,
       isFromPartner,
       sellerCommissionPercent,
+      sellerCommissionAmount,
       accountManagerCommissionPercent,
+      accountManagerCommissionAmount,
       accountManagerFeeAmount,
       expenseItems: expenseItemsPayload,
     } = body;
@@ -183,7 +182,9 @@ export async function POST(request: NextRequest) {
         comment: comment || null,
         isFromPartner: isFromPartner !== undefined ? Boolean(isFromPartner) : false,
         sellerCommissionPercent: sellerCommissionPercent != null ? parseFloat(sellerCommissionPercent) : null,
+        sellerCommissionAmount: sellerCommissionAmount != null ? BigInt(Math.round(Number(sellerCommissionAmount))) : null,
         accountManagerCommissionPercent: accountManagerCommissionPercent != null ? parseFloat(accountManagerCommissionPercent) : null,
+        accountManagerCommissionAmount: accountManagerCommissionAmount != null ? BigInt(Math.round(Number(accountManagerCommissionAmount))) : null,
         accountManagerFeeAmount: accountManagerFeeAmount != null ? BigInt(accountManagerFeeAmount) : null,
       },
       include: {
@@ -287,10 +288,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Convert BigInt to string for JSON serialization
-    const serviceResponse = {
-      ...service,
-      price: service.price !== null ? service.price.toString() : null,
-    };
+    const serviceResponse = JSON.parse(JSON.stringify(service, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
 
     return NextResponse.json({ service: serviceResponse });
   } catch (error: any) {

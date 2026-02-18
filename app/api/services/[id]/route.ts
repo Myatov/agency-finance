@@ -70,19 +70,8 @@ export async function GET(
       return NextResponse.json({ error: 'Service not found' }, { status: 404 });
     }
 
-    // Convert BigInt to string for JSON serialization
-    const serviceResponse = {
-      ...service,
-      price: service.price !== null ? service.price.toString() : null,
-      incomes: service.incomes.map(income => ({
-        ...income,
-        amount: income.amount.toString(),
-      })),
-      expenses: service.expenses.map(expense => ({
-        ...expense,
-        amount: expense.amount.toString(),
-      })),
-    };
+    // Convert BigInt to string for JSON serialization (service has price, sellerCommissionAmount, accountManagerCommissionAmount, accountManagerFeeAmount, expenseItems[].calculatedAmount)
+    const serviceResponse = JSON.parse(JSON.stringify(service, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
 
     return NextResponse.json({ service: serviceResponse });
   } catch (error: any) {
@@ -351,10 +340,7 @@ export async function PUT(
     }
 
     // Convert BigInt to string for JSON serialization
-    const serviceResponse = {
-      ...service,
-      price: service.price !== null ? service.price.toString() : null,
-    };
+    const serviceResponse = JSON.parse(JSON.stringify(service, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
 
     return NextResponse.json({ service: serviceResponse });
   } catch (error: any) {
