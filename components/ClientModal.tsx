@@ -129,6 +129,7 @@ export default function ClientModal({
   formDataRef.current = formData;
   const contactSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const agentSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSyncedClientIdRef = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     fetchUsers();
@@ -138,6 +139,12 @@ export default function ClientModal({
   }, []);
 
   useEffect(() => {
+    const clientId = client?.id ?? null;
+    if (lastSyncedClientIdRef.current === clientId) {
+      return;
+    }
+    lastSyncedClientIdRef.current = clientId;
+
     if (client) {
       const c = client as Client & { legalEntity?: { id: string; name?: string } | null; seller?: { id: string } };
       const aid = c.agentId ?? c.agent?.id ?? '';
