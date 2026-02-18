@@ -191,6 +191,7 @@ model Client {
   legalEntityId     String?
   sellerEmployeeId  String
   accountManagerId  String?         // Аккаунт-менеджер назначается на уровне клиента (1 клиент = 1 АМ)
+  accountManagerAcceptedAt DateTime? // null = АМ назначен, но ещё не принял клиента в работу
   agentId           String?
   legalEntityName   String?
   legalAddress     String?

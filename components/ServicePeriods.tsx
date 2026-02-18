@@ -133,10 +133,6 @@ export default function ServicePeriods({ serviceId }: { serviceId: string }) {
 
   return (
     <div>
-      <div className="mb-4 flex gap-4">
-        <Link href="/payments" className="text-blue-600 hover:underline text-sm">← Оплаты</Link>
-        <Link href="/services" className="text-blue-600 hover:underline text-sm">← Услуги</Link>
-      </div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">
           Периоды работ: {service.site.client.name} — {service.site.title} — {service.product.name}

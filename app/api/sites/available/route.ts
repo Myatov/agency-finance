@@ -15,7 +15,14 @@ export async function GET(request: NextRequest) {
     let where: any = {};
     if (clientId) where.clientId = clientId;
     if (user.roleCode === 'ACCOUNT_MANAGER') {
-      where = { ...where, OR: [{ accountManagerId: user.id }, { creatorId: user.id }] };
+      where = {
+        ...where,
+        OR: [
+          { accountManagerId: user.id },
+          { creatorId: user.id },
+          { client: { accountManagerId: user.id } },
+        ],
+      };
     }
     // Seller sees only sites of their clients
     // For MVP, we'll get all sites and filter on frontend if needed

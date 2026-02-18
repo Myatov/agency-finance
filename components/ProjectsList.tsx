@@ -131,6 +131,7 @@ export default function ProjectsList() {
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingProject, setEditingProject] = useState<any>(null);
+  const [pendingAcceptClients, setPendingAcceptClients] = useState<Array<{ id: string; name: string }>>([]);
   const [viewMode, setViewMode] = useState<'grouped' | 'flat'>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem('projects_view_mode') as 'grouped' | 'flat') || 'grouped';
@@ -143,6 +144,29 @@ export default function ProjectsList() {
     fetchProjects();
     fetchAccountManagers();
   }, []);
+
+  const fetchPendingAcceptance = useCallback(async () => {
+    try {
+      const res = await fetch('/api/clients/pending-acceptance');
+      const data = await res.json();
+      if (res.ok && data.clients?.length) setPendingAcceptClients(data.clients);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (user?.roleCode === 'ACCOUNT_MANAGER') fetchPendingAcceptance();
+    else setPendingAcceptClients([]);
+  }, [user, fetchPendingAcceptance]);
+
+  const handleAcceptClient = async (clientId: string) => {
+    try {
+      const res = await fetch(`/api/clients/${clientId}/accept-by-am`, { method: 'POST' });
+      if (res.ok) {
+        setPendingAcceptClients((prev) => prev.filter((c) => c.id !== clientId));
+        fetchProjects();
+      }
+    } catch { /* ignore */ }
+  };
 
   useEffect(() => {
     if (user && (user.roleCode === 'OWNER' || user.roleCode === 'CEO')) {
@@ -311,6 +335,34 @@ export default function ProjectsList() {
 
   return (
     <div>
+      {/* Модалка «Вам назначен новый клиент» — висит до принятия АМ */}
+      {pendingAcceptClients.length > 0 && user?.roleCode === 'ACCOUNT_MANAGER' && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Вам назначен новый клиент. Примите его в работу.</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              {pendingAcceptClients.length === 1
+                ? `Клиент «${pendingAcceptClients[0].name}» назначен вам. Нажмите ОК, чтобы принять в работу.`
+                : `Вам назначено клиентов: ${pendingAcceptClients.length}. Примите их в работу.`}
+            </p>
+            <div className="space-y-2">
+              {pendingAcceptClients.map((c) => (
+                <div key={c.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                  <span className="font-medium text-gray-800">{c.name}</span>
+                  <button
+                    onClick={() => handleAcceptClient(c.id)}
+                    className="px-4 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                  >
+                    Принять
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-3">Модальное окно будет отображаться до принятия всех назначенных клиентов.</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Проекты</h1>
         <button

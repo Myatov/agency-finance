@@ -136,6 +136,7 @@ export async function PUT(
       legalEntityId,
       sellerEmployeeId,
       accountManagerId,
+      ...(has('accountManagerId') && accountManagerId ? { accountManagerAcceptedAt: null } : {}),
       agentId,
       legalEntityName,
       legalAddress,

@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { canAccessServiceForPeriods } from '@/lib/permissions';
-import { getExpectedPeriods } from '@/lib/periods';
-import { WorkPeriodType, BillingType } from '@prisma/client';
+import { WorkPeriodType } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,7 +27,7 @@ export async function GET(request: NextRequest) {
     );
     if (!canAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    let periods = await prisma.workPeriod.findMany({
+    const periods = await prisma.workPeriod.findMany({
       where: { serviceId },
       include: {
         invoices: {
@@ -46,76 +45,6 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { dateFrom: 'desc' },
     });
-
-    const serviceForExpected = await prisma.service.findUnique({
-      where: { id: serviceId },
-      select: { startDate: true, endDate: true, billingType: true, price: true },
-    });
-    if (serviceForExpected) {
-      const existingForCalc = periods.map((p) => ({
-        dateFrom: p.dateFrom.toISOString().slice(0, 10),
-        dateTo: p.dateTo.toISOString().slice(0, 10),
-        periodType: p.periodType,
-      }));
-      const expected = getExpectedPeriods(
-        new Date(serviceForExpected.startDate),
-        serviceForExpected.billingType as BillingType,
-        serviceForExpected.endDate ? new Date(serviceForExpected.endDate) : undefined,
-        existingForCalc
-      );
-      const existingKeys = new Set(periods.map((p) => `${p.dateFrom.toISOString().slice(0, 10)}:${p.dateTo.toISOString().slice(0, 10)}`));
-      let anyCreated = false;
-      const { copyServiceExpenseItemsToWorkPeriod } = await import('@/lib/work-period-expense-items');
-      for (const ep of expected) {
-        if (existingKeys.has(`${ep.dateFrom}:${ep.dateTo}`)) continue;
-        const dateFrom = new Date(ep.dateFrom + 'T00:00:00.000Z');
-        const dateTo = new Date(ep.dateTo + 'T00:00:00.000Z');
-        try {
-          const newPeriod = await prisma.workPeriod.create({
-            data: {
-              serviceId,
-              dateFrom,
-              dateTo,
-              periodType: 'STANDARD',
-              invoiceNotRequired: false,
-              expectedAmount: serviceForExpected.price ?? undefined,
-            },
-          });
-          await copyServiceExpenseItemsToWorkPeriod(
-            prisma,
-            newPeriod.id,
-            serviceId,
-            newPeriod.expectedAmount
-          );
-          existingKeys.add(`${ep.dateFrom}:${ep.dateTo}`);
-          anyCreated = true;
-        } catch (e: any) {
-          if (e?.code === 'P2002') {
-            existingKeys.add(`${ep.dateFrom}:${ep.dateTo}`);
-          }
-        }
-      }
-      if (anyCreated) {
-        periods = await prisma.workPeriod.findMany({
-          where: { serviceId },
-          include: {
-            invoices: {
-              include: {
-                payments: true,
-                legalEntity: { select: { id: true, name: true } },
-              },
-            },
-            invoiceLines: { select: { id: true } },
-            periodInvoiceNotes: { select: { id: true } },
-            periodReport: {
-              include: { accountManager: { select: { id: true, fullName: true } } },
-            },
-            closeoutDocuments: { select: { id: true } },
-          },
-          orderBy: { dateFrom: 'desc' },
-        });
-      }
-    }
 
     let clientGenerateClosingDocs = false;
     const legalEntityId = service.site.client.legalEntityId;
