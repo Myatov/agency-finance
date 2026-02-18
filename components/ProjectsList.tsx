@@ -86,6 +86,12 @@ const STATUS_COLORS: Record<string, string> = {
   FINISHED: 'bg-gray-100 text-gray-800',
 };
 
+const STATUS_BAR_COLORS: Record<string, string> = {
+  ACTIVE: 'bg-green-500',
+  PAUSED: 'bg-yellow-500',
+  FINISHED: 'bg-red-500',
+};
+
 const BILLING_LABELS: Record<string, string> = {
   ONE_TIME: 'Разовая',
   MONTHLY: 'Ежемесячная',
@@ -678,11 +684,11 @@ export default function ProjectsList() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="w-[5px] p-0" title="Статус" />
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Клиент / Юрлицо</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Сайт</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Услуга</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Цена</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Статус</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Период</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Оплата</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">АМ / Продавец</th>
@@ -703,8 +709,16 @@ export default function ProjectsList() {
                       ? lastPeriod.incomes.reduce((sum, inc) => sum + Number(inc.amount), 0)
                       : 0;
                     const periodExpected = lastPeriod?.expectedAmount ? Number(lastPeriod.expectedAmount) : (p.price ? Number(p.price) : 0);
+                    const statusLabel = STATUS_LABELS[p.status] || p.status;
+                    const statusBarColor = STATUS_BAR_COLORS[p.status] || 'bg-gray-400';
                     return (
                       <tr key={p.id} className="hover:bg-gray-50">
+                        <td className="relative w-[5px] p-0" style={{ minWidth: 5 }}>
+                          <div
+                            className={`absolute top-0 bottom-0 left-0 w-[5px] ${statusBarColor}`}
+                            title={statusLabel}
+                          />
+                        </td>
                         <td className="px-4 py-3 text-sm">
                           <div className="font-medium">{p.site.client.isSystem ? '—' : p.site.client.name}</div>
                           <div className="text-xs text-gray-500 mt-0.5">{p.site.client.legalEntity?.name || '—'}</div>
@@ -728,11 +742,6 @@ export default function ProjectsList() {
                           )}
                         </td>
                         <td className="px-4 py-3 text-sm font-medium">{formatMoney(p.price)}</td>
-                        <td className="px-4 py-3 text-sm">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[p.status] || 'bg-gray-100'}`}>
-                            {STATUS_LABELS[p.status] || p.status}
-                          </span>
-                        </td>
                         <td className="px-4 py-3 text-sm">
                           {lastPeriod ? (
                             <div>

@@ -155,11 +155,13 @@ interface EditProject {
   product: { id: string; name: string };
   expenseItems: Array<{
     id: string;
+    expenseItemTemplateId?: string | null;
     name: string;
     valueType: string;
     value: number;
     calculatedAmount: string | null;
     template: { id: string; name: string } | null;
+    responsibleUserId?: string | null;
   }>;
 }
 
@@ -516,7 +518,19 @@ export default function ProjectModal({
   const selectedProduct = products.find((p) => p.id === formData.productId);
 
   useEffect(() => {
-    if (selectedProduct) {
+    if (project?.expenseItems?.length) {
+      const vals: Record<string, { valueType: string; value: number }> = {};
+      const resps: Record<string, string> = {};
+      for (const ei of project.expenseItems) {
+        const templateId = ei.expenseItemTemplateId ?? ei.template?.id;
+        if (templateId) {
+          vals[templateId] = { valueType: ei.valueType || 'PERCENT', value: ei.value ?? 0 };
+          if (ei.responsibleUserId) resps[templateId] = ei.responsibleUserId;
+        }
+      }
+      setExpenseItemValues(vals);
+      setExpenseItemResponsibles(resps);
+    } else if (selectedProduct) {
       setExpenseItemValues((prev) => {
         const next: Record<string, { valueType: string; value: number }> = {};
         for (const item of selectedProduct.expenseItems) {
@@ -529,8 +543,9 @@ export default function ProjectModal({
       });
     } else {
       setExpenseItemValues({});
+      setExpenseItemResponsibles({});
     }
-  }, [selectedProduct]);
+  }, [selectedProduct, project]);
 
   const getCommission = (role: string) => {
     if (!selectedProduct) return null;

@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
         ...whereClause.site,
         client: { ...whereClause.site?.client, isArchived: false },
       };
+      whereClause.status = { in: ['ACTIVE', 'PAUSED'] };
     }
 
     // Permission-based filtering — проверяем ТОЛЬКО projects view_all
@@ -79,16 +80,16 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    // Клиенты с АМ, но без сайтов — показываем при activeOnly=false
+    // Клиенты с АМ, но без сайтов — показываем всегда (при activeOnly фильтруем по isArchived)
     const clientOnlyEntries: any[] = [];
-    if (activeOnly !== 'true') {
-      const amFilter = accountManagerId || (!viewAllProjects ? user.id : null);
-      if (amFilter) {
+    const amFilter = accountManagerId || (!viewAllProjects ? user.id : null);
+    if (amFilter) {
       const clientsNoSites = await prisma.client.findMany({
         where: {
-          ...(amFilter ? { accountManagerId: amFilter } : {}),
+          accountManagerId: amFilter,
           sites: { none: {} },
           isSystem: false,
+          ...(activeOnly === 'true' ? { isArchived: false } : {}),
           ...(sellerId ? { sellerEmployeeId: sellerId } : {}),
         },
         include: {
@@ -125,7 +126,6 @@ export async function GET(request: NextRequest) {
           expenseItems: [],
           isClientOnly: true,
         });
-      }
       }
     }
 

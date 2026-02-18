@@ -114,13 +114,15 @@ export async function PUT(
       autoRenew,
       responsibleUserId,
       comment,
+      expenseItems: expenseItemsPayload,
     } = body;
 
-    // Get existing service to check permissions
+    // Get existing service to check permissions and expense items
     const existingService = await prisma.service.findUnique({
       where: { id: params.id },
       include: {
         site: { include: { client: true } },
+        expenseItems: { include: { template: true, responsible: { select: { fullName: true } } } },
       },
     });
 
@@ -206,6 +208,55 @@ export async function PUT(
         },
       },
     });
+
+    const priceKopecks = service.price;
+    if (expenseItemsPayload !== undefined && Array.isArray(expenseItemsPayload)) {
+      const oldItems = existingService.expenseItems.map((ei) => ({
+        name: ei.name,
+        valueType: ei.valueType,
+        value: ei.value,
+        responsibleUserId: ei.responsibleUserId,
+        responsibleName: ei.responsible?.fullName,
+      }));
+      await prisma.serviceExpenseItem.deleteMany({ where: { serviceId: params.id } });
+      if (expenseItemsPayload.length > 0) {
+        await prisma.serviceExpenseItem.createMany({
+          data: expenseItemsPayload.map((item: any) => ({
+            serviceId: params.id,
+            expenseItemTemplateId: item.expenseItemTemplateId || null,
+            responsibleUserId: item.responsibleUserId || null,
+            name: item.name || 'Без названия',
+            valueType: item.valueType || 'PERCENT',
+            value: item.value != null ? parseFloat(item.value) : 0,
+            calculatedAmount: priceKopecks && item.valueType === 'PERCENT'
+              ? BigInt(Math.round(Number(priceKopecks) * parseFloat(item.value) / 100))
+              : item.valueType === 'FIXED' ? BigInt(Math.round(parseFloat(item.value) * 100)) : null,
+          })),
+        });
+      }
+      const newItems = expenseItemsPayload.map((item: any) => ({
+        name: item.name,
+        valueType: item.valueType,
+        value: item.value,
+        responsibleUserId: item.responsibleUserId,
+      }));
+      const descParts: string[] = [];
+      if (oldItems.length > 0 || newItems.length > 0) {
+        descParts.push(`Статьи расходов: ${oldItems.length} → ${newItems.length}`);
+      }
+      if (descParts.length > 0) {
+        await logAudit({
+          userId: user.id,
+          action: 'UPDATE',
+          entityType: 'SERVICE_EXPENSE_ITEM',
+          entityId: params.id,
+          serviceId: params.id,
+          description: `Изменение расходов проекта: ${descParts.join('; ')}`,
+          oldValue: oldItems,
+          newValue: newItems,
+        });
+      }
+    }
 
     // Audit logging
     const changes: string[] = [];

@@ -223,6 +223,20 @@ export async function POST(request: NextRequest) {
               : item.valueType === 'FIXED' ? BigInt(Math.round(parseFloat(item.value) * 100)) : null,
           })),
         });
+        await logAudit({
+          userId: user.id,
+          action: 'CREATE',
+          entityType: 'SERVICE_EXPENSE_ITEM',
+          entityId: service.id,
+          serviceId: service.id,
+          description: `Добавлены статьи расходов проекта (${expenseItemsPayload.length})`,
+          newValue: expenseItemsPayload.map((item: any) => ({
+            name: item.name,
+            valueType: item.valueType,
+            value: item.value,
+            responsibleUserId: item.responsibleUserId,
+          })),
+        });
       } catch (e) {
         console.error('Error creating service expense items:', e);
       }
