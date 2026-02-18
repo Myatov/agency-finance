@@ -76,7 +76,7 @@ export default function ContactsList() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
-        <h1 className="text-3xl font-bold">Контакты</h1>
+        <h1 className="text-3xl font-bold">Контакты клиентов</h1>
         <div className="flex items-center gap-4">
           <input
             type="search"

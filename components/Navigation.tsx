@@ -18,6 +18,7 @@ export default function Navigation() {
   const [accessibleSections, setAccessibleSections] = useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [workMenuOpen, setWorkMenuOpen] = useState(false);
+  const [settingsSubmenuOpen, setSettingsSubmenuOpen] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -96,11 +97,13 @@ export default function Navigation() {
     }
   }, [user]);
 
-  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      if (settingsOpen && !target.closest('.settings-menu')) setSettingsOpen(false);
+      if (settingsOpen && !target.closest('.settings-menu')) {
+        setSettingsOpen(false);
+        setSettingsSubmenuOpen(null);
+      }
       if (workMenuOpen && !target.closest('.work-menu')) setWorkMenuOpen(false);
     };
 
@@ -119,40 +122,65 @@ export default function Navigation() {
     return null;
   }
 
-  const settingsItems: Array<{ href: string; label: string; section?: string }> = [
-    { href: '/storage', label: 'Хранилище', section: 'storage' },
-    { href: '/employees', label: 'Команда', section: 'employees' },
-    { href: '/products', label: 'Продукты', section: 'products' },
-    { href: '/cost-items', label: 'Статьи расходов', section: 'cost-items' },
+  const handbookClients: Array<{ href: string; label: string; section?: string }> = [
+    { href: '/clients', label: 'Клиенты', section: 'clients' },
+    { href: '/sites', label: 'Сайты', section: 'sites' },
+    { href: '/services', label: 'Услуги', section: 'services' },
     { href: '/niches', label: 'Ниши', section: 'niches' },
-    { href: '/contacts', label: 'Контакты', section: 'contacts' },
-    { href: '/agents', label: 'Агенты / Партнёры', section: 'agents' },
-    { href: '/roles', label: 'Роли', section: 'roles' },
+    { href: '/contacts', label: 'Контакты клиентов', section: 'contacts' },
+    { href: '/agents', label: 'Агенты', section: 'agents' },
+  ];
+  const handbookFinance: Array<{ href: string; label: string; section?: string }> = [
+    { href: '/products', label: 'Статьи услуг', section: 'products' },
+    { href: '/cost-items', label: 'Статьи расходов', section: 'cost-items' },
     { href: '/legal-entities', label: 'Юрлица', section: 'legal-entities' },
+  ];
+  const handbookEmployees: Array<{ href: string; label: string; section?: string }> = [
+    { href: '/employees', label: 'Команда', section: 'employees' },
+    { href: '/roles', label: 'Роли', section: 'roles' },
+  ];
+
+  const visibleHandbookClients = user.roleCode === 'OWNER' || user.roleCode === 'CEO'
+    ? handbookClients
+    : handbookClients.filter((i) => i.section && accessibleSections.includes(i.href));
+  const visibleHandbookFinance = user.roleCode === 'OWNER' || user.roleCode === 'CEO'
+    ? handbookFinance
+    : handbookFinance.filter((i) => i.section && accessibleSections.includes(i.href));
+  const visibleHandbookEmployees = user.roleCode === 'OWNER' || user.roleCode === 'CEO'
+    ? handbookEmployees
+    : handbookEmployees.filter((i) => i.section && accessibleSections.includes(i.href));
+
+  const settingsDirectItems: Array<{ href: string; label: string; section?: string }> = [
+    { href: '/storage', label: 'Хранилище', section: 'storage' },
     { href: '/settings/history', label: 'История изменений' },
   ];
 
-  const visibleSettingsItems =
-    user.roleCode === 'OWNER' || user.roleCode === 'CEO'
-      ? settingsItems
-      : settingsItems.filter((item) => item.section && accessibleSections.includes(item.href));
+  const visibleSettingsDirect = user.roleCode === 'OWNER' || user.roleCode === 'CEO'
+    ? settingsDirectItems
+    : settingsDirectItems.filter((i) => !i.section || accessibleSections.includes(i.href));
 
-  const workSubmenuAll = [
-    { href: '/clients', label: 'Клиенты', section: 'clients' },
-    { href: '/contracts', label: 'Договора', section: 'contracts' },
-    { href: '/invoices', label: 'Счета', section: 'invoices' },
-    { href: '/closeout', label: 'Закрывающие документы', section: 'closeout' },
-    { href: '/sites', label: 'Сайты', section: 'sites' },
-    { href: '/services', label: 'Услуги', section: 'services' },
-  ];
+  const hasAnySettings =
+    visibleHandbookClients.length > 0 ||
+    visibleHandbookFinance.length > 0 ||
+    visibleHandbookEmployees.length > 0 ||
+    visibleSettingsDirect.length > 0;
+
+  const workSubmenuAll = [{ href: '/invoices', label: 'Счета', section: 'invoices' }];
   const workSubmenu =
     user.roleCode === 'OWNER' || user.roleCode === 'CEO'
       ? workSubmenuAll
       : workSubmenuAll.filter((item) => accessibleSections.includes(item.href));
 
+  const workNavItem =
+    workSubmenu.length > 1
+      ? { href: '#work', label: 'Клиенты и документы', isDropdown: true, submenu: workSubmenu }
+      : workSubmenu.length === 1
+        ? { href: workSubmenu[0].href, label: 'Счета' }
+        : null;
+
   const baseNavItems = [
     { href: '/projects', label: 'Проекты' },
-    { href: '#work', label: 'Клиенты и документы', isDropdown: true, submenu: workSubmenu },
+    ...(workNavItem ? [workNavItem] : []),
     { href: '/incomes', label: 'Доходы' },
     { href: '/expenses', label: 'Расходы' },
     { href: '/payments', label: 'Оплаты' },
@@ -160,8 +188,7 @@ export default function Navigation() {
   ];
   const navItems = baseNavItems;
 
-  // Add Settings to nav items if there are visible settings items
-  if (visibleSettingsItems.length > 0) {
+  if (hasAnySettings) {
     navItems.push({ href: '#', label: 'Настройки' } as { href: string; label: string });
   }
 
@@ -218,45 +245,99 @@ export default function Navigation() {
                   );
                 }
                 if (item.label === 'Настройки') {
-                  // Settings menu item
+                  const isSettingsActive =
+                    visibleHandbookClients.some((i) => pathname === i.href) ||
+                    visibleHandbookFinance.some((i) => pathname === i.href) ||
+                    visibleHandbookEmployees.some((i) => pathname === i.href) ||
+                    visibleSettingsDirect.some((i) => pathname === i.href);
                   return (
                     <div key="settings" className="relative settings-menu">
                       <button
                         onClick={() => setSettingsOpen(!settingsOpen)}
                         className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                          visibleSettingsItems.some(item => pathname === item.href)
-                            ? 'border-blue-500 text-gray-900'
-                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                          isSettingsActive ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                         }`}
                       >
                         {item.label}
-                        <svg
-                          className={`ml-1 h-4 w-4 transition-transform ${settingsOpen ? 'rotate-180' : ''}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
+                        <svg className={`ml-1 h-4 w-4 transition-transform ${settingsOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
                       </button>
                       {settingsOpen && (
-                        <div className="absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
-                          <div className="py-1">
-                            {visibleSettingsItems.map((subItem) => (
-                              <Link
-                                key={subItem.href}
-                                href={subItem.href}
-                                onClick={() => setSettingsOpen(false)}
-                                className={`block px-4 py-2 text-sm ${
-                                  pathname === subItem.href
-                                    ? 'bg-blue-50 text-blue-900'
-                                    : 'text-gray-700 hover:bg-gray-100'
-                                }`}
-                              >
-                                {subItem.label}
-                              </Link>
-                            ))}
-                          </div>
+                        <div className="absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 py-1">
+                          {visibleHandbookClients.length > 0 && (
+                            <div
+                              className="relative group/hc"
+                              onMouseEnter={() => setSettingsSubmenuOpen('clients')}
+                              onMouseLeave={() => setSettingsSubmenuOpen(null)}
+                            >
+                              <div className="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-default">
+                                Справочник клиентов
+                                <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                              </div>
+                              {settingsSubmenuOpen === 'clients' && (
+                                <div className="absolute left-full top-0 ml-0 w-52 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 py-1">
+                                  {visibleHandbookClients.map((subItem) => (
+                                    <Link key={subItem.href} href={subItem.href} onClick={() => { setSettingsOpen(false); setSettingsSubmenuOpen(null); }} className={`block px-4 py-2 text-sm ${pathname === subItem.href ? 'bg-blue-50 text-blue-900' : 'text-gray-700 hover:bg-gray-100'}`}>
+                                      {subItem.label}
+                                    </Link>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {visibleHandbookFinance.length > 0 && (
+                            <div
+                              className="relative"
+                              onMouseEnter={() => setSettingsSubmenuOpen('finance')}
+                              onMouseLeave={() => setSettingsSubmenuOpen(null)}
+                            >
+                              <div className="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-default">
+                                Справочник финансов
+                                <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                              </div>
+                              {settingsSubmenuOpen === 'finance' && (
+                                <div className="absolute left-full top-0 ml-0 w-52 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 py-1">
+                                  {visibleHandbookFinance.map((subItem) => (
+                                    <Link key={subItem.href} href={subItem.href} onClick={() => { setSettingsOpen(false); setSettingsSubmenuOpen(null); }} className={`block px-4 py-2 text-sm ${pathname === subItem.href ? 'bg-blue-50 text-blue-900' : 'text-gray-700 hover:bg-gray-100'}`}>
+                                      {subItem.label}
+                                    </Link>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {visibleHandbookEmployees.length > 0 && (
+                            <div
+                              className="relative"
+                              onMouseEnter={() => setSettingsSubmenuOpen('employees')}
+                              onMouseLeave={() => setSettingsSubmenuOpen(null)}
+                            >
+                              <div className="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-default">
+                                Справочник сотрудников
+                                <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                              </div>
+                              {settingsSubmenuOpen === 'employees' && (
+                                <div className="absolute left-full top-0 ml-0 w-52 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 py-1">
+                                  {visibleHandbookEmployees.map((subItem) => (
+                                    <Link key={subItem.href} href={subItem.href} onClick={() => { setSettingsOpen(false); setSettingsSubmenuOpen(null); }} className={`block px-4 py-2 text-sm ${pathname === subItem.href ? 'bg-blue-50 text-blue-900' : 'text-gray-700 hover:bg-gray-100'}`}>
+                                      {subItem.label}
+                                    </Link>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {visibleSettingsDirect.map((subItem) => (
+                            <Link
+                              key={subItem.href}
+                              href={subItem.href}
+                              onClick={() => { setSettingsOpen(false); setSettingsSubmenuOpen(null); }}
+                              className={`block px-4 py-2 text-sm ${pathname === subItem.href ? 'bg-blue-50 text-blue-900' : 'text-gray-700 hover:bg-gray-100'}`}
+                            >
+                              {subItem.label}
+                            </Link>
+                          ))}
                         </div>
                       )}
                     </div>

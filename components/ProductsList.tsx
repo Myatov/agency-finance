@@ -466,7 +466,7 @@ export default function ProductsList() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Продукты</h1>
+          <h1 className="text-3xl font-bold">Статьи услуг</h1>
           {canManage && (
             <p className="text-sm text-gray-500 mt-1">Перетащите продукты для изменения порядка</p>
           )}
@@ -725,7 +725,7 @@ export default function ProductsList() {
         </div>
         {products.length === 0 && !loading && !error && (
           <div className="text-center py-8 text-gray-500">
-            Продукты не найдены
+            Статьи услуг не найдены
             <button onClick={fetchProducts} className="ml-4 text-blue-600 underline">Обновить</button>
           </div>
         )}
