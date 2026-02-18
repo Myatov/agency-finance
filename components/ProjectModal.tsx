@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import ClientContactsInProject from './ClientContactsInProject';
 
 interface Product {
   id: string;
@@ -122,6 +123,7 @@ interface ExistingSiteService {
   price: string | null;
   billingType: string;
   startDate: string | null;
+  siteId?: string;
 }
 
 interface EditProject {
@@ -207,9 +209,11 @@ export default function ProjectModal({
   const [departments, setDepartments] = useState<Department[]>([]);
   const [expenseItemResponsibles, setExpenseItemResponsibles] = useState<Record<string, string>>({});
   const [existingSiteServices, setExistingSiteServices] = useState<ExistingSiteService[]>([]);
+  const [clientServicesAll, setClientServicesAll] = useState<ExistingSiteService[]>([]);
   const [existingServicesLoading, setExistingServicesLoading] = useState(false);
   const [showExistingServices, setShowExistingServices] = useState(true);
   const [activeServiceId, setActiveServiceId] = useState<string | null | undefined>(undefined);
+  const [fetchedServiceForEdit, setFetchedServiceForEdit] = useState<{ expenseItems: Array<Record<string, unknown>> } | null>(null);
   const [expenseItemValues, setExpenseItemValues] = useState<Record<string, { valueType: string; value: number }>>({});
   const [agents, setAgents] = useState<AgentOption[]>([]);
 
@@ -250,10 +254,12 @@ export default function ProjectModal({
       fetchSites(formData.clientId);
       fetchClientDetail(formData.clientId);
       fetchContracts(formData.clientId);
+      fetchClientServices(formData.clientId);
     } else {
       setSites([]);
       setSelectedClient(null);
       setContracts([]);
+      setClientServicesAll([]);
       setShowRequisites(false);
     }
   }, [formData.clientId]);
@@ -264,8 +270,38 @@ export default function ProjectModal({
     } else {
       setExistingSiteServices([]);
     }
-    if (!project) setActiveServiceId(undefined);
+    if (!project && !formData.siteId) setActiveServiceId(undefined);
   }, [formData.siteId, project]);
+
+  useEffect(() => {
+    if (activeServiceId && typeof activeServiceId === 'string' && !project) {
+      setFetchedServiceForEdit(null);
+      fetch(`/api/services/${activeServiceId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          const svc = data?.service;
+          if (!svc) return;
+          setFormData((prev) => ({
+            ...prev,
+            siteId: svc.siteId || prev.siteId,
+            productId: svc.productId || prev.productId,
+            status: svc.status || 'ACTIVE',
+            startDate: svc.startDate ? new Date(svc.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+            billingType: svc.billingType || 'MONTHLY',
+            prepaymentType: svc.prepaymentType || 'POSTPAY',
+            price: svc.price ? (Number(svc.price) / 100).toString() : '',
+            autoRenew: Boolean(svc.autoRenew),
+            isFromPartner: Boolean(svc.isFromPartner),
+            comment: svc.comment || '',
+            soldByUserId: svc.site?.client?.sellerEmployeeId || svc.site?.client?.accountManagerId || prev.soldByUserId,
+          }));
+          setFetchedServiceForEdit(svc.expenseItems?.length ? { expenseItems: svc.expenseItems } : null);
+        })
+        .catch(() => setFetchedServiceForEdit(null));
+    } else {
+      setFetchedServiceForEdit(null);
+    }
+  }, [activeServiceId, project]);
 
   useEffect(() => {
     if (project) {
@@ -383,6 +419,24 @@ export default function ProjectModal({
       if (!project && svcs.length === 0) setActiveServiceId(null);
     } catch { /* ignore */ }
     finally { setExistingServicesLoading(false); }
+  };
+
+  const fetchClientServices = async (clientId: string) => {
+    try {
+      const res = await fetch(`/api/services?clientId=${clientId}`);
+      const data = await res.json();
+      const svcs = (data.services || []).map((s: any) => ({
+        id: s.id,
+        productId: s.productId,
+        product: s.product,
+        status: s.status,
+        price: s.price,
+        billingType: s.billingType,
+        startDate: s.startDate || null,
+        siteId: s.site?.id || s.siteId,
+      }));
+      setClientServicesAll(svcs);
+    } catch { setClientServicesAll([]); }
   };
 
   const fetchClientDetail = async (clientId: string) => {
@@ -518,14 +572,16 @@ export default function ProjectModal({
   const selectedProduct = products.find((p) => p.id === formData.productId);
 
   useEffect(() => {
-    if (project?.expenseItems?.length) {
+    const expenseSource = project?.expenseItems ?? fetchedServiceForEdit?.expenseItems;
+    if (expenseSource?.length) {
       const vals: Record<string, { valueType: string; value: number }> = {};
       const resps: Record<string, string> = {};
-      for (const ei of project.expenseItems) {
-        const templateId = ei.expenseItemTemplateId ?? ei.template?.id;
+      for (const ei of expenseSource) {
+        const e = ei as { expenseItemTemplateId?: string | null; template?: { id: string } | null; valueType?: string; value?: number; responsibleUserId?: string | null };
+        const templateId = e.expenseItemTemplateId ?? e.template?.id;
         if (templateId) {
-          vals[templateId] = { valueType: ei.valueType || 'PERCENT', value: ei.value ?? 0 };
-          if (ei.responsibleUserId) resps[templateId] = ei.responsibleUserId;
+          vals[templateId] = { valueType: e.valueType || 'PERCENT', value: e.value ?? 0 };
+          if (e.responsibleUserId) resps[templateId] = e.responsibleUserId;
         }
       }
       setExpenseItemValues(vals);
@@ -545,7 +601,7 @@ export default function ProjectModal({
       setExpenseItemValues({});
       setExpenseItemResponsibles({});
     }
-  }, [selectedProduct, project]);
+  }, [selectedProduct, project, fetchedServiceForEdit]);
 
   const getCommission = (role: string) => {
     if (!selectedProduct) return null;
@@ -751,11 +807,11 @@ export default function ProjectModal({
       }
 
       if (serviceIdToUpdate) {
+        if (formData.clientId) fetchClientServices(formData.clientId);
         onSuccess();
       } else {
-        if (formData.siteId) {
-          fetchSiteServices(formData.siteId);
-        }
+        if (formData.clientId) fetchClientServices(formData.clientId);
+        if (formData.siteId) fetchSiteServices(formData.siteId);
         setActiveServiceId(null);
         setFormData((prev) => ({
           ...prev,
@@ -1017,7 +1073,7 @@ export default function ProjectModal({
 
               <div className="flex items-center gap-2 text-sm">
                 <span className="font-medium text-blue-700">Аккаунт-менеджер:</span>
-                {(user?.roleCode === 'OWNER' || user?.roleCode === 'CEO') ? (
+                {(user?.roleCode === 'OWNER' || user?.roleCode === 'CEO' || user?.roleCode === 'FINANCE' || user?.roleCode === 'ACCOUNT_MANAGER') ? (
                   <select
                     value={selectedClient.accountManagerId || ''}
                     onChange={async (e) => {
@@ -1047,21 +1103,8 @@ export default function ProjectModal({
                 )}
               </div>
 
-              {selectedClient.clientContacts && selectedClient.clientContacts.length > 0 && (
-                <div className="text-sm">
-                  <span className="font-medium text-gray-700">Контакты:</span>
-                  <div className="mt-1 space-y-1">
-                    {selectedClient.clientContacts.map((cc) => (
-                      <div key={cc.id} className="flex items-center gap-2 text-gray-600 text-xs">
-                        <span className="font-medium">{cc.contact.name}</span>
-                        {cc.contact.phone && <span>{cc.contact.phone}</span>}
-                        {cc.contact.email && <span>{cc.contact.email}</span>}
-                        {cc.isPrimary && <span className="text-blue-600">(основной)</span>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Контакты клиента — добавление существующих, создание новых */}
+              <ClientContactsInProject client={selectedClient} onUpdate={() => fetchClientDetail(selectedClient.id)} />
 
               {/* Requisites editing section (collapsible) */}
               {showRequisites && (
@@ -1230,155 +1273,102 @@ export default function ProjectModal({
             </div>
           )}
 
-          {/* Site Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Сайт *
-            </label>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                {formData.clientId ? (
-                  <>
-                    <input
-                      type="text"
-                      value={siteSearch}
-                      onChange={(e) => setSiteSearch(e.target.value)}
-                      placeholder="Поиск сайта..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-1"
-                    />
-                    <select
-                      value={formData.siteId}
-                      onChange={(e) => setFormData({ ...formData, siteId: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      size={Math.min(filteredSites.length + 1, 5)}
-                    >
-                      <option value="">Выберите сайт</option>
-                      {filteredSites.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.title} {s.websiteUrl ? `(${s.websiteUrl})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </>
+          {/* Все сайты клиента и их услуги */}
+          {formData.clientId && (
+            <div className="border border-gray-200 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Сайты и услуги</h3>
+              <input
+                type="text"
+                value={siteSearch}
+                onChange={(e) => setSiteSearch(e.target.value)}
+                placeholder="Поиск сайта..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3"
+              />
+              <div className="space-y-4">
+                {filteredSites.length === 0 ? (
+                  <p className="text-sm text-gray-500">Нет сайтов</p>
                 ) : (
-                  <p className="text-sm text-gray-500 py-2">Сначала выберите клиента</p>
+                  filteredSites.map((site) => {
+                    const servicesForSite = clientServicesAll.filter((s) => (s.siteId || (s as any).siteId) === site.id);
+                    return (
+                      <div key={site.id} className="border border-gray-100 rounded p-3 bg-gray-50">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium text-gray-800">{site.title}</span>
+                          {site.websiteUrl && <span className="text-xs text-gray-500">{site.websiteUrl}</span>}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, siteId: site.id });
+                              setActiveServiceId(null);
+                            }}
+                            className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+                          >
+                            + Услуга
+                          </button>
+                        </div>
+                        <div className="space-y-1.5">
+                          {servicesForSite.length === 0 ? (
+                            <p className="text-xs text-gray-500">Нет услуг</p>
+                          ) : (
+                            servicesForSite.map((svc) => (
+                              <div key={svc.id} className="flex items-center justify-between py-1.5 px-2 bg-white rounded border border-gray-100 text-sm">
+                                <span className="font-medium">{svc.product.name}</span>
+                                <span className="text-xs text-gray-500">
+                                  {svc.price ? `${(Number(svc.price) / 100).toLocaleString('ru-RU')} руб.` : '—'}
+                                </span>
+                                <span className={`px-1.5 py-0.5 rounded text-xs ${
+                                  svc.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                                  svc.status === 'PAUSED' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100'
+                                }`}>
+                                  {svc.status === 'ACTIVE' ? 'Активна' : svc.status === 'PAUSED' ? 'Приостановлена' : 'Завершена'}
+                                </span>
+                                <div className="flex gap-1">
+                                  {activeServiceId !== svc.id && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveServiceId(svc.id);
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          siteId: site.id,
+                                          productId: svc.productId,
+                                          price: svc.price ? (Number(svc.price) / 100).toString() : '',
+                                          status: svc.status,
+                                          billingType: svc.billingType,
+                                        }));
+                                      }}
+                                      className="px-2 py-0.5 text-blue-700 bg-blue-50 rounded text-xs hover:bg-blue-100"
+                                    >
+                                      Редактировать
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (!confirm(`Удалить услугу «${svc.product.name}»?`)) return;
+                                      try {
+                                        const res = await fetch(`/api/services/${svc.id}`, { method: 'DELETE' });
+                                        if (res.ok) fetchClientServices(formData.clientId);
+                                        else setError((await res.json()).error || 'Ошибка');
+                                      } catch { setError('Ошибка удаления'); }
+                                    }}
+                                    className="px-2 py-0.5 text-red-700 bg-red-50 rounded text-xs hover:bg-red-100"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
-              {formData.clientId && (
-                <button
-                  type="button"
-                  onClick={() => setStep('newSite')}
-                  className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm whitespace-nowrap h-fit"
-                >
-                  + Новый
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Existing services for this site — всегда открыт */}
-          {formData.siteId && (
-            <div className="border border-gray-200 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                Существующие услуги
-                {existingSiteServices.length > 0 && (
-                  <span className="text-gray-400 font-normal ml-1">({existingSiteServices.length})</span>
-                )}
-              </h3>
-              <div className="space-y-2">
-              {existingServicesLoading ? (
-                <p className="text-sm text-gray-500">Загрузка...</p>
-              ) : existingSiteServices.length > 0 ? (
-                existingSiteServices.map((svc) => (
-                  <div key={svc.id} className="flex items-center justify-between bg-gray-50 rounded p-2.5 text-sm border border-gray-100">
-                    <div className="flex-1 min-w-0 flex items-center gap-3">
-                      <span className="font-medium text-gray-700">{svc.product.name}</span>
-                            <span className="text-xs text-gray-500">
-                              {svc.price ? `${(Number(svc.price) / 100).toLocaleString('ru-RU')} руб.` : '—'}
-                            </span>
-                            {svc.startDate && (
-                              <span className="text-xs text-gray-400">
-                                с {new Date(svc.startDate).toLocaleDateString('ru-RU')}
-                              </span>
-                            )}
-                            <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                              svc.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-                              svc.status === 'PAUSED' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {svc.status === 'ACTIVE' ? 'Активна' : svc.status === 'PAUSED' ? 'Приостановлена' : 'Завершена'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 ml-2">
-                            {(activeServiceId !== svc.id) && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActiveServiceId(svc.id);
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    productId: svc.productId,
-                                    price: svc.price ? (Number(svc.price) / 100).toString() : '',
-                                    status: svc.status,
-                                    billingType: svc.billingType,
-                                  }));
-                                }}
-                                className="px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 whitespace-nowrap"
-                              >
-                                Редактировать
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                if (!confirm(`Удалить услугу «${svc.product.name}»?`)) return;
-                                try {
-                                  const res = await fetch(`/api/services/${svc.id}`, { method: 'DELETE' });
-                                  if (res.ok) {
-                                    fetchSiteServices(formData.siteId);
-                                  } else {
-                                    const d = await res.json();
-                                    setError(d.error || 'Ошибка удаления услуги');
-                                  }
-                                } catch {
-                                  setError('Ошибка удаления услуги');
-                                }
-                              }}
-                              className="px-2.5 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 whitespace-nowrap"
-                              title="Удалить услугу"
-                            >
-                              Удалить
-                            </button>
-                          </div>
-                        </div>
-                      ))
-              ) : (
-                <p className="text-sm text-gray-400">Нет услуг для этого сайта</p>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveServiceId(null);
-                  setFormData((prev) => ({
-                    ...prev,
-                    productId: '',
-                    price: '',
-                    status: 'ACTIVE',
-                    billingType: 'MONTHLY',
-                    prepaymentType: 'POSTPAY',
-                    autoRenew: false,
-                    isFromPartner: false,
-                    comment: '',
-                    soldByUserId: user?.id || '',
-                  }));
-                  setExpenseItemResponsibles({});
-                  setExpenseItemValues({});
-                }}
-                className="mt-3 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
-              >
-                + Добавить ещё услугу
+              <button type="button" onClick={() => setStep('newSite')} className="mt-3 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700">
+                + Новый сайт
               </button>
-            </div>
             </div>
           )}
 
@@ -1659,13 +1649,22 @@ export default function ProjectModal({
             >
               Отмена
             </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-            >
-              {loading ? 'Сохранение...' : 'Сохранить'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveServiceId(undefined)}
+                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Отмена
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                {loading ? 'Сохранение...' : 'Сохранить'}
+              </button>
+            </div>
           </div>
           </div>
           )}

@@ -15,11 +15,15 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const siteId = searchParams.get('siteId');
+    const clientId = searchParams.get('clientId');
     const status = searchParams.get('status') as ServiceStatus | null;
 
     const where: any = {};
     if (siteId) {
       where.siteId = siteId;
+    }
+    if (clientId) {
+      where.site = { ...where.site, clientId };
     }
     if (status) {
       where.status = status;

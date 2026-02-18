@@ -1,26 +1,21 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const user = await getSession();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const clientId = request.nextUrl.searchParams.get('clientId');
     let where: any = {};
-
-    // ACCOUNT_MANAGER sees only their sites
+    if (clientId) where.clientId = clientId;
     if (user.roleCode === 'ACCOUNT_MANAGER') {
-      where = {
-        OR: [
-          { accountManagerId: user.id },
-          { creatorId: user.id },
-        ],
-      };
+      where = { ...where, OR: [{ accountManagerId: user.id }, { creatorId: user.id }] };
     }
     // Seller sees only sites of their clients
     // For MVP, we'll get all sites and filter on frontend if needed

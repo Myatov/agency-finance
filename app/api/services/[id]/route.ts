@@ -62,6 +62,7 @@ export async function GET(
           },
           take: 10,
         },
+        expenseItems: { include: { template: true } },
       },
     });
 
