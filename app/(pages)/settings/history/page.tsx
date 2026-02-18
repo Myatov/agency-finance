@@ -1,9 +1,18 @@
+import { redirect } from 'next/navigation';
+import { getSession } from '@/lib/auth';
+import Layout from '@/components/Layout';
 import HistoryLog from '@/components/HistoryLog';
 
-export default function HistoryPage() {
+export default async function HistoryPage() {
+  const user = await getSession();
+
+  if (!user) {
+    redirect('/login');
+  }
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <Layout>
       <HistoryLog />
-    </div>
+    </Layout>
   );
 }

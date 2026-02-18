@@ -13,8 +13,8 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const dateFrom = searchParams.get('dateFrom') || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const dateTo = searchParams.get('dateTo') || new Date().toISOString().split('T')[0];
+    const dateFrom = searchParams.get('dateFrom') || '';
+    const dateTo = searchParams.get('dateTo') || '';
     const category = searchParams.get('category');
     const costItemId = searchParams.get('costItemId');
     const departmentId = searchParams.get('departmentId');
@@ -24,12 +24,12 @@ export async function GET(request: NextRequest) {
     const clientId = searchParams.get('clientId');
     const legalEntityId = searchParams.get('legalEntityId');
 
-    let where: any = {
-      paymentAt: {
-        gte: new Date(dateFrom),
-        lte: new Date(dateTo + 'T23:59:59'),
-      },
-    };
+    let where: any = {};
+    if (dateFrom || dateTo) {
+      where.paymentAt = {};
+      if (dateFrom) where.paymentAt.gte = new Date(dateFrom);
+      if (dateTo) where.paymentAt.lte = new Date(dateTo + 'T23:59:59');
+    }
 
     const viewAll = await hasViewAllPermission(user, 'expenses');
     if (!viewAll) {

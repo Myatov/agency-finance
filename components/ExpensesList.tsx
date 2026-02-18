@@ -125,7 +125,7 @@ export default function ExpensesList() {
   const [sortBy, setSortBy] = useState('paymentAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filters, setFilters] = useState({
-    dateFrom: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    dateFrom: '',
     dateTo: new Date().toISOString().split('T')[0],
     category: '',
     costItemId: '',
@@ -694,7 +694,7 @@ export default function ExpensesList() {
             <button
               onClick={() => {
                 setFilters({
-                  dateFrom: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                  dateFrom: '',
                   dateTo: new Date().toISOString().split('T')[0],
                   category: '',
                   costItemId: '',
