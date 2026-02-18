@@ -15,7 +15,9 @@ export async function GET() {
       where: {
         isActive: true,
       },
-      include: {
+      select: {
+        id: true,
+        fullName: true,
         department: {
           select: {
             id: true,

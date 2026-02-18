@@ -1542,7 +1542,7 @@ export default function ProjectModal({
                   const calculated = currentVals.valueType === 'PERCENT'
                     ? (priceVal * currentVals.value / 100).toFixed(0)
                     : currentVals.value.toFixed(0);
-                  const deptId = item.template.departmentId;
+                  const deptId = item.template?.departmentId ?? null;
                   const deptEmployees = deptId
                     ? allEmployees.filter((e) => e.departmentId === deptId)
                     : allEmployees;

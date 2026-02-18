@@ -12,7 +12,11 @@ export async function GET() {
     }
 
     const viewAll = await hasViewAllPermission(user, 'employees');
-    const where = viewAll ? {} : { id: user.id };
+    let where: { id?: string; departmentId?: string } = viewAll ? {} : { id: user.id };
+    // HEAD видит только сотрудников своего отдела (как в блоке Команда)
+    if (viewAll && user.roleCode === 'HEAD' && user.departmentId) {
+      where = { departmentId: user.departmentId };
+    }
 
     const employees = await prisma.user.findMany({
       where,
