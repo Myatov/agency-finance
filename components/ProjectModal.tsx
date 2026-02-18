@@ -815,7 +815,11 @@ export default function ProjectModal({
           });
       }
 
-      const serviceIdToUpdate = activeServiceId || (project?.id ?? null);
+      // activeServiceId === null → создание новой услуги (POST)
+      // activeServiceId === "some-id" → редактирование (PUT)
+      // activeServiceId === undefined → форма скрыта
+      const isNewService = activeServiceId === null;
+      const serviceIdToUpdate = isNewService ? null : (activeServiceId || null);
       const url = serviceIdToUpdate ? `/api/services/${serviceIdToUpdate}` : '/api/services';
       const method = serviceIdToUpdate ? 'PUT' : 'POST';
 
