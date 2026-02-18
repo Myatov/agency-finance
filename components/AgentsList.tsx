@@ -45,6 +45,7 @@ export default function AgentsList() {
 
   const canCreate = !!(user?.permissions?.agents?.create || user?.permissions?.agents?.manage);
   const canEdit = !!(user?.permissions?.agents?.edit || user?.permissions?.agents?.manage);
+  const canDelete = !!(user?.permissions?.agents?.delete || user?.permissions?.agents?.manage);
 
   const fetchAgents = useCallback(async () => {
     setLoading(true);
@@ -73,6 +74,21 @@ export default function AgentsList() {
   const handleEdit = (agent: Agent) => {
     setEditingAgent(agent);
     setShowModal(true);
+  };
+
+  const handleDelete = async (agent: AgentWithCount) => {
+    if (!confirm(`Удалить агента «${agent.name}»?`)) return;
+    try {
+      const res = await fetch(`/api/agents/${agent.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchAgents();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Ошибка удаления');
+      }
+    } catch {
+      alert('Ошибка соединения');
+    }
   };
 
   return (
@@ -110,7 +126,7 @@ export default function AgentsList() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Источник</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Клиентов приведено</th>
-                {canEdit && (
+                {(canEdit || canDelete) && (
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
                 )}
               </tr>
@@ -133,11 +149,18 @@ export default function AgentsList() {
                   <td className="px-6 py-4 text-sm text-gray-500">{a.source ? SOURCE_LABELS[a.source] || a.source : '—'}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{a.status ? STATUS_LABELS[a.status] || a.status : '—'}</td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{a._count?.clients ?? 0}</td>
-                  {canEdit && (
+                  {(canEdit || canDelete) && (
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button onClick={() => handleEdit(a)} className="text-blue-600 hover:text-blue-900">
-                        Редактировать
-                      </button>
+                      {canEdit && (
+                        <button onClick={() => handleEdit(a)} className="text-blue-600 hover:text-blue-900 mr-3">
+                          Изменить
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button onClick={() => handleDelete(a)} className="text-red-600 hover:text-red-900">
+                          Удалить
+                        </button>
+                      )}
                     </td>
                   )}
                 </tr>

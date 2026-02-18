@@ -93,6 +93,7 @@ model User {
   fixedSalaryHistory  UserFixedSalaryHistory[]
   motivations         UserMotivation[]
   responsibleExpenseItems ServiceExpenseItem[] @relation("ExpenseItemResponsible")
+  auditLogs              AuditLog[]           @relation("AuditLogUser")
 
   @@index([departmentId])
   @@index([roleId])
@@ -365,6 +366,7 @@ model Service {
   closeoutPackages  CloseoutPackage[]
   workPeriods      WorkPeriod[]
   expenseItems     ServiceExpenseItem[]
+  auditLogs        AuditLog[]           @relation("AuditLogService")
 
   @@index([siteId])
   @@index([productId])
@@ -908,6 +910,27 @@ model UserMotivation {
 
   @@index([userId])
   @@index([periodFrom, periodTo])
+}
+
+// ——— Лог изменений (история) ———
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?  // Кто внёс изменение
+  action      String   // CREATE, UPDATE, DELETE
+  entityType  String   // SERVICE_EXPENSE, WORK_PERIOD, SERVICE, etc.
+  entityId    String?  // ID изменённой сущности
+  serviceId   String?  // ID услуги (проекта)
+  description String   // Описание изменения
+  oldValue    String?  // Старое значение (JSON)
+  newValue    String?  // Новое значение (JSON)
+  createdAt   DateTime @default(now())
+  user        User?    @relation("AuditLogUser", fields: [userId], references: [id])
+  service     Service? @relation("AuditLogService", fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([entityType])
+  @@index([serviceId])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 // ——— График выплат по отделам (зарплата раз в 2 недели) ———

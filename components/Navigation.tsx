@@ -129,6 +129,7 @@ export default function Navigation() {
     { href: '/agents', label: 'Агенты / Партнёры', section: 'agents' },
     { href: '/roles', label: 'Роли', section: 'roles' },
     { href: '/legal-entities', label: 'Юрлица', section: 'legal-entities' },
+    { href: '/settings/history', label: 'История изменений' },
   ];
 
   const visibleSettingsItems =

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { canAccessServiceForPeriods } from '@/lib/permissions';
+import { logAudit } from '@/lib/audit';
 
 export async function POST(request: NextRequest) {
   try {
@@ -79,6 +80,17 @@ export async function POST(request: NextRequest) {
         updatedPeriods.push(shifted);
       }
     }
+
+    await logAudit({
+      userId: user.id,
+      action: 'UPDATE',
+      entityType: 'WORK_PERIOD',
+      entityId: periodId,
+      serviceId,
+      description: `Период изменён: ${period.dateTo.toISOString().split('T')[0]} → ${parsedNewDateTo.toISOString().split('T')[0]}${cascadeFollowing ? ` (каскадный сдвиг ${updatedPeriods.length - 1} периодов)` : ''}`,
+      oldValue: { dateTo: period.dateTo.toISOString() },
+      newValue: { dateTo: parsedNewDateTo.toISOString() },
+    });
 
     const out = JSON.parse(
       JSON.stringify(updatedPeriods, (_, v) => (typeof v === 'bigint' ? v.toString() : v))

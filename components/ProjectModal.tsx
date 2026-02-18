@@ -34,6 +34,11 @@ interface Product {
   }>;
 }
 
+interface Department {
+  id: string;
+  name: string;
+}
+
 interface DepartmentEmployee {
   id: string;
   fullName: string;
@@ -89,6 +94,15 @@ interface ContractDoc {
   type: string;
   status: string;
   comment: string | null;
+}
+
+interface ExistingSiteService {
+  id: string;
+  productId: string;
+  product: { id: string; name: string };
+  status: string;
+  price: string | null;
+  billingType: string;
 }
 
 interface EditProject {
@@ -168,7 +182,12 @@ export default function ProjectModal({
   const [uploadingContract, setUploadingContract] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [allEmployees, setAllEmployees] = useState<DepartmentEmployee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [expenseItemResponsibles, setExpenseItemResponsibles] = useState<Record<string, string>>({});
+  const [existingSiteServices, setExistingSiteServices] = useState<ExistingSiteService[]>([]);
+  const [existingServicesLoading, setExistingServicesLoading] = useState(false);
+  const [showExistingServices, setShowExistingServices] = useState(false);
+  const [expenseItemValues, setExpenseItemValues] = useState<Record<string, { valueType: string; value: number }>>({});
 
   const [formData, setFormData] = useState({
     clientId: '',
@@ -182,6 +201,7 @@ export default function ProjectModal({
     autoRenew: false,
     isFromPartner: false,
     comment: '',
+    soldByUserId: '',
   });
 
   const [newClientName, setNewClientName] = useState('');
@@ -192,6 +212,7 @@ export default function ProjectModal({
     fetchClients();
     fetchProducts();
     fetchAllEmployees();
+    fetchDepartments();
   }, []);
 
   useEffect(() => {
@@ -208,6 +229,14 @@ export default function ProjectModal({
   }, [formData.clientId]);
 
   useEffect(() => {
+    if (formData.siteId) {
+      fetchSiteServices(formData.siteId);
+    } else {
+      setExistingSiteServices([]);
+    }
+  }, [formData.siteId]);
+
+  useEffect(() => {
     if (project) {
       setFormData({
         clientId: project.site.clientId,
@@ -221,6 +250,7 @@ export default function ProjectModal({
         autoRenew: project.autoRenew,
         isFromPartner: project.isFromPartner,
         comment: project.comment || '',
+        soldByUserId: project.site.client.sellerEmployeeId || project.site.client.accountManagerId || '',
       });
     }
   }, [project]);
@@ -259,6 +289,31 @@ export default function ProjectModal({
         departmentId: e.departmentId || null,
       })));
     } catch { /* ignore */ }
+  };
+
+  const fetchDepartments = async () => {
+    try {
+      const res = await fetch('/api/departments');
+      const data = await res.json();
+      setDepartments((data.departments || []).map((d: any) => ({ id: d.id, name: d.name })));
+    } catch { /* ignore */ }
+  };
+
+  const fetchSiteServices = async (siteId: string) => {
+    setExistingServicesLoading(true);
+    try {
+      const res = await fetch(`/api/services?siteId=${siteId}`);
+      const data = await res.json();
+      setExistingSiteServices((data.services || []).map((s: any) => ({
+        id: s.id,
+        productId: s.productId,
+        product: s.product,
+        status: s.status,
+        price: s.price,
+        billingType: s.billingType,
+      })));
+    } catch { /* ignore */ }
+    finally { setExistingServicesLoading(false); }
   };
 
   const fetchClientDetail = async (clientId: string) => {
@@ -393,6 +448,23 @@ export default function ProjectModal({
 
   const selectedProduct = products.find((p) => p.id === formData.productId);
 
+  useEffect(() => {
+    if (selectedProduct) {
+      setExpenseItemValues((prev) => {
+        const next: Record<string, { valueType: string; value: number }> = {};
+        for (const item of selectedProduct.expenseItems) {
+          next[item.expenseItemTemplateId] = prev[item.expenseItemTemplateId] || {
+            valueType: item.valueType,
+            value: item.defaultValue,
+          };
+        }
+        return next;
+      });
+    } else {
+      setExpenseItemValues({});
+    }
+  }, [selectedProduct]);
+
   const getCommission = (role: string) => {
     if (!selectedProduct) return null;
     const comm = selectedProduct.commissions.find((c) => c.role === role);
@@ -420,6 +492,30 @@ export default function ProjectModal({
   };
 
   const amFee = getAMFee();
+
+  const soldByEmployee = allEmployees.find((e) => e.id === formData.soldByUserId) || null;
+  const soldByDepartment = soldByEmployee && soldByEmployee.departmentId
+    ? departments.find((d) => d.id === soldByEmployee.departmentId) || null
+    : null;
+  const isSalesDept = soldByDepartment ? soldByDepartment.name.toLowerCase().includes('продаж') : false;
+  const isAMDept = soldByDepartment ? soldByDepartment.name.toLowerCase().includes('аккаунтинг') || soldByDepartment.name.toLowerCase().includes('аккаунт') : false;
+  const soldByCommissionPercent = isSalesDept ? sellerPercent : isAMDept ? amPercent : null;
+  const soldByCommissionRole = isSalesDept ? 'SELLER' : isAMDept ? 'ACCOUNT_MANAGER' : null;
+
+  const expensesTotal = selectedProduct
+    ? selectedProduct.expenseItems.reduce((sum, item) => {
+        const priceVal = formData.price ? parseFloat(formData.price) : 0;
+        if (item.valueType === 'PERCENT') {
+          return sum + (priceVal * item.defaultValue / 100);
+        }
+        return sum + (item.defaultValue / 100);
+      }, 0)
+    : 0;
+
+  const commissionBase = formData.price ? parseFloat(formData.price) - expensesTotal : 0;
+  const soldByCommissionAmount = soldByCommissionPercent != null && commissionBase > 0
+    ? (commissionBase * soldByCommissionPercent / 100)
+    : null;
 
   const handleCreateClient = async () => {
     if (!newClientName.trim()) {
@@ -506,20 +602,31 @@ export default function ProjectModal({
         autoRenew: formData.autoRenew,
         isFromPartner: formData.isFromPartner,
         comment: formData.comment || null,
+        soldByUserId: formData.soldByUserId || null,
       };
 
-      if (sellerPercent != null) payload.sellerCommissionPercent = sellerPercent;
-      if (amPercent != null) payload.accountManagerCommissionPercent = amPercent;
+      if (soldByCommissionRole === 'SELLER' && soldByCommissionPercent != null) {
+        payload.sellerCommissionPercent = soldByCommissionPercent;
+      }
+      if (soldByCommissionRole === 'ACCOUNT_MANAGER' && soldByCommissionPercent != null) {
+        payload.accountManagerCommissionPercent = soldByCommissionPercent;
+      }
       if (amFee != null) payload.accountManagerFeeAmount = Math.round(amFee * 100);
 
       if (selectedProduct && selectedProduct.expenseItems.length > 0) {
-        payload.expenseItems = selectedProduct.expenseItems.map((item) => ({
-          expenseItemTemplateId: item.expenseItemTemplateId,
-          name: item.template.name,
-          valueType: item.valueType,
-          value: item.defaultValue,
-          responsibleUserId: expenseItemResponsibles[item.expenseItemTemplateId] || null,
-        }));
+        payload.expenseItems = selectedProduct.expenseItems.map((item) => {
+          const vals = expenseItemValues[item.expenseItemTemplateId] || {
+            valueType: item.valueType,
+            value: item.defaultValue,
+          };
+          return {
+            expenseItemTemplateId: item.expenseItemTemplateId,
+            name: item.template.name,
+            valueType: vals.valueType,
+            value: vals.value,
+            responsibleUserId: expenseItemResponsibles[item.expenseItemTemplateId] || null,
+          };
+        });
       }
 
       const url = project ? `/api/services/${project.id}` : '/api/services';
@@ -808,11 +915,28 @@ export default function ProjectModal({
                               </a>
                               {c.docNumber && <span className="text-gray-400 text-xs">№{c.docNumber}</span>}
                             </div>
-                            {c.uploadedAt && (
-                              <span className="text-xs text-gray-400 ml-2 whitespace-nowrap">
-                                {new Date(c.uploadedAt).toLocaleDateString('ru-RU')}
-                              </span>
-                            )}
+                            <div className="flex items-center gap-2 ml-2">
+                              {c.uploadedAt && (
+                                <span className="text-xs text-gray-400 whitespace-nowrap">
+                                  {new Date(c.uploadedAt).toLocaleDateString('ru-RU')}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!confirm('Удалить документ?')) return;
+                                  try {
+                                    const res = await fetch(`/api/contracts/${c.id}`, { method: 'DELETE' });
+                                    if (res.ok) fetchContracts(formData.clientId);
+                                    else { const d = await res.json(); setError(d.error || 'Ошибка удаления'); }
+                                  } catch { setError('Ошибка удаления'); }
+                                }}
+                                className="text-red-400 hover:text-red-600 text-xs"
+                                title="Удалить"
+                              >
+                                ✕
+                              </button>
+                            </div>
                           </li>
                         ))}
                       </ul>
@@ -886,6 +1010,94 @@ export default function ProjectModal({
               )}
             </div>
           </div>
+
+          {/* Existing services for this site */}
+          {formData.siteId && (
+            <div className="border border-gray-200 rounded-lg p-4">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-sm font-semibold text-gray-700">
+                  Существующие услуги
+                  {existingSiteServices.length > 0 && (
+                    <span className="text-gray-400 font-normal ml-1">({existingSiteServices.length})</span>
+                  )}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowExistingServices(!showExistingServices)}
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  {showExistingServices ? 'Скрыть' : 'Показать'}
+                </button>
+              </div>
+              {showExistingServices && (
+                <>
+                  {existingServicesLoading ? (
+                    <p className="text-sm text-gray-500">Загрузка...</p>
+                  ) : existingSiteServices.length > 0 ? (
+                    <div className="space-y-2">
+                      {existingSiteServices.map((svc) => (
+                        <div key={svc.id} className="flex items-center justify-between bg-gray-50 rounded p-2 text-sm">
+                          <div>
+                            <span className="font-medium text-gray-700">{svc.product.name}</span>
+                            <span className="ml-2 text-xs text-gray-500">
+                              {svc.price ? `${(Number(svc.price) / 100).toLocaleString('ru-RU')} руб.` : '—'}
+                            </span>
+                            <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                              svc.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                              svc.status === 'PAUSED' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {svc.status === 'ACTIVE' ? 'Активна' : svc.status === 'PAUSED' ? 'Приостановлена' : 'Завершена'}
+                            </span>
+                          </div>
+                          {(!project || project.id !== svc.id) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  productId: svc.productId,
+                                  price: svc.price ? (Number(svc.price) / 100).toString() : '',
+                                  status: svc.status,
+                                  billingType: svc.billingType,
+                                }));
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-800 ml-2 whitespace-nowrap"
+                            >
+                              Редактировать
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400">Нет услуг для этого сайта</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        productId: '',
+                        price: '',
+                        status: 'ACTIVE',
+                        billingType: 'MONTHLY',
+                        prepaymentType: 'POSTPAY',
+                        autoRenew: false,
+                        isFromPartner: false,
+                        comment: '',
+                        soldByUserId: '',
+                      }));
+                      setExpenseItemResponsibles({});
+                    }}
+                    className="mt-3 px-3 py-1.5 border border-green-300 text-green-700 rounded-md hover:bg-green-50 text-sm"
+                  >
+                    + Добавить ещё услугу
+                  </button>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Product Selection */}
           <div>
@@ -993,42 +1205,59 @@ export default function ProjectModal({
             </label>
           </div>
 
-          {/* Commissions (auto-calculated, read-only for non-owners) */}
+          {/* Кто сделал продажу */}
           {selectedProduct && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-blue-800 mb-3">Комиссии (рассчитываются автоматически)</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-600">Продавец:</span>{' '}
-                  <span className="font-medium">
-                    {sellerPercent != null ? `${sellerPercent}%` : '—'}
-                    {formData.isFromPartner && ' (партнёр)'}
-                  </span>
-                  {sellerPercent != null && formData.price && (
-                    <span className="text-xs text-gray-500 ml-1">
-                      ≈ {((parseFloat(formData.price) * sellerPercent) / 100).toFixed(0)} руб.
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-gray-600">Аккаунт-менеджер:</span>{' '}
-                  <span className="font-medium">
-                    {amPercent != null ? `${amPercent}%` : '—'}
-                    {formData.isFromPartner && ' (партнёр)'}
-                  </span>
-                  {amPercent != null && formData.price && (
-                    <span className="text-xs text-gray-500 ml-1">
-                      ≈ {((parseFloat(formData.price) * amPercent) / 100).toFixed(0)} руб.
-                    </span>
-                  )}
-                </div>
-                {amFee != null && (
-                  <div className="col-span-2">
-                    <span className="text-gray-600">Ведение АМ:</span>{' '}
-                    <span className="font-medium">{amFee.toLocaleString('ru-RU')} руб.</span>
+              <h3 className="text-sm font-semibold text-blue-800 mb-3">Кто сделал продажу</h3>
+              <select
+                value={formData.soldByUserId}
+                onChange={(e) => setFormData({ ...formData, soldByUserId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3"
+              >
+                <option value="">Выберите сотрудника</option>
+                {allEmployees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+                ))}
+              </select>
+              {soldByEmployee && (
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600">Отдел:</span>
+                    {soldByDepartment ? (
+                      <span className={`font-medium px-2 py-0.5 rounded text-xs ${
+                        isSalesDept ? 'bg-green-100 text-green-800' :
+                        isAMDept ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {soldByDepartment.name}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">Не указан</span>
+                    )}
                   </div>
-                )}
-              </div>
+                  {soldByCommissionPercent != null && (
+                    <div>
+                      <span className="text-gray-600">Комиссия:</span>{' '}
+                      <span className="font-medium">
+                        {soldByCommissionPercent}%
+                        {formData.isFromPartner ? ' (партнёр)' : ' (обычный)'}
+                      </span>
+                    </div>
+                  )}
+                  {soldByCommissionAmount != null && (
+                    <div>
+                      <span className="text-gray-600">Сумма комиссии:</span>{' '}
+                      <span className="font-medium">≈ {Math.round(soldByCommissionAmount).toLocaleString('ru-RU')} руб.</span>
+                    </div>
+                  )}
+                  {amFee != null && (
+                    <div>
+                      <span className="text-gray-600">Ведение АМ:</span>{' '}
+                      <span className="font-medium">{amFee.toLocaleString('ru-RU')} руб.</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -1038,10 +1267,14 @@ export default function ProjectModal({
               <h3 className="text-sm font-semibold text-gray-700 mb-3">Статьи ожидаемых расходов и ответственные</h3>
               <div className="space-y-3">
                 {selectedProduct.expenseItems.map((item) => {
+                  const currentVals = expenseItemValues[item.expenseItemTemplateId] || {
+                    valueType: item.valueType,
+                    value: item.defaultValue,
+                  };
                   const priceVal = formData.price ? parseFloat(formData.price) : 0;
-                  const calculated = item.valueType === 'PERCENT'
-                    ? (priceVal * item.defaultValue / 100).toFixed(0)
-                    : (item.defaultValue / 100).toFixed(0);
+                  const calculated = currentVals.valueType === 'PERCENT'
+                    ? (priceVal * currentVals.value / 100).toFixed(0)
+                    : (currentVals.value / 100).toFixed(0);
                   const deptId = item.template.departmentId;
                   const deptEmployees = deptId
                     ? allEmployees.filter((e) => e.departmentId === deptId)
@@ -1057,24 +1290,54 @@ export default function ProjectModal({
                             </span>
                           )}
                         </div>
-                        <span className="text-xs text-gray-500">
-                          {item.valueType === 'PERCENT' ? `${item.defaultValue}%` : `${(item.defaultValue / 100).toFixed(0)} руб.`}
-                          {priceVal > 0 && ` ≈ ${Number(calculated).toLocaleString('ru-RU')} руб.`}
-                        </span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <select
+                            value={currentVals.valueType}
+                            onChange={(e) => setExpenseItemValues((prev) => ({
+                              ...prev,
+                              [item.expenseItemTemplateId]: { ...currentVals, valueType: e.target.value },
+                            }))}
+                            className="px-1.5 py-0.5 border border-gray-300 rounded text-xs"
+                          >
+                            <option value="PERCENT">%</option>
+                            <option value="FIXED">руб.</option>
+                          </select>
+                          <input
+                            type="number"
+                            step={currentVals.valueType === 'PERCENT' ? '0.01' : '1'}
+                            value={currentVals.valueType === 'PERCENT' ? currentVals.value : (currentVals.value / 100).toFixed(0)}
+                            onChange={(e) => {
+                              const raw = parseFloat(e.target.value) || 0;
+                              const val = currentVals.valueType === 'PERCENT' ? raw : raw * 100;
+                              setExpenseItemValues((prev) => ({
+                                ...prev,
+                                [item.expenseItemTemplateId]: { ...currentVals, value: val },
+                              }));
+                            }}
+                            className="w-24 px-1.5 py-0.5 border border-gray-300 rounded text-xs"
+                          />
+                          {priceVal > 0 && (
+                            <span className="text-xs text-gray-400">
+                              ≈ {Number(calculated).toLocaleString('ru-RU')} руб.
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <select
-                        value={expenseItemResponsibles[item.expenseItemTemplateId] || ''}
-                        onChange={(e) => setExpenseItemResponsibles((prev) => ({
-                          ...prev,
-                          [item.expenseItemTemplateId]: e.target.value,
-                        }))}
-                        className="w-48 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                      >
-                        <option value="">Ответственный</option>
-                        {deptEmployees.map((emp) => (
-                          <option key={emp.id} value={emp.id}>{emp.fullName}</option>
-                        ))}
-                      </select>
+                      {item.template.departmentId && (
+                        <select
+                          value={expenseItemResponsibles[item.expenseItemTemplateId] || ''}
+                          onChange={(e) => setExpenseItemResponsibles((prev) => ({
+                            ...prev,
+                            [item.expenseItemTemplateId]: e.target.value,
+                          }))}
+                          className="w-48 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                        >
+                          <option value="">Ответственный</option>
+                          {deptEmployees.map((emp) => (
+                            <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                   );
                 })}

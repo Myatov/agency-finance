@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { hasViewAllPermission } from '@/lib/permissions';
 import { getExpectedPeriods } from '@/lib/periods';
 import { ServiceStatus, BillingType } from '@prisma/client';
+import { logAudit } from '@/lib/audit';
 
 export async function GET(request: NextRequest) {
   try {
@@ -248,6 +249,16 @@ export async function POST(request: NextRequest) {
         console.error('Create first work period for service', service.id, e);
       }
     }
+
+    await logAudit({
+      userId: user.id,
+      action: 'CREATE',
+      entityType: 'SERVICE',
+      entityId: service.id,
+      serviceId: service.id,
+      description: `Создана услуга «${service.product?.name || productId}» для сайта «${service.site?.title || siteId}»`,
+      newValue: { productId, price: price || null, status: status || 'ACTIVE', isFromPartner },
+    });
 
     // Convert BigInt to string for JSON serialization
     const serviceResponse = {
