@@ -217,6 +217,7 @@ export default function ProjectModal({
   const [fetchedServiceForEdit, setFetchedServiceForEdit] = useState<{ expenseItems: Array<Record<string, unknown>> } | null>(null);
   const [expenseItemValues, setExpenseItemValues] = useState<Record<string, { valueType: string; value: number }>>({});
   const [agents, setAgents] = useState<AgentOption[]>([]);
+  const serviceFormRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
     clientId: '',
@@ -330,6 +331,13 @@ export default function ProjectModal({
       setFormData((prev) => ({ ...prev, soldByUserId: user.id }));
     }
   }, [user]);
+
+  // Прокрутка к форме услуги при её появлении
+  useEffect(() => {
+    if (activeServiceId !== undefined && serviceFormRef.current) {
+      serviceFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [activeServiceId]);
 
   const fetchClients = async () => {
     try {
@@ -816,29 +824,24 @@ export default function ProjectModal({
         return;
       }
 
-      if (serviceIdToUpdate) {
-        if (formData.clientId) fetchClientServices(formData.clientId);
-        onSuccess();
-      } else {
-        if (formData.clientId) fetchClientServices(formData.clientId);
-        if (formData.siteId) fetchSiteServices(formData.siteId);
-        setActiveServiceId(null);
-        setFormData((prev) => ({
-          ...prev,
-          productId: '',
-          price: '',
-          status: 'ACTIVE',
-          billingType: 'MONTHLY',
-          prepaymentType: 'POSTPAY',
-          autoRenew: false,
-          isFromPartner: false,
-          comment: '',
-          soldByUserId: user?.id || '',
-        }));
-        setExpenseItemResponsibles({});
-        setExpenseItemValues({});
-        setLoading(false);
-      }
+      if (formData.clientId) fetchClientServices(formData.clientId);
+      if (formData.siteId) fetchSiteServices(formData.siteId);
+      setActiveServiceId(undefined);
+      setFormData((prev) => ({
+        ...prev,
+        productId: '',
+        price: '',
+        status: 'ACTIVE',
+        billingType: 'MONTHLY',
+        prepaymentType: 'POSTPAY',
+        autoRenew: false,
+        isFromPartner: false,
+        comment: '',
+        soldByUserId: user?.id || '',
+      }));
+      setExpenseItemResponsibles({});
+      setExpenseItemValues({});
+      setLoading(false);
     } catch {
       setError('Ошибка соединения');
       setLoading(false);
@@ -1304,8 +1307,23 @@ export default function ProjectModal({
                           <button
                             type="button"
                             onClick={() => {
-                              setFormData({ ...formData, siteId: site.id });
+                              setFormData((prev) => ({
+                                ...prev,
+                                siteId: site.id,
+                                productId: '',
+                                price: '',
+                                status: 'ACTIVE',
+                                billingType: 'MONTHLY',
+                                prepaymentType: 'POSTPAY',
+                                startDate: new Date().toISOString().split('T')[0],
+                                autoRenew: false,
+                                isFromPartner: false,
+                                comment: '',
+                                soldByUserId: user?.id || prev.soldByUserId || '',
+                              }));
                               setActiveServiceId(null);
+                              setExpenseItemValues({});
+                              setExpenseItemResponsibles({});
                             }}
                             className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
                           >
@@ -1382,7 +1400,7 @@ export default function ProjectModal({
 
           {/* Блок 3: Услуга (при добавлении/редактировании) */}
           {activeServiceId !== undefined && (
-          <div className="border border-gray-200 rounded-lg p-4 bg-blue-50/30 space-y-4">
+          <div ref={serviceFormRef} className="border border-gray-200 rounded-lg p-4 bg-blue-50/30 space-y-4">
             <h3 className="text-sm font-semibold text-gray-800">3. Услуга</h3>
           {/* Product Selection */}
           <div>
