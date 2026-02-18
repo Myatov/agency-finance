@@ -49,6 +49,7 @@ interface Project {
     calculatedAmount: string | null;
     template: { id: string; name: string } | null;
   }>;
+  isClientOnly?: boolean;
 }
 
 interface UnassignedClient {
@@ -624,6 +625,9 @@ export default function ProjectsList() {
                                     )}
                                   </td>
                                   <td className="px-4 py-3 text-sm">
+                                    {p.isClientOnly ? (
+                                      <span className="text-gray-400">—</span>
+                                    ) : (
                                     <div className="flex flex-col gap-1">
                                       <Link
                                         href={`/services/${p.id}/periods`}
@@ -644,6 +648,7 @@ export default function ProjectsList() {
                                         Удалить
                                       </button>
                                     </div>
+                                    )}
                                   </td>
                                 </tr>
                               );
@@ -757,6 +762,9 @@ export default function ProjectsList() {
                           <div className="text-xs text-gray-500 mt-0.5">{p.site.client.seller?.fullName || '—'}</div>
                         </td>
                         <td className="px-4 py-3 text-sm">
+                          {p.isClientOnly ? (
+                            <span className="text-gray-400">—</span>
+                          ) : (
                           <div className="flex flex-col gap-1">
                             <Link
                               href={`/services/${p.id}/periods`}
@@ -777,6 +785,7 @@ export default function ProjectsList() {
                               Удалить
                             </button>
                           </div>
+                          )}
                         </td>
                       </tr>
                     );
@@ -794,7 +803,7 @@ export default function ProjectsList() {
       {showModal && (
         <ProjectModal
           project={editingProject}
-          onClose={() => { setShowModal(false); setEditingProject(null); }}
+          onClose={() => { setShowModal(false); setEditingProject(null); fetchProjects(); }}
           onSuccess={handleModalSuccess}
           user={user}
         />

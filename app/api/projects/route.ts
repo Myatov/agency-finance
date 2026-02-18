@@ -79,6 +79,56 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    // Клиенты с АМ, но без сайтов — показываем при activeOnly=false
+    const clientOnlyEntries: any[] = [];
+    if (activeOnly !== 'true') {
+      const amFilter = accountManagerId || (!viewAllProjects ? user.id : null);
+      if (amFilter) {
+      const clientsNoSites = await prisma.client.findMany({
+        where: {
+          ...(amFilter ? { accountManagerId: amFilter } : {}),
+          sites: { none: {} },
+          isSystem: false,
+          ...(sellerId ? { sellerEmployeeId: sellerId } : {}),
+        },
+        include: {
+          seller: { select: { id: true, fullName: true } },
+          accountManager: { select: { id: true, fullName: true } },
+          agent: { select: { id: true, name: true } },
+          legalEntity: { select: { id: true, name: true } },
+        },
+      });
+      for (const c of clientsNoSites) {
+        clientOnlyEntries.push({
+          id: `client-only-${c.id}`,
+          productId: '',
+          status: 'ACTIVE',
+          startDate: new Date().toISOString().split('T')[0],
+          price: null,
+          billingType: 'MONTHLY',
+          isFromPartner: false,
+          sellerCommissionPercent: null,
+          sellerCommissionAmount: null,
+          accountManagerCommissionPercent: null,
+          accountManagerCommissionAmount: null,
+          accountManagerFeeAmount: null,
+          product: { id: '', name: '—' },
+          site: {
+            id: '',
+            title: '—',
+            websiteUrl: null,
+            accountManager: c.accountManager,
+            client: c,
+          },
+          responsible: null,
+          workPeriods: [],
+          expenseItems: [],
+          isClientOnly: true,
+        });
+      }
+      }
+    }
+
     const services = await prisma.service.findMany({
       where: whereClause,
       include: {
@@ -132,7 +182,8 @@ export async function GET(request: NextRequest) {
       })),
     }));
 
-    return NextResponse.json({ projects }, {
+    const allProjects = [...clientOnlyEntries, ...projects];
+    return NextResponse.json({ projects: allProjects }, {
       headers: { 'Cache-Control': 'no-store, max-age=0' },
     });
   } catch (error: any) {

@@ -206,7 +206,8 @@ export default function ProjectModal({
   const [expenseItemResponsibles, setExpenseItemResponsibles] = useState<Record<string, string>>({});
   const [existingSiteServices, setExistingSiteServices] = useState<ExistingSiteService[]>([]);
   const [existingServicesLoading, setExistingServicesLoading] = useState(false);
-  const [showExistingServices, setShowExistingServices] = useState(false);
+  const [showExistingServices, setShowExistingServices] = useState(true);
+  const [activeServiceId, setActiveServiceId] = useState<string | null | undefined>(undefined);
   const [expenseItemValues, setExpenseItemValues] = useState<Record<string, { valueType: string; value: number }>>({});
   const [agents, setAgents] = useState<AgentOption[]>([]);
 
@@ -261,10 +262,12 @@ export default function ProjectModal({
     } else {
       setExistingSiteServices([]);
     }
-  }, [formData.siteId]);
+    if (!project) setActiveServiceId(undefined);
+  }, [formData.siteId, project]);
 
   useEffect(() => {
     if (project) {
+      setActiveServiceId(project.id);
       setFormData({
         clientId: project.site.clientId,
         siteId: project.siteId || project.site.id,
@@ -365,7 +368,7 @@ export default function ProjectModal({
     try {
       const res = await fetch(`/api/services?siteId=${siteId}`);
       const data = await res.json();
-      setExistingSiteServices((data.services || []).map((s: any) => ({
+      const svcs = (data.services || []).map((s: any) => ({
         id: s.id,
         productId: s.productId,
         product: s.product,
@@ -373,7 +376,9 @@ export default function ProjectModal({
         price: s.price,
         billingType: s.billingType,
         startDate: s.startDate || null,
-      })));
+      }));
+      setExistingSiteServices(svcs);
+      if (!project && svcs.length === 0) setActiveServiceId(null);
     } catch { /* ignore */ }
     finally { setExistingServicesLoading(false); }
   };
@@ -713,8 +718,9 @@ export default function ProjectModal({
         });
       }
 
-      const url = project ? `/api/services/${project.id}` : '/api/services';
-      const method = project ? 'PUT' : 'POST';
+      const serviceIdToUpdate = activeServiceId || (project?.id ?? null);
+      const url = serviceIdToUpdate ? `/api/services/${serviceIdToUpdate}` : '/api/services';
+      const method = serviceIdToUpdate ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
         method,
@@ -729,12 +735,13 @@ export default function ProjectModal({
         return;
       }
 
-      if (project) {
+      if (serviceIdToUpdate) {
         onSuccess();
       } else {
         if (formData.siteId) {
           fetchSiteServices(formData.siteId);
         }
+        setActiveServiceId(null);
         setFormData((prev) => ({
           ...prev,
           productId: '',
@@ -749,7 +756,6 @@ export default function ProjectModal({
         }));
         setExpenseItemResponsibles({});
         setExpenseItemValues({});
-        setShowExistingServices(true);
         setLoading(false);
       }
     } catch {
@@ -1255,34 +1261,23 @@ export default function ProjectModal({
             </div>
           </div>
 
-          {/* Existing services for this site */}
+          {/* Existing services for this site — всегда открыт */}
           {formData.siteId && (
             <div className="border border-gray-200 rounded-lg p-4">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-semibold text-gray-700">
-                  Существующие услуги
-                  {existingSiteServices.length > 0 && (
-                    <span className="text-gray-400 font-normal ml-1">({existingSiteServices.length})</span>
-                  )}
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setShowExistingServices(!showExistingServices)}
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  {showExistingServices ? 'Скрыть' : 'Показать'}
-                </button>
-              </div>
-              {showExistingServices && (
-                <>
-                  {existingServicesLoading ? (
-                    <p className="text-sm text-gray-500">Загрузка...</p>
-                  ) : existingSiteServices.length > 0 ? (
-                    <div className="space-y-2">
-                      {existingSiteServices.map((svc) => (
-                        <div key={svc.id} className="flex items-center justify-between bg-gray-50 rounded p-2.5 text-sm border border-gray-100">
-                          <div className="flex-1 min-w-0 flex items-center gap-3">
-                            <span className="font-medium text-gray-700">{svc.product.name}</span>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                Существующие услуги
+                {existingSiteServices.length > 0 && (
+                  <span className="text-gray-400 font-normal ml-1">({existingSiteServices.length})</span>
+                )}
+              </h3>
+              <div className="space-y-2">
+              {existingServicesLoading ? (
+                <p className="text-sm text-gray-500">Загрузка...</p>
+              ) : existingSiteServices.length > 0 ? (
+                existingSiteServices.map((svc) => (
+                  <div key={svc.id} className="flex items-center justify-between bg-gray-50 rounded p-2.5 text-sm border border-gray-100">
+                    <div className="flex-1 min-w-0 flex items-center gap-3">
+                      <span className="font-medium text-gray-700">{svc.product.name}</span>
                             <span className="text-xs text-gray-500">
                               {svc.price ? `${(Number(svc.price) / 100).toLocaleString('ru-RU')} руб.` : '—'}
                             </span>
@@ -1300,10 +1295,11 @@ export default function ProjectModal({
                             </span>
                           </div>
                           <div className="flex items-center gap-2 ml-2">
-                            {(!project || project.id !== svc.id) && (
+                            {(activeServiceId !== svc.id) && (
                               <button
                                 type="button"
                                 onClick={() => {
+                                  setActiveServiceId(svc.id);
                                   setFormData((prev) => ({
                                     ...prev,
                                     productId: svc.productId,
@@ -1342,35 +1338,38 @@ export default function ProjectModal({
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className="text-sm text-gray-400">Нет услуг для этого сайта</p>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        productId: '',
-                        price: '',
-                        status: 'ACTIVE',
-                        billingType: 'MONTHLY',
-                        prepaymentType: 'POSTPAY',
-                        autoRenew: false,
-                        isFromPartner: false,
-                        comment: '',
-                        soldByUserId: user?.id || '',
-                      }));
-                      setExpenseItemResponsibles({});
-                    }}
-                    className="mt-3 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
-                  >
-                    + Добавить ещё услугу
-                  </button>
-                </>
+              ) : (
+                <p className="text-sm text-gray-400">Нет услуг для этого сайта</p>
               )}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveServiceId(null);
+                  setFormData((prev) => ({
+                    ...prev,
+                    productId: '',
+                    price: '',
+                    status: 'ACTIVE',
+                    billingType: 'MONTHLY',
+                    prepaymentType: 'POSTPAY',
+                    autoRenew: false,
+                    isFromPartner: false,
+                    comment: '',
+                    soldByUserId: user?.id || '',
+                  }));
+                  setExpenseItemResponsibles({});
+                  setExpenseItemValues({});
+                }}
+                className="mt-3 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
+              >
+                + Добавить ещё услугу
+              </button>
             </div>
           )}
 
+          {/* Поля услуги — показываем при Редактировать или Добавить */}
+          {activeServiceId !== undefined && (
+          <>
           {/* Product Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1653,6 +1652,8 @@ export default function ProjectModal({
               {loading ? 'Сохранение...' : 'Сохранить'}
             </button>
           </div>
+          </>
+          )}
         </form>
       </div>
     </div>
