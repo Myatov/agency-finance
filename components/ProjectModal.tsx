@@ -685,8 +685,10 @@ export default function ProjectModal({
         setError(data.error || 'Ошибка создания клиента');
         return;
       }
+      const newClient = data.client;
+      setSelectedClient(newClient);
       await fetchClients();
-      setFormData((prev) => ({ ...prev, clientId: data.client.id }));
+      setFormData((prev) => ({ ...prev, clientId: newClient.id }));
       setNewClientName('');
       setNewClientSellerId(user?.id || '');
       setStep('main');

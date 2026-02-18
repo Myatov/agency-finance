@@ -72,18 +72,20 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    // Клиенты с АМ, но без сайтов — показываем всегда (при activeOnly фильтруем по isArchived)
+    // Клиенты без сайтов: при viewAll — все, иначе только где user = АМ или продавец
     const clientOnlyEntries: any[] = [];
-    const amFilter = accountManagerId || (!viewAllProjects ? user.id : null);
-    if (amFilter) {
+    const baseClientOnlyWhere = {
+      sites: { none: {} },
+      isSystem: false,
+      ...(status && ['ACTIVE', 'PAUSED'].includes(status) ? { isArchived: false } : {}),
+      ...(sellerId ? { sellerEmployeeId: sellerId } : {}),
+    };
+    const clientsNoSitesWhere = viewAllProjects
+      ? { ...baseClientOnlyWhere, ...(accountManagerId ? { accountManagerId } : {}) }
+      : { ...baseClientOnlyWhere, OR: [{ accountManagerId: user.id }, { sellerEmployeeId: user.id }] };
+    {
       const clientsNoSites = await prisma.client.findMany({
-        where: {
-          accountManagerId: amFilter,
-          sites: { none: {} },
-          isSystem: false,
-          ...(status && ['ACTIVE', 'PAUSED'].includes(status) ? { isArchived: false } : {}),
-          ...(sellerId ? { sellerEmployeeId: sellerId } : {}),
-        },
+        where: clientsNoSitesWhere,
         include: {
           seller: { select: { id: true, fullName: true } },
           accountManager: { select: { id: true, fullName: true } },

@@ -44,9 +44,15 @@ export default function ClientContactsInProject({
   const [showContactModal, setShowContactModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSyncedClientIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (client.clientContacts) {
+    if (lastSyncedClientIdRef.current === client.id) {
+      return;
+    }
+    lastSyncedClientIdRef.current = client.id;
+
+    if (client.clientContacts && client.clientContacts.length > 0) {
       setLinks(
         client.clientContacts.map((cc) => ({
           id: cc.id,
@@ -59,7 +65,7 @@ export default function ClientContactsInProject({
     } else {
       setLinks([]);
     }
-  }, [client.clientContacts]);
+  }, [client.id, client.clientContacts]);
 
   useEffect(() => {
     if (contactSearch.trim().length < 2) {
