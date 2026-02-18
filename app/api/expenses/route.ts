@@ -97,7 +97,9 @@ export async function GET(request: NextRequest) {
           },
         },
         employee: {
-          include: {
+          select: {
+            id: true,
+            fullName: true,
             department: true,
           },
         },
