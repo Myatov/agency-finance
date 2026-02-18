@@ -264,9 +264,15 @@ export default function ProjectModal({
     }
   }, [project]);
 
+  useEffect(() => {
+    if (user && !project && !formData.soldByUserId) {
+      setFormData((prev) => ({ ...prev, soldByUserId: user.id }));
+    }
+  }, [user]);
+
   const fetchClients = async () => {
     try {
-      const res = await fetch('/api/clients?limit=500');
+      const res = await fetch('/api/clients?limit=500&filter=all&includeNoProjects=1');
       const data = await res.json();
       setClients(data.clients || []);
     } catch { /* ignore */ }
@@ -1174,7 +1180,7 @@ export default function ProjectModal({
                         autoRenew: false,
                         isFromPartner: false,
                         comment: '',
-                        soldByUserId: '',
+                        soldByUserId: user?.id || '',
                       }));
                       setExpenseItemResponsibles({});
                     }}

@@ -73,6 +73,7 @@ export default function ClientsList() {
   const [sellers, setSellers] = useState<SimpleUser[]>([]);
   const [accountManagers, setAccountManagers] = useState<SimpleUser[]>([]);
   const [canViewAllClients, setCanViewAllClients] = useState(false);
+  const [canViewAllProjects, setCanViewAllProjects] = useState(false);
   const [sellerFilter, setSellerFilter] = useState<string>('');
   const [accountManagerFilter, setAccountManagerFilter] = useState<string>('');
   const [showArchived, setShowArchived] = useState(false);
@@ -109,11 +110,17 @@ export default function ClientsList() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ section: 'clients', permission: 'view_all' }),
         }).then((r) => r.json()),
-      ]).then(([create, edit, del, viewAll]) => {
+        fetch('/api/permissions/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ section: 'projects', permission: 'view_all' }),
+        }).then((r) => r.json()),
+      ]).then(([create, edit, del, viewAll, viewAllProjects]) => {
         setCanAdd(create.hasPermission || false);
         setCanEdit(edit.hasPermission || false);
         setCanDelete(del.hasPermission || false);
         setCanViewAllClients(viewAll.hasPermission || false);
+        setCanViewAllProjects(viewAllProjects.hasPermission || false);
       });
     }
   }, [user]);
@@ -198,6 +205,28 @@ export default function ClientsList() {
     } else {
       const data = await res.json();
       alert(data.error || 'Ошибка удаления');
+    }
+  };
+
+  const handleAssignAM = async (client: Client, newAMId: string) => {
+    try {
+      const res = await fetch(`/api/clients/${client.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: client.name,
+          sellerEmployeeId: client.seller.id,
+          accountManagerId: newAMId || null,
+        }),
+      });
+      if (res.ok) {
+        fetchClients();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Ошибка назначения');
+      }
+    } catch {
+      alert('Ошибка соединения');
     }
   };
 
@@ -309,6 +338,9 @@ export default function ClientsList() {
                   Продавец
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Аккаунт-менеджер
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Юрлицо
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -335,6 +367,26 @@ export default function ClientsList() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {client.seller.fullName}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {canViewAllProjects ? (
+                        <select
+                          value={client.accountManagerId || ''}
+                          onChange={(e) => handleAssignAM(client, e.target.value)}
+                          className="px-2 py-1 border border-gray-300 rounded-md text-sm"
+                        >
+                          <option value="">Не назначен</option>
+                          {accountManagers.map((am) => (
+                            <option key={am.id} value={am.id}>
+                              {am.fullName}
+                            </option>
+                          ))}
+                        </select>
+                      ) : client.accountManager?.fullName ? (
+                        client.accountManager.fullName
+                      ) : (
+                        <span className="text-red-400">Не назначен</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {client.legalEntity?.name || '-'}

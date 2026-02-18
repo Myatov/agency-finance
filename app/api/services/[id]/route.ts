@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
+import { logAudit } from '@/lib/audit';
 import { prisma } from '@/lib/db';
 import { canDeleteService } from '@/lib/permissions';
 import { ServiceStatus, BillingType } from '@prisma/client';
@@ -205,6 +206,52 @@ export async function PUT(
         },
       },
     });
+
+    // Audit logging
+    const changes: string[] = [];
+    const oldValues: Record<string, any> = {};
+    const newValues: Record<string, any> = {};
+
+    if (price !== undefined && existingService.price !== null) {
+      const oldPrice = Number(existingService.price) / 100;
+      const newPrice = price ? parseFloat(price) : 0;
+      if (oldPrice !== newPrice) {
+        changes.push(`Цена: ${oldPrice} → ${newPrice}`);
+        oldValues.price = oldPrice;
+        newValues.price = newPrice;
+      }
+    } else if (price !== undefined && existingService.price === null) {
+      const newPrice = price ? parseFloat(price) : null;
+      if (newPrice !== null) {
+        changes.push(`Цена установлена: ${newPrice}`);
+        newValues.price = newPrice;
+      }
+    }
+
+    if (status !== undefined && existingService.status !== status) {
+      changes.push(`Статус: ${existingService.status} → ${status}`);
+      oldValues.status = existingService.status;
+      newValues.status = status;
+    }
+
+    if (billingType !== undefined && existingService.billingType !== billingType) {
+      changes.push(`Тип оплаты: ${existingService.billingType} → ${billingType}`);
+      oldValues.billingType = existingService.billingType;
+      newValues.billingType = billingType;
+    }
+
+    if (changes.length > 0) {
+      await logAudit({
+        userId: user.id,
+        action: 'UPDATE',
+        entityType: 'SERVICE',
+        entityId: params.id,
+        serviceId: params.id,
+        description: `Изменение услуги: ${changes.join('; ')}`,
+        oldValue: oldValues,
+        newValue: newValues,
+      });
+    }
 
     // Convert BigInt to string for JSON serialization
     const serviceResponse = {

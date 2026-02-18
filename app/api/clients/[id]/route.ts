@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { canEditClient, canDeleteClient } from '@/lib/permissions';
+import { logAudit } from '@/lib/audit';
 
 export async function GET(
   request: NextRequest,
@@ -146,6 +147,11 @@ export async function PUT(
       isArchived,
     };
 
+    const existingClient = await prisma.client.findUnique({
+      where: { id: params.id },
+      select: { accountManagerId: true, name: true },
+    });
+
     await prisma.$transaction(async (tx) => {
       await tx.client.update({
         where: { id: params.id },
@@ -170,6 +176,18 @@ export async function PUT(
         }
       }
     });
+
+    if (existingClient && existingClient.accountManagerId !== accountManagerId) {
+      await logAudit({
+        userId: user.id,
+        action: 'UPDATE',
+        entityType: 'CLIENT',
+        entityId: params.id,
+        description: `Аккаунт-менеджер клиента «${name}» изменён`,
+        oldValue: { accountManagerId: existingClient.accountManagerId },
+        newValue: { accountManagerId },
+      });
+    }
 
     const client = await prisma.client.findUnique({
       where: { id: params.id },
