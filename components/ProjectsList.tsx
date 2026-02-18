@@ -22,6 +22,7 @@ interface Project {
     id: string;
     title: string;
     websiteUrl: string | null;
+    accountManager?: { id: string; fullName: string } | null;
     client: {
       id: string;
       name: string;
@@ -679,15 +680,14 @@ export default function ProjectsList() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Статус</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Период</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Оплата</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">АМ</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Продавец</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">АМ / Продавец</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Действия</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredProjects.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="text-center py-8 text-gray-500">
+                    <td colSpan={9} className="text-center py-8 text-gray-500">
                       {projects.length === 0 ? 'Проекты не найдены' : 'Нет проектов по заданным фильтрам'}
                     </td>
                   </tr>
@@ -752,11 +752,9 @@ export default function ProjectsList() {
                             <span className="text-gray-400">—</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {p.site.client.accountManager?.fullName || '—'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {p.site.client.seller?.fullName || '—'}
+                        <td className="px-4 py-3 text-sm">
+                          <div className="font-medium text-gray-700">{(p.site.client.accountManager ?? p.site.accountManager)?.fullName || '—'}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{p.site.client.seller?.fullName || '—'}</div>
                         </td>
                         <td className="px-4 py-3 text-sm">
                           <div className="flex flex-col gap-1">

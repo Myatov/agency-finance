@@ -25,7 +25,10 @@ export async function GET() {
         expenseItems: {
           include: {
             template: {
-              include: {
+              select: {
+                id: true,
+                name: true,
+                departmentId: true,
                 department: { select: { id: true, name: true } },
               },
             },

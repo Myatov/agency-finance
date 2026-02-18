@@ -74,6 +74,7 @@ export async function GET(request: NextRequest) {
       whereClause.OR = [
         { site: { client: { sellerEmployeeId: user.id } } },
         { site: { client: { accountManagerId: user.id } } },
+        { site: { accountManagerId: user.id } }, // Site.accountManagerId (deprecated, но ещё используется)
         { responsibleUserId: user.id },
       ];
     }
@@ -84,6 +85,7 @@ export async function GET(request: NextRequest) {
         product: true,
         site: {
           include: {
+            accountManager: { select: { id: true, fullName: true } },
             client: {
               include: {
                 seller: { select: { id: true, fullName: true } },
