@@ -122,8 +122,9 @@ interface ExistingSiteService {
   status: string;
   price: string | null;
   billingType: string;
+  prepaymentType?: string;
   startDate: string | null;
-  siteId?: string;
+  siteId?: string | null;
 }
 
 interface EditProject {
@@ -305,9 +306,10 @@ export default function ProjectModal({
   useEffect(() => {
     if (project) {
       setActiveServiceId(project.id);
+      const clientId = project.site?.clientId || project.site?.client?.id;
       setFormData({
-        clientId: project.site.clientId,
-        siteId: project.siteId || project.site.id,
+        clientId: clientId || '',
+        siteId: project.siteId || project.site?.id || '',
         productId: project.productId,
         status: project.status,
         startDate: project.startDate ? new Date(project.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
@@ -317,8 +319,9 @@ export default function ProjectModal({
         autoRenew: project.autoRenew,
         isFromPartner: project.isFromPartner,
         comment: project.comment || '',
-        soldByUserId: project.responsibleUserId || project.site.client.sellerEmployeeId || project.site.client.accountManagerId || '',
+        soldByUserId: project.responsibleUserId || project.site?.client?.sellerEmployeeId || project.site?.client?.accountManagerId || '',
       });
+      if (clientId) fetchClientServices(clientId);
     }
   }, [project]);
 
@@ -431,8 +434,9 @@ export default function ProjectModal({
         status: s.status,
         price: s.price,
         billingType: s.billingType,
+        prepaymentType: s.prepaymentType,
         startDate: s.startDate || null,
-        siteId: s.site?.id || s.siteId,
+        siteId: s.site?.id ?? s.siteId ?? null,
       }));
       setClientServicesAll(svcs);
     } catch { setClientServicesAll([]); }
@@ -777,19 +781,21 @@ export default function ProjectModal({
       if (amFee != null) payload.accountManagerFeeAmount = Math.round(amFee * 100);
 
       if (selectedProduct && selectedProduct.expenseItems.length > 0) {
-        payload.expenseItems = selectedProduct.expenseItems.map((item) => {
-          const vals = expenseItemValues[item.expenseItemTemplateId] || {
-            valueType: item.valueType,
-            value: item.defaultValue,
-          };
-          return {
-            expenseItemTemplateId: item.expenseItemTemplateId,
-            name: item.template.name,
-            valueType: vals.valueType,
-            value: vals.value,
-            responsibleUserId: expenseItemResponsibles[item.expenseItemTemplateId] || null,
-          };
-        });
+        payload.expenseItems = selectedProduct.expenseItems
+          .filter((item) => item.template?.name)
+          .map((item) => {
+            const vals = expenseItemValues[item.expenseItemTemplateId] || {
+              valueType: item.valueType,
+              value: item.defaultValue,
+            };
+            return {
+              expenseItemTemplateId: item.expenseItemTemplateId,
+              name: item.template?.name || 'Без названия',
+              valueType: vals.valueType,
+              value: vals.value,
+              responsibleUserId: expenseItemResponsibles[item.expenseItemTemplateId] || null,
+            };
+          });
       }
 
       const serviceIdToUpdate = activeServiceId || (project?.id ?? null);
@@ -802,9 +808,10 @@ export default function ProjectModal({
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error || 'Ошибка сохранения');
+        const errMsg = [data.error, data.details].filter(Boolean).join(': ') || 'Ошибка сохранения';
+        setError(errMsg);
         setLoading(false);
         return;
       }
@@ -1333,7 +1340,9 @@ export default function ProjectModal({
                                           productId: svc.productId,
                                           price: svc.price ? (Number(svc.price) / 100).toString() : '',
                                           status: svc.status,
-                                          billingType: svc.billingType,
+                                          billingType: svc.billingType || 'MONTHLY',
+                                          prepaymentType: (svc as any).prepaymentType || 'POSTPAY',
+                                          startDate: (svc as any).startDate ? new Date((svc as any).startDate).toISOString().split('T')[0] : prev.startDate,
                                         }));
                                       }}
                                       className="px-2 py-0.5 text-blue-700 bg-blue-50 rounded text-xs hover:bg-blue-100"

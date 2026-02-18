@@ -182,7 +182,10 @@ export async function PUT(
         updateData.prepaymentType = prepaymentType;
       }
     }
-    if (price !== undefined) updateData.price = price ? BigInt(Math.round(parseFloat(price) * 100)) : null;
+    if (price !== undefined) {
+      const priceNum = price != null && price !== '' ? parseFloat(price) : NaN;
+      updateData.price = !isNaN(priceNum) ? BigInt(Math.round(priceNum * 100)) : null;
+    }
     if (autoRenew !== undefined) updateData.autoRenew = Boolean(autoRenew);
     if (responsibleUserId !== undefined) updateData.responsibleUserId = responsibleUserId || null;
     if (comment !== undefined) updateData.comment = comment || null;

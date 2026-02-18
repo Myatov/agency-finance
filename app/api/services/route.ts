@@ -165,7 +165,8 @@ export async function POST(request: NextRequest) {
     const validPrepayment = ['FULL_PREPAY', 'PARTIAL_PREPAY', 'POSTPAY'];
     const prepay = prepaymentType && validPrepayment.includes(prepaymentType) ? prepaymentType : 'POSTPAY';
 
-    const priceKopecks = price ? BigInt(Math.round(parseFloat(price) * 100)) : null;
+    const priceNum = price != null && price !== '' ? parseFloat(price) : NaN;
+    const priceKopecks = !isNaN(priceNum) ? BigInt(Math.round(priceNum * 100)) : null;
 
     const service = await prisma.service.create({
       data: {
