@@ -124,6 +124,12 @@ export default function ProjectsList() {
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingProject, setEditingProject] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<'grouped' | 'flat'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('projects_view_mode') as 'grouped' | 'flat') || 'grouped';
+    }
+    return 'grouped';
+  });
 
   useEffect(() => {
     fetchUser();
@@ -451,7 +457,7 @@ export default function ProjectsList() {
             </select>
           </div>
         </div>
-        <div className="mt-3 flex items-center">
+        <div className="mt-3 flex items-center justify-between">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -461,6 +467,20 @@ export default function ProjectsList() {
             />
             <span className="text-sm text-gray-700">Только активные клиенты</span>
           </label>
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+            <button
+              onClick={() => { setViewMode('grouped'); localStorage.setItem('projects_view_mode', 'grouped'); }}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${viewMode === 'grouped' ? 'bg-white shadow text-blue-700' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              Группировка
+            </button>
+            <button
+              onClick={() => { setViewMode('flat'); localStorage.setItem('projects_view_mode', 'flat'); }}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${viewMode === 'flat' ? 'bg-white shadow text-blue-700' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              Построчный
+            </button>
+          </div>
         </div>
       </div>
 
@@ -474,7 +494,7 @@ export default function ProjectsList() {
       {/* Projects table */}
       {loading ? (
         <div className="text-center py-8">Загрузка...</div>
-      ) : (
+      ) : viewMode === 'grouped' ? (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -486,8 +506,6 @@ export default function ProjectsList() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Статус</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Период</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Оплата</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ответственный</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"></th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Действия</th>
                 </tr>
               </thead>
@@ -496,12 +514,11 @@ export default function ProjectsList() {
                   const clientCollapsed = collapsedClients.has(clientId);
                   return (
                     <React.Fragment key={clientId}>
-                      {/* Client header row */}
                       <tr
                         className="bg-gray-100 cursor-pointer hover:bg-gray-200"
                         onClick={() => toggleClient(clientId)}
                       >
-                        <td colSpan={9} className="px-4 py-3">
+                        <td colSpan={7} className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <span className="text-xs text-gray-400">{clientCollapsed ? '▶' : '▼'}</span>
                             <span className="font-bold text-gray-900">
@@ -532,12 +549,11 @@ export default function ProjectsList() {
                         const siteCollapsed = collapsedSites.has(siteId);
                         return (
                           <React.Fragment key={siteId}>
-                            {/* Site header row */}
                             <tr
                               className="bg-gray-50 cursor-pointer hover:bg-gray-100"
                               onClick={() => toggleSite(siteId)}
                             >
-                              <td colSpan={9} className="px-4 py-2 pl-10">
+                              <td colSpan={7} className="px-4 py-2 pl-10">
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-gray-400">{siteCollapsed ? '▶' : '▼'}</span>
                                   <span className="text-sm font-medium text-gray-700">{site.title}</span>
@@ -574,13 +590,13 @@ export default function ProjectsList() {
                                       <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">Партнёр</span>
                                     )}
                                   </td>
-                                  <td className="px-4 py-3 text-sm font-medium" colSpan={1}>{formatMoney(p.price)}</td>
-                                  <td className="px-4 py-3 text-sm" colSpan={1}>
+                                  <td className="px-4 py-3 text-sm font-medium">{formatMoney(p.price)}</td>
+                                  <td className="px-4 py-3 text-sm">
                                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[p.status] || 'bg-gray-100'}`}>
                                       {STATUS_LABELS[p.status] || p.status}
                                     </span>
                                   </td>
-                                  <td className="px-4 py-3 text-sm" colSpan={1}>
+                                  <td className="px-4 py-3 text-sm">
                                     {lastPeriod ? (
                                       <div>
                                         <div className="text-xs">{formatDate(lastPeriod.dateFrom)} — {formatDate(lastPeriod.dateTo)}</div>
@@ -590,7 +606,7 @@ export default function ProjectsList() {
                                       <span className="text-gray-400 text-xs">Нет периодов</span>
                                     )}
                                   </td>
-                                  <td className="px-4 py-3 text-sm" colSpan={1}>
+                                  <td className="px-4 py-3 text-sm">
                                     {lastPeriod ? (
                                       <div>
                                         <div className={`font-medium ${periodPaid >= periodExpected ? 'text-green-600' : 'text-red-600'}`}>
@@ -606,12 +622,6 @@ export default function ProjectsList() {
                                       <span className="text-gray-400">—</span>
                                     )}
                                   </td>
-                                  <td className="px-4 py-3 text-sm" colSpan={1}>
-                                    {p.responsible && (
-                                      <div className="text-xs text-gray-500">{p.responsible.fullName}</div>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm" colSpan={1}></td>
                                   <td className="px-4 py-3 text-sm">
                                     <div className="flex flex-col gap-1">
                                       <Link
@@ -651,6 +661,135 @@ export default function ProjectsList() {
               {projects.length === 0 ? 'Проекты не найдены' : 'Нет проектов по заданным фильтрам'}
             </div>
           )}
+          <div className="px-4 py-3 bg-gray-50 text-sm text-gray-500">
+            Всего: {filteredProjects.length} проект(ов)
+          </div>
+        </div>
+      ) : (
+        /* Flat table view */
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Клиент</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Юрлицо</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Сайт</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Услуга</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Цена</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Статус</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Период</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Оплата</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">АМ</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Продавец</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Действия</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredProjects.length === 0 ? (
+                  <tr>
+                    <td colSpan={11} className="text-center py-8 text-gray-500">
+                      {projects.length === 0 ? 'Проекты не найдены' : 'Нет проектов по заданным фильтрам'}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredProjects.map((p) => {
+                    const lastPeriod = p.workPeriods[0];
+                    const periodPaid = lastPeriod
+                      ? lastPeriod.incomes.reduce((sum, inc) => sum + Number(inc.amount), 0)
+                      : 0;
+                    const periodExpected = lastPeriod?.expectedAmount ? Number(lastPeriod.expectedAmount) : (p.price ? Number(p.price) : 0);
+                    return (
+                      <tr key={p.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm">
+                          <span className="font-medium">{p.site.client.isSystem ? '—' : p.site.client.name}</span>
+                          {p.site.client.agent && (
+                            <div className="text-xs text-purple-600">{p.site.client.agent.name}</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500">
+                          {p.site.client.legalEntity?.name || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <div>{p.site.title}</div>
+                          {p.site.websiteUrl && (
+                            <a href={p.site.websiteUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline">
+                              {p.site.websiteUrl}
+                            </a>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className="font-medium">{p.product.name}</span>
+                          <div className="text-xs text-gray-500">{BILLING_LABELS[p.billingType] || p.billingType}</div>
+                          {p.isFromPartner && (
+                            <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">Партнёр</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-medium">{formatMoney(p.price)}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[p.status] || 'bg-gray-100'}`}>
+                            {STATUS_LABELS[p.status] || p.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {lastPeriod ? (
+                            <div>
+                              <div className="text-xs">{formatDate(lastPeriod.dateFrom)} — {formatDate(lastPeriod.dateTo)}</div>
+                              <div className="text-xs text-gray-500">Ожид: {formatMoney(periodExpected)}</div>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 text-xs">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {lastPeriod ? (
+                            <div>
+                              <div className={`font-medium ${periodPaid >= periodExpected ? 'text-green-600' : 'text-red-600'}`}>
+                                {formatMoney(periodPaid)}
+                              </div>
+                              {periodPaid < periodExpected && (
+                                <div className="text-xs text-red-500">Долг: {formatMoney(periodExpected - periodPaid)}</div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {p.site.client.accountManager?.fullName || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {p.site.client.seller?.fullName || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex flex-col gap-1">
+                            <Link
+                              href={`/services/${p.id}/periods`}
+                              className="text-blue-600 hover:text-blue-900 text-xs"
+                            >
+                              Периоды
+                            </Link>
+                            <button
+                              onClick={() => handleEdit(p)}
+                              className="text-blue-600 hover:text-blue-900 text-xs text-left"
+                            >
+                              Редактировать
+                            </button>
+                            <button
+                              onClick={() => handleDelete(p.id, `${p.site.title} — ${p.product.name}`)}
+                              className="text-red-600 hover:text-red-900 text-xs text-left"
+                            >
+                              Удалить
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
           <div className="px-4 py-3 bg-gray-50 text-sm text-gray-500">
             Всего: {filteredProjects.length} проект(ов)
           </div>

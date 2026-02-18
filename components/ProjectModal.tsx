@@ -45,6 +45,11 @@ interface DepartmentEmployee {
   departmentId: string | null;
 }
 
+interface NicheOption {
+  id: string;
+  name: string;
+}
+
 interface ClientOption {
   id: string;
   name: string;
@@ -204,15 +209,19 @@ export default function ProjectModal({
     soldByUserId: '',
   });
 
+  const [niches, setNiches] = useState<NicheOption[]>([]);
   const [newClientName, setNewClientName] = useState('');
+  const [newClientSellerId, setNewClientSellerId] = useState(user?.id || '');
   const [newSiteTitle, setNewSiteTitle] = useState('');
   const [newSiteUrl, setNewSiteUrl] = useState('');
+  const [newSiteNiche, setNewSiteNiche] = useState('');
 
   useEffect(() => {
     fetchClients();
     fetchProducts();
     fetchAllEmployees();
     fetchDepartments();
+    fetchNiches();
   }, []);
 
   useEffect(() => {
@@ -296,6 +305,14 @@ export default function ProjectModal({
       const res = await fetch('/api/departments');
       const data = await res.json();
       setDepartments((data.departments || []).map((d: any) => ({ id: d.id, name: d.name })));
+    } catch { /* ignore */ }
+  };
+
+  const fetchNiches = async () => {
+    try {
+      const res = await fetch('/api/niches');
+      const data = await res.json();
+      setNiches((data.niches || []).map((n: any) => ({ id: n.id, name: n.name })));
     } catch { /* ignore */ }
   };
 
@@ -505,10 +522,14 @@ export default function ProjectModal({
   const expensesTotal = selectedProduct
     ? selectedProduct.expenseItems.reduce((sum, item) => {
         const priceVal = formData.price ? parseFloat(formData.price) : 0;
-        if (item.valueType === 'PERCENT') {
-          return sum + (priceVal * item.defaultValue / 100);
+        const vals = expenseItemValues[item.expenseItemTemplateId] || {
+          valueType: item.valueType,
+          value: item.defaultValue,
+        };
+        if (vals.valueType === 'PERCENT') {
+          return sum + (priceVal * vals.value / 100);
         }
-        return sum + (item.defaultValue / 100);
+        return sum + vals.value;
       }, 0)
     : 0;
 
@@ -522,13 +543,17 @@ export default function ProjectModal({
       setError('Введите имя клиента');
       return;
     }
+    if (!newClientSellerId) {
+      setError('Выберите продавца');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
       const res = await fetch('/api/clients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newClientName.trim() }),
+        body: JSON.stringify({ name: newClientName.trim(), sellerEmployeeId: newClientSellerId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -538,6 +563,7 @@ export default function ProjectModal({
       await fetchClients();
       setFormData((prev) => ({ ...prev, clientId: data.client.id }));
       setNewClientName('');
+      setNewClientSellerId(user?.id || '');
       setStep('main');
     } catch {
       setError('Ошибка соединения');
@@ -551,9 +577,14 @@ export default function ProjectModal({
       setError('Введите название сайта');
       return;
     }
+    if (!newSiteNiche) {
+      setError('Выберите нишу');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
+      const selectedNiche = niches.find((n) => n.id === newSiteNiche);
       const res = await fetch('/api/sites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -561,6 +592,7 @@ export default function ProjectModal({
           title: newSiteTitle.trim(),
           websiteUrl: newSiteUrl.trim() || null,
           clientId: formData.clientId,
+          niche: selectedNiche ? selectedNiche.name : newSiteNiche,
         }),
       });
       const data = await res.json();
@@ -572,6 +604,7 @@ export default function ProjectModal({
       setFormData((prev) => ({ ...prev, siteId: data.site.id }));
       setNewSiteTitle('');
       setNewSiteUrl('');
+      setNewSiteNiche('');
       setStep('main');
     } catch {
       setError('Ошибка соединения');
@@ -607,9 +640,15 @@ export default function ProjectModal({
 
       if (soldByCommissionRole === 'SELLER' && soldByCommissionPercent != null) {
         payload.sellerCommissionPercent = soldByCommissionPercent;
+        if (soldByCommissionAmount != null) {
+          payload.sellerCommissionAmount = Math.round(soldByCommissionAmount * 100);
+        }
       }
       if (soldByCommissionRole === 'ACCOUNT_MANAGER' && soldByCommissionPercent != null) {
         payload.accountManagerCommissionPercent = soldByCommissionPercent;
+        if (soldByCommissionAmount != null) {
+          payload.accountManagerCommissionAmount = Math.round(soldByCommissionAmount * 100);
+        }
       }
       if (amFee != null) payload.accountManagerFeeAmount = Math.round(amFee * 100);
 
@@ -679,6 +718,19 @@ export default function ProjectModal({
                 autoFocus
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Продавец (seller) *</label>
+              <select
+                value={newClientSellerId}
+                onChange={(e) => setNewClientSellerId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="">Выберите сотрудника</option>
+                {allEmployees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+                ))}
+              </select>
+            </div>
             {error && <div className="text-red-600 text-sm">{error}</div>}
             <div className="flex justify-end gap-3">
               <button type="button" onClick={() => { setStep('main'); setError(''); }} className="px-4 py-2 border rounded-md hover:bg-gray-50">Назад</button>
@@ -718,6 +770,19 @@ export default function ProjectModal({
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 placeholder="https://example.com"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ниша *</label>
+              <select
+                value={newSiteNiche}
+                onChange={(e) => setNewSiteNiche(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="">Выберите нишу</option>
+                {niches.map((n) => (
+                  <option key={n.id} value={n.id}>{n.name}</option>
+                ))}
+              </select>
             </div>
             {error && <div className="text-red-600 text-sm">{error}</div>}
             <div className="flex justify-end gap-3">
@@ -1036,8 +1101,8 @@ export default function ProjectModal({
                   ) : existingSiteServices.length > 0 ? (
                     <div className="space-y-2">
                       {existingSiteServices.map((svc) => (
-                        <div key={svc.id} className="flex items-center justify-between bg-gray-50 rounded p-2 text-sm">
-                          <div>
+                        <div key={svc.id} className="flex items-center justify-between bg-gray-50 rounded p-2.5 text-sm border border-gray-100">
+                          <div className="flex-1 min-w-0">
                             <span className="font-medium text-gray-700">{svc.product.name}</span>
                             <span className="ml-2 text-xs text-gray-500">
                               {svc.price ? `${(Number(svc.price) / 100).toLocaleString('ru-RU')} руб.` : '—'}
@@ -1050,23 +1115,46 @@ export default function ProjectModal({
                               {svc.status === 'ACTIVE' ? 'Активна' : svc.status === 'PAUSED' ? 'Приостановлена' : 'Завершена'}
                             </span>
                           </div>
-                          {(!project || project.id !== svc.id) && (
+                          <div className="flex items-center gap-2 ml-2">
+                            {(!project || project.id !== svc.id) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    productId: svc.productId,
+                                    price: svc.price ? (Number(svc.price) / 100).toString() : '',
+                                    status: svc.status,
+                                    billingType: svc.billingType,
+                                  }));
+                                }}
+                                className="px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 whitespace-nowrap"
+                              >
+                                Редактировать
+                              </button>
+                            )}
                             <button
                               type="button"
-                              onClick={() => {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  productId: svc.productId,
-                                  price: svc.price ? (Number(svc.price) / 100).toString() : '',
-                                  status: svc.status,
-                                  billingType: svc.billingType,
-                                }));
+                              onClick={async () => {
+                                if (!confirm(`Удалить услугу «${svc.product.name}»?`)) return;
+                                try {
+                                  const res = await fetch(`/api/services/${svc.id}`, { method: 'DELETE' });
+                                  if (res.ok) {
+                                    fetchSiteServices(formData.siteId);
+                                  } else {
+                                    const d = await res.json();
+                                    setError(d.error || 'Ошибка удаления услуги');
+                                  }
+                                } catch {
+                                  setError('Ошибка удаления услуги');
+                                }
                               }}
-                              className="text-xs text-blue-600 hover:text-blue-800 ml-2 whitespace-nowrap"
+                              className="px-2.5 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 whitespace-nowrap"
+                              title="Удалить услугу"
                             >
-                              Редактировать
+                              Удалить
                             </button>
-                          )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1090,7 +1178,7 @@ export default function ProjectModal({
                       }));
                       setExpenseItemResponsibles({});
                     }}
-                    className="mt-3 px-3 py-1.5 border border-green-300 text-green-700 rounded-md hover:bg-green-50 text-sm"
+                    className="mt-3 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
                   >
                     + Добавить ещё услугу
                   </button>
@@ -1244,10 +1332,19 @@ export default function ProjectModal({
                       </span>
                     </div>
                   )}
+                  {formData.price && expensesTotal > 0 && (
+                    <div>
+                      <span className="text-gray-600">Итого расходы:</span>{' '}
+                      <span className="font-medium">{Math.round(expensesTotal).toLocaleString('ru-RU')} руб.</span>
+                      <span className="text-gray-400 ml-2">
+                        (база комиссии: {Math.round(commissionBase).toLocaleString('ru-RU')} руб.)
+                      </span>
+                    </div>
+                  )}
                   {soldByCommissionAmount != null && (
                     <div>
                       <span className="text-gray-600">Сумма комиссии:</span>{' '}
-                      <span className="font-medium">≈ {Math.round(soldByCommissionAmount).toLocaleString('ru-RU')} руб.</span>
+                      <span className="font-bold text-green-700">≈ {Math.round(soldByCommissionAmount).toLocaleString('ru-RU')} руб.</span>
                     </div>
                   )}
                   {amFee != null && (
@@ -1274,7 +1371,7 @@ export default function ProjectModal({
                   const priceVal = formData.price ? parseFloat(formData.price) : 0;
                   const calculated = currentVals.valueType === 'PERCENT'
                     ? (priceVal * currentVals.value / 100).toFixed(0)
-                    : (currentVals.value / 100).toFixed(0);
+                    : currentVals.value.toFixed(0);
                   const deptId = item.template.departmentId;
                   const deptEmployees = deptId
                     ? allEmployees.filter((e) => e.departmentId === deptId)
@@ -1305,13 +1402,12 @@ export default function ProjectModal({
                           <input
                             type="number"
                             step={currentVals.valueType === 'PERCENT' ? '0.01' : '1'}
-                            value={currentVals.valueType === 'PERCENT' ? currentVals.value : (currentVals.value / 100).toFixed(0)}
+                            value={currentVals.value}
                             onChange={(e) => {
                               const raw = parseFloat(e.target.value) || 0;
-                              const val = currentVals.valueType === 'PERCENT' ? raw : raw * 100;
                               setExpenseItemValues((prev) => ({
                                 ...prev,
-                                [item.expenseItemTemplateId]: { ...currentVals, value: val },
+                                [item.expenseItemTemplateId]: { ...currentVals, value: raw },
                               }));
                             }}
                             className="w-24 px-1.5 py-0.5 border border-gray-300 rounded text-xs"

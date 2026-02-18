@@ -106,3 +106,38 @@ export async function PUT(
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const user = await getSession();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const canDelete = await hasPermission(user, 'agents', 'delete');
+    const canManage = await hasPermission(user, 'agents', 'manage');
+    if (!canDelete && !canManage) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { id } = params;
+
+    // Check if agent has clients
+    const clientCount = await prisma.client.count({ where: { agentId: id } });
+    if (clientCount > 0) {
+      return NextResponse.json(
+        { error: `Невозможно удалить агента: у него ${clientCount} клиент(ов)` },
+        { status: 400 }
+      );
+    }
+
+    await prisma.agent.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting agent:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

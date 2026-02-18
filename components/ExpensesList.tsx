@@ -118,13 +118,14 @@ export default function ExpensesList() {
     siteId: '',
     serviceId: '',
     legalEntityId: '',
+    isWithdrawal: false,
     paymentAt: new Date().toISOString().slice(0, 16),
     comment: '',
   });
   const [sortBy, setSortBy] = useState('paymentAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filters, setFilters] = useState({
-    dateFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    dateFrom: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     dateTo: new Date().toISOString().split('T')[0],
     category: '',
     costItemId: '',
@@ -248,6 +249,7 @@ export default function ExpensesList() {
           siteId: quickAdd.siteId || null,
           serviceId: quickAdd.serviceId || null,
           legalEntityId: quickAdd.legalEntityId || null,
+          isWithdrawal: quickAdd.isWithdrawal,
           paymentAt: quickAdd.paymentAt,
           comment: quickAdd.comment && quickAdd.comment.trim() ? quickAdd.comment.trim() : null,
         }),
@@ -261,6 +263,7 @@ export default function ExpensesList() {
           employeeId: '',
           siteId: '',
           serviceId: '',
+          isWithdrawal: false,
           paymentAt: new Date().toISOString().slice(0, 16),
           comment: '',
         });
@@ -478,6 +481,17 @@ export default function ExpensesList() {
                 ))}
               </select>
             </div>
+            <div className="flex items-center">
+              <label className="flex items-center gap-2 cursor-pointer mt-5">
+                <input
+                  type="checkbox"
+                  checked={quickAdd.isWithdrawal}
+                  onChange={(e) => setQuickAdd({ ...quickAdd, isWithdrawal: e.target.checked })}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded"
+                />
+                <span className="text-sm font-medium text-gray-700">Снятие</span>
+              </label>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Дата платежа
@@ -680,7 +694,7 @@ export default function ExpensesList() {
             <button
               onClick={() => {
                 setFilters({
-                  dateFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                  dateFrom: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                   dateTo: new Date().toISOString().split('T')[0],
                   category: '',
                   costItemId: '',
@@ -762,6 +776,13 @@ export default function ExpensesList() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
+              {expenses.length === 0 && (
+                <tr>
+                  <td colSpan={13} className="text-center py-8 text-gray-500">
+                    Нет расходов
+                  </td>
+                </tr>
+              )}
               {expenses.map((expense) => (
                 <tr key={expense.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -835,9 +856,6 @@ export default function ExpensesList() {
             </tbody>
           </table>
         </div>
-        {expenses.length === 0 && (
-          <div className="text-center py-8 text-gray-500">Расходы не найдены</div>
-        )}
       </div>
 
       {showModal && (
