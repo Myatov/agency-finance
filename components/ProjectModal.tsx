@@ -440,8 +440,6 @@ export default function ProjectModal({
   };
 
   const fetchClientDetail = async (clientId: string) => {
-    setSelectedClient(null);
-    setShowRequisites(false);
     try {
       const res = await fetch(`/api/clients/${clientId}`);
       const data = await res.json();
@@ -671,10 +669,14 @@ export default function ProjectModal({
     setLoading(true);
     setError('');
     try {
+      const payload: Record<string, unknown> = { name: newClientName.trim(), sellerEmployeeId: newClientSellerId };
+      if (user?.roleCode === 'ACCOUNT_MANAGER' && user?.id) {
+        payload.accountManagerId = user.id;
+      }
       const res = await fetch('/api/clients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newClientName.trim(), sellerEmployeeId: newClientSellerId }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) {

@@ -9,7 +9,7 @@ export async function hasViewAllPermission(
   section: string
 ): Promise<boolean> {
   if (!SECTIONS_VIEW_ALL.includes(section as any)) return true;
-  if (user.roleCode === 'OWNER') return true;
+  if (user.roleCode === 'OWNER' || user.roleCode?.toUpperCase() === 'OWNER') return true;
   if (user.roleCode === 'CEO') {
     if (section === 'legal-entities') return false;
     return true;

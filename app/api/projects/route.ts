@@ -75,7 +75,8 @@ export async function GET(request: NextRequest) {
       whereClause.OR = [
         { site: { client: { sellerEmployeeId: user.id } } },
         { site: { client: { accountManagerId: user.id } } },
-        { site: { accountManagerId: user.id } }, // Site.accountManagerId (deprecated, но ещё используется)
+        { site: { accountManagerId: user.id } }, // Site.accountManagerId (deprecated)
+        { site: { creatorId: user.id } }, // Кто создал сайт — видит свои проекты
         { responsibleUserId: user.id },
       ];
     }

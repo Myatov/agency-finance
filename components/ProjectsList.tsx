@@ -508,6 +508,7 @@ export default function ProjectsList() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="w-6 p-0" title="Статус" />
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Услуга</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Инфо</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Цена</th>
@@ -526,7 +527,7 @@ export default function ProjectsList() {
                         className="bg-gray-100 cursor-pointer hover:bg-gray-200"
                         onClick={() => toggleClient(clientId)}
                       >
-                        <td colSpan={7} className="px-4 py-3">
+                        <td colSpan={8} className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <span className="text-xs text-gray-400">{clientCollapsed ? '▶' : '▼'}</span>
                             <span className="font-bold text-gray-900">
@@ -561,7 +562,7 @@ export default function ProjectsList() {
                               className="bg-gray-50 cursor-pointer hover:bg-gray-100"
                               onClick={() => toggleSite(siteId)}
                             >
-                              <td colSpan={7} className="px-4 py-2 pl-10">
+                              <td colSpan={8} className="px-4 py-2 pl-10">
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-gray-400">{siteCollapsed ? '▶' : '▼'}</span>
                                   <span className="text-sm font-medium text-gray-700">{site.title}</span>
@@ -589,6 +590,11 @@ export default function ProjectsList() {
 
                               return (
                                 <tr key={p.id} className="bg-white hover:bg-gray-50">
+                                  <td className="w-6 p-0 align-middle" title={STATUS_LABELS[p.status] || p.status}>
+                                    <div className="flex justify-center">
+                                      <span className={`inline-block w-2 h-2 rounded-full ${p.status === 'ACTIVE' ? 'bg-green-500' : p.status === 'PAUSED' ? 'bg-yellow-500' : 'bg-gray-400'}`} />
+                                    </div>
+                                  </td>
                                   <td className="px-4 py-3 pl-16 text-sm">
                                     <span className="font-medium">{p.product.name}</span>
                                     <div className="text-xs text-gray-500">{BILLING_LABELS[p.billingType] || p.billingType}</div>
@@ -684,7 +690,7 @@ export default function ProjectsList() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="w-[5px] p-0" title="Статус" />
+                  <th className="w-6 p-0" title="Статус" />
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Клиент / Юрлицо</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Сайт</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Услуга</th>
@@ -713,11 +719,10 @@ export default function ProjectsList() {
                     const statusBarColor = STATUS_BAR_COLORS[p.status] || 'bg-gray-400';
                     return (
                       <tr key={p.id} className="hover:bg-gray-50">
-                        <td className="relative w-[5px] p-0" style={{ minWidth: 5 }}>
-                          <div
-                            className={`absolute top-0 bottom-0 left-0 w-[5px] ${statusBarColor}`}
-                            title={statusLabel}
-                          />
+                        <td className="w-6 p-0 align-middle" style={{ minWidth: 24 }} title={statusLabel}>
+                          <div className="flex justify-center">
+                            <span className={`inline-block w-2 h-2 rounded-full ${statusBarColor}`} />
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-sm">
                           <div className="font-medium">{p.site.client.isSystem ? '—' : p.site.client.name}</div>

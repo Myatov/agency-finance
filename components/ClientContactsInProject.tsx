@@ -222,8 +222,16 @@ export default function ClientContactsInProject({
           contact={null}
           onClose={() => setShowContactModal(false)}
           onSuccess={(created) => {
-            setShowContactModal(false);
-            if (created) addContact(created);
+            if (created) {
+              addContact(created);
+              setShowContactModal(false);
+            }
+          }}
+          onDuplicateFound={(duplicates) => {
+            if (duplicates.length > 0) {
+              addContact(duplicates[0]);
+              setShowContactModal(false);
+            }
           }}
         />
       )}
