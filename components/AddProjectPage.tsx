@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import ContactModal, { type Contact } from './ContactModal';
 
@@ -326,24 +327,27 @@ function ContactsSection({
           ))}
         </ul>
       )}
-      {showContactModal && (
-        <ContactModal
-          contact={null}
-          onClose={() => setShowContactModal(false)}
-          onSuccess={(created) => {
-            if (created) {
-              addContact(created);
-              setShowContactModal(false);
-            }
-          }}
-          onDuplicateFound={(duplicates) => {
-            if (duplicates.length > 0) {
-              addContact(duplicates[0]);
-              setShowContactModal(false);
-            }
-          }}
-        />
-      )}
+      {showContactModal &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <ContactModal
+            contact={null}
+            onClose={() => setShowContactModal(false)}
+            onSuccess={(created) => {
+              if (created) {
+                addContact(created);
+                setShowContactModal(false);
+              }
+            }}
+            onDuplicateFound={(duplicates) => {
+              if (duplicates.length > 0) {
+                addContact(duplicates[0]);
+                setShowContactModal(false);
+              }
+            }}
+          />,
+          document.body
+        )}
     </div>
   );
 }

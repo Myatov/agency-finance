@@ -9,7 +9,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-const TARGET_PATTERNS = ['кл 99', '99 кл', '88 клиен', '88 кл'];
+const TARGET_PATTERNS = ['кл 99', '99 кл', 'кл 88', '88 клиен', '88 кл'];
 
 async function main() {
   console.log('Поиск клиентов:', TARGET_PATTERNS.join(', '), '...\n');
