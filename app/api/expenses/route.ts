@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const dateFrom = searchParams.get('dateFrom') || '';
     const dateTo = searchParams.get('dateTo') || '';
+
+    console.log('Expenses API - dateFrom:', dateFrom, 'dateTo:', dateTo, 'user:', user.id, 'roleCode:', user.roleCode);
     const category = searchParams.get('category');
     const costItemId = searchParams.get('costItemId');
     const departmentId = searchParams.get('departmentId');
@@ -78,6 +80,8 @@ export async function GET(request: NextRequest) {
     if (legalEntityId) {
       where.legalEntityId = legalEntityId;
     }
+
+    console.log('Expenses WHERE:', JSON.stringify(where));
 
     const sortBy = searchParams.get('sortBy') || 'paymentAt';
     const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';

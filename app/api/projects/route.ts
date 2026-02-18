@@ -71,22 +71,11 @@ export async function GET(request: NextRequest) {
     const viewAllProjects = await hasViewAllPermission(user, 'projects');
 
     if (!viewAllProjects) {
-      if (user.roleCode === 'ACCOUNT_MANAGER') {
-        whereClause.site = {
-          ...whereClause.site,
-          client: { ...whereClause.site?.client, accountManagerId: user.id },
-        };
-      } else if (user.roleCode === 'SELLER') {
-        whereClause.site = {
-          ...whereClause.site,
-          client: { ...whereClause.site?.client, sellerEmployeeId: user.id },
-        };
-      } else {
-        whereClause.OR = [
-          { site: { creatorId: user.id } },
-          { responsibleUserId: user.id },
-        ];
-      }
+      whereClause.OR = [
+        { site: { client: { sellerEmployeeId: user.id } } },
+        { site: { client: { accountManagerId: user.id } } },
+        { responsibleUserId: user.id },
+      ];
     }
 
     const services = await prisma.service.findMany({

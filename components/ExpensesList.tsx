@@ -126,7 +126,7 @@ export default function ExpensesList() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filters, setFilters] = useState({
     dateFrom: '',
-    dateTo: new Date().toISOString().split('T')[0],
+    dateTo: '',
     category: '',
     costItemId: '',
     departmentId: '',
@@ -695,7 +695,7 @@ export default function ExpensesList() {
               onClick={() => {
                 setFilters({
                   dateFrom: '',
-                  dateTo: new Date().toISOString().split('T')[0],
+                  dateTo: '',
                   category: '',
                   costItemId: '',
                   departmentId: '',

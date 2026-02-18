@@ -67,7 +67,9 @@ interface ClientDetail {
   name: string;
   sellerEmployeeId: string;
   accountManagerId: string | null;
+  accountManager?: { id: string; fullName: string } | null;
   agentId: string | null;
+  agent?: { id: string; name: string; phone?: string | null; telegram?: string | null } | null;
   legalEntityId: string | null;
   legalEntityName: string | null;
   legalAddress: string | null;
@@ -87,6 +89,12 @@ interface ClientDetail {
   workStartDate: string | null;
   isArchived: boolean;
   isSystem: boolean;
+  clientContacts?: Array<{
+    id: string;
+    role: string;
+    isPrimary: boolean;
+    contact: { id: string; name: string; email?: string | null; phone?: string | null; telegram?: string | null };
+  }>;
   [key: string]: unknown;
 }
 
@@ -108,6 +116,7 @@ interface ExistingSiteService {
   status: string;
   price: string | null;
   billingType: string;
+  startDate: string | null;
 }
 
 interface EditProject {
@@ -334,6 +343,7 @@ export default function ProjectModal({
         status: s.status,
         price: s.price,
         billingType: s.billingType,
+        startDate: s.startDate || null,
       })));
     } catch { /* ignore */ }
     finally { setExistingServicesLoading(false); }
@@ -690,7 +700,29 @@ export default function ProjectModal({
         return;
       }
 
-      onSuccess();
+      if (project) {
+        onSuccess();
+      } else {
+        if (formData.siteId) {
+          fetchSiteServices(formData.siteId);
+        }
+        setFormData((prev) => ({
+          ...prev,
+          productId: '',
+          price: '',
+          status: 'ACTIVE',
+          billingType: 'MONTHLY',
+          prepaymentType: 'POSTPAY',
+          autoRenew: false,
+          isFromPartner: false,
+          comment: '',
+          soldByUserId: user?.id || '',
+        }));
+        setExpenseItemResponsibles({});
+        setExpenseItemValues({});
+        setShowExistingServices(true);
+        setLoading(false);
+      }
     } catch {
       setError('Ошибка соединения');
       setLoading(false);
@@ -868,6 +900,62 @@ export default function ProjectModal({
                   {showRequisites ? 'Скрыть реквизиты' : 'Редактировать реквизиты'}
                 </button>
               </div>
+
+              {selectedClient.agent && (
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium text-purple-700">Партнёр/Агент:</span> {selectedClient.agent.name}
+                  {selectedClient.agent.phone && <span className="ml-2 text-gray-400">{selectedClient.agent.phone}</span>}
+                  {selectedClient.agent.telegram && <span className="ml-2 text-gray-400">@{selectedClient.agent.telegram}</span>}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-medium text-blue-700">Аккаунт-менеджер:</span>
+                {(user?.roleCode === 'OWNER' || user?.roleCode === 'CEO') ? (
+                  <select
+                    value={selectedClient.accountManagerId || ''}
+                    onChange={async (e) => {
+                      const newAMId = e.target.value || null;
+                      try {
+                        const res = await fetch(`/api/clients/${selectedClient.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(getClientPayload({ accountManagerId: newAMId })),
+                        });
+                        if (res.ok) {
+                          fetchClientDetail(selectedClient.id);
+                        }
+                      } catch {}
+                    }}
+                    className="px-2 py-1 border border-gray-300 rounded text-sm"
+                  >
+                    <option value="">Не назначен</option>
+                    {allEmployees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-gray-600">
+                    {selectedClient.accountManager ? selectedClient.accountManager.fullName : 'Не назначен'}
+                  </span>
+                )}
+              </div>
+
+              {selectedClient.clientContacts && selectedClient.clientContacts.length > 0 && (
+                <div className="text-sm">
+                  <span className="font-medium text-gray-700">Контакты:</span>
+                  <div className="mt-1 space-y-1">
+                    {selectedClient.clientContacts.map((cc) => (
+                      <div key={cc.id} className="flex items-center gap-2 text-gray-600 text-xs">
+                        <span className="font-medium">{cc.contact.name}</span>
+                        {cc.contact.phone && <span>{cc.contact.phone}</span>}
+                        {cc.contact.email && <span>{cc.contact.email}</span>}
+                        {cc.isPrimary && <span className="text-blue-600">(основной)</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Requisites editing section (collapsible) */}
               {showRequisites && (
@@ -1108,12 +1196,17 @@ export default function ProjectModal({
                     <div className="space-y-2">
                       {existingSiteServices.map((svc) => (
                         <div key={svc.id} className="flex items-center justify-between bg-gray-50 rounded p-2.5 text-sm border border-gray-100">
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 flex items-center gap-3">
                             <span className="font-medium text-gray-700">{svc.product.name}</span>
-                            <span className="ml-2 text-xs text-gray-500">
+                            <span className="text-xs text-gray-500">
                               {svc.price ? `${(Number(svc.price) / 100).toLocaleString('ru-RU')} руб.` : '—'}
                             </span>
-                            <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                            {svc.startDate && (
+                              <span className="text-xs text-gray-400">
+                                с {new Date(svc.startDate).toLocaleDateString('ru-RU')}
+                              </span>
+                            )}
+                            <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
                               svc.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
                               svc.status === 'PAUSED' ? 'bg-yellow-100 text-yellow-800' :
                               'bg-gray-100 text-gray-800'
