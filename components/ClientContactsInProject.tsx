@@ -163,7 +163,7 @@ export default function ClientContactsInProject({
   const availableToAdd = searchResults.filter((c) => !links.some((l) => l.contactId === c.id));
 
   return (
-    <div className="text-sm">
+    <div className="text-sm" onClick={(e) => e.stopPropagation()}>
       <span className="font-medium text-gray-700 block mb-2">Контакты:</span>
       <div className="space-y-2">
         <input
@@ -172,6 +172,7 @@ export default function ClientContactsInProject({
           value={contactSearch}
           onChange={(e) => setContactSearch(e.target.value)}
           className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+          onFocus={(e) => e.stopPropagation()}
         />
         {contactSearch.trim().length >= 2 && (
           <div className="border border-gray-200 rounded bg-white shadow max-h-36 overflow-y-auto">

@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
     const accountManagerId = searchParams.get('accountManagerId');
     const productId = searchParams.get('productId');
     const unassigned = searchParams.get('unassigned');
-    const activeOnly = searchParams.get('activeOnly');
 
     const whereClause: any = {};
 
@@ -60,14 +59,6 @@ export async function GET(request: NextRequest) {
       whereClause.productId = productId;
     }
 
-    if (activeOnly === 'true') {
-      whereClause.site = {
-        ...whereClause.site,
-        client: { ...whereClause.site?.client, isArchived: false },
-      };
-      whereClause.status = { in: ['ACTIVE', 'PAUSED'] };
-    }
-
     // Permission-based filtering — проверяем ТОЛЬКО projects view_all
     const viewAllProjects = await hasViewAllPermission(user, 'projects');
 
@@ -90,7 +81,7 @@ export async function GET(request: NextRequest) {
           accountManagerId: amFilter,
           sites: { none: {} },
           isSystem: false,
-          ...(activeOnly === 'true' ? { isArchived: false } : {}),
+          ...(status && ['ACTIVE', 'PAUSED'].includes(status) ? { isArchived: false } : {}),
           ...(sellerId ? { sellerEmployeeId: sellerId } : {}),
         },
         include: {

@@ -439,22 +439,24 @@ export default function ProjectModal({
     } catch { setClientServicesAll([]); }
   };
 
-  const fetchClientDetail = async (clientId: string) => {
+  const fetchClientDetail = async (clientId: string, resetRequisites = true) => {
     try {
       const res = await fetch(`/api/clients/${clientId}`);
       const data = await res.json();
       if (data.client) {
         setSelectedClient(data.client);
-        setRequisitesForm({
-          inn: data.client.inn || '',
-          kpp: data.client.kpp || '',
-          ogrn: data.client.ogrn || '',
-          legalAddress: data.client.legalAddress || '',
-          rs: data.client.rs || '',
-          bankName: data.client.bankName || '',
-          bik: data.client.bik || '',
-          ks: data.client.ks || '',
-        });
+        if (resetRequisites) {
+          setRequisitesForm({
+            inn: data.client.inn || '',
+            kpp: data.client.kpp || '',
+            ogrn: data.client.ogrn || '',
+            legalAddress: data.client.legalAddress || '',
+            rs: data.client.rs || '',
+            bankName: data.client.bankName || '',
+            bik: data.client.bik || '',
+            ks: data.client.ks || '',
+          });
+        }
       }
     } catch { /* ignore */ }
   };
@@ -1106,7 +1108,7 @@ export default function ProjectModal({
               </div>
 
               {/* Контакты клиента — добавление существующих, создание новых */}
-              <ClientContactsInProject client={selectedClient} onUpdate={() => fetchClientDetail(selectedClient.id)} />
+              <ClientContactsInProject client={selectedClient} onUpdate={() => fetchClientDetail(selectedClient.id, false)} />
 
               {/* Requisites editing section (collapsible) */}
               {showRequisites && (

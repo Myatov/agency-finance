@@ -115,6 +115,12 @@ export async function PUT(
       autoRenew,
       responsibleUserId,
       comment,
+      isFromPartner,
+      sellerCommissionPercent,
+      sellerCommissionAmount,
+      accountManagerCommissionPercent,
+      accountManagerCommissionAmount,
+      accountManagerFeeAmount,
       expenseItems: expenseItemsPayload,
     } = body;
 
@@ -180,6 +186,12 @@ export async function PUT(
     if (autoRenew !== undefined) updateData.autoRenew = Boolean(autoRenew);
     if (responsibleUserId !== undefined) updateData.responsibleUserId = responsibleUserId || null;
     if (comment !== undefined) updateData.comment = comment || null;
+    if (isFromPartner !== undefined) updateData.isFromPartner = Boolean(isFromPartner);
+    if (sellerCommissionPercent !== undefined) updateData.sellerCommissionPercent = sellerCommissionPercent != null ? parseFloat(sellerCommissionPercent) : null;
+    if (sellerCommissionAmount !== undefined) updateData.sellerCommissionAmount = sellerCommissionAmount != null ? BigInt(Math.round(Number(sellerCommissionAmount))) : null;
+    if (accountManagerCommissionPercent !== undefined) updateData.accountManagerCommissionPercent = accountManagerCommissionPercent != null ? parseFloat(accountManagerCommissionPercent) : null;
+    if (accountManagerCommissionAmount !== undefined) updateData.accountManagerCommissionAmount = accountManagerCommissionAmount != null ? BigInt(Math.round(Number(accountManagerCommissionAmount))) : null;
+    if (accountManagerFeeAmount !== undefined) updateData.accountManagerFeeAmount = accountManagerFeeAmount != null ? BigInt(Math.round(Number(accountManagerFeeAmount))) : null;
 
     const service = await prisma.service.update({
       where: { id: params.id },
@@ -290,6 +302,36 @@ export async function PUT(
       changes.push(`Тип оплаты: ${existingService.billingType} → ${billingType}`);
       oldValues.billingType = existingService.billingType;
       newValues.billingType = billingType;
+    }
+
+    if (sellerCommissionPercent !== undefined) {
+      const oldVal = existingService.sellerCommissionPercent;
+      const newVal = sellerCommissionPercent != null ? parseFloat(sellerCommissionPercent) : null;
+      if (oldVal !== newVal) {
+        changes.push(`Комиссия продавца %: ${oldVal ?? '—'} → ${newVal ?? '—'}`);
+        oldValues.sellerCommissionPercent = oldVal;
+        newValues.sellerCommissionPercent = newVal;
+      }
+    }
+
+    if (sellerCommissionAmount !== undefined) {
+      const oldVal = existingService.sellerCommissionAmount !== null ? Number(existingService.sellerCommissionAmount) / 100 : null;
+      const newVal = sellerCommissionAmount != null ? Math.round(Number(sellerCommissionAmount)) / 100 : null;
+      if (oldVal !== newVal) {
+        changes.push(`Сумма комиссии продавца: ${oldVal ?? '—'} → ${newVal ?? '—'}`);
+        oldValues.sellerCommissionAmount = oldVal;
+        newValues.sellerCommissionAmount = newVal;
+      }
+    }
+
+    if (accountManagerCommissionPercent !== undefined) {
+      const oldVal = existingService.accountManagerCommissionPercent;
+      const newVal = accountManagerCommissionPercent != null ? parseFloat(accountManagerCommissionPercent) : null;
+      if (oldVal !== newVal) {
+        changes.push(`Комиссия АМ %: ${oldVal ?? '—'} → ${newVal ?? '—'}`);
+        oldValues.accountManagerCommissionPercent = oldVal;
+        newValues.accountManagerCommissionPercent = newVal;
+      }
     }
 
     if (changes.length > 0) {

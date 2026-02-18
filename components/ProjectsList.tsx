@@ -119,12 +119,11 @@ export default function ProjectsList() {
   const [user, setUser] = useState<User | null>(null);
   const [accountManagers, setAccountManagers] = useState<AccountManager[]>([]);
   const [filters, setFilters] = useState({
-    status: '',
+    status: 'ACTIVE',
     accountManagerId: '',
     sellerId: '',
     productId: '',
     search: '',
-    activeOnly: true,
   });
   const [showUnassigned, setShowUnassigned] = useState(false);
   const [assigningClient, setAssigningClient] = useState<string | null>(null);
@@ -165,7 +164,6 @@ export default function ProjectsList() {
       if (filters.accountManagerId) params.set('accountManagerId', filters.accountManagerId);
       if (filters.sellerId) params.set('sellerId', filters.sellerId);
       if (filters.productId) params.set('productId', filters.productId);
-      if (filters.activeOnly) params.set('activeOnly', 'true');
 
       const res = await fetch(`/api/projects?${params.toString()}`);
       const data = await res.json();
@@ -249,7 +247,7 @@ export default function ProjectsList() {
   useEffect(() => {
     const timer = setTimeout(() => fetchProjects(), 300);
     return () => clearTimeout(timer);
-  }, [filters.status, filters.accountManagerId, filters.sellerId, filters.productId, filters.activeOnly]);
+  }, [filters.status, filters.accountManagerId, filters.sellerId, filters.productId]);
 
   const isOwner = user && (user.roleCode === 'OWNER' || user.roleCode === 'CEO');
 
@@ -465,16 +463,7 @@ export default function ProjectsList() {
             </select>
           </div>
         </div>
-        <div className="mt-3 flex items-center justify-between">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={filters.activeOnly}
-              onChange={(e) => setFilters((prev) => ({ ...prev, activeOnly: e.target.checked }))}
-              className="h-4 w-4 text-blue-600 border-gray-300 rounded"
-            />
-            <span className="text-sm text-gray-700">Только активные клиенты</span>
-          </label>
+        <div className="mt-3 flex items-center justify-end">
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
             <button
               onClick={() => { setViewMode('grouped'); localStorage.setItem('projects_view_mode', 'grouped'); }}
