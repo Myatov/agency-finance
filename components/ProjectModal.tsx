@@ -1336,8 +1336,7 @@ export default function ProjectModal({
                             </button>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      ))
               ) : (
                 <p className="text-sm text-gray-400">Нет услуг для этого сайта</p>
               )}
@@ -1365,11 +1364,12 @@ export default function ProjectModal({
                 + Добавить ещё услугу
               </button>
             </div>
+            </div>
           )}
 
           {/* Поля услуги — показываем при Редактировать или Добавить */}
           {activeServiceId !== undefined && (
-          <>
+          <div className="space-y-4">
           {/* Product Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1652,7 +1652,7 @@ export default function ProjectModal({
               {loading ? 'Сохранение...' : 'Сохранить'}
             </button>
           </div>
-          </>
+          </div>
           )}
         </form>
       </div>
