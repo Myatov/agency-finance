@@ -444,12 +444,19 @@ export default function ProjectModal({
   });
 
   const fetchClientServices = async (clientId: string) => {
+    if (!clientId) return;
     try {
-      const res = await fetch(`/api/services?clientId=${clientId}`, { cache: 'no-store' });
+      const res = await fetch(`/api/services?clientId=${encodeURIComponent(clientId)}&_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { Pragma: 'no-cache', 'Cache-Control': 'no-cache' },
+      });
       const data = await res.json();
       const svcs = (data.services || []).map(serviceToListItem);
       setClientServicesAll(svcs);
-    } catch { setClientServicesAll([]); }
+    } catch (e) {
+      console.error('fetchClientServices error', e);
+      setClientServicesAll([]);
+    }
   };
 
   const fetchClientDetail = async (clientId: string, resetRequisites = true) => {
@@ -826,15 +833,8 @@ export default function ProjectModal({
         return;
       }
 
-      const savedService = data.service;
-      if (savedService && formData.clientId) {
-        const newItem = serviceToListItem(savedService);
-        setClientServicesAll((prev) => {
-          const rest = prev.filter((s) => s.id !== newItem.id);
-          return [...rest, newItem];
-        });
-      } else if (formData.clientId) {
-        fetchClientServices(formData.clientId);
+      if (formData.clientId) {
+        await fetchClientServices(formData.clientId);
       }
       if (formData.siteId) fetchSiteServices(formData.siteId);
       setActiveServiceId(undefined);
