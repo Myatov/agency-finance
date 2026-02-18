@@ -92,8 +92,9 @@ model User {
   createdPeriodInvoiceNotes PeriodInvoiceNote[] @relation("PeriodInvoiceNoteCreator")
   fixedSalaryHistory  UserFixedSalaryHistory[]
   motivations         UserMotivation[]
-  responsibleExpenseItems ServiceExpenseItem[] @relation("ExpenseItemResponsible")
-  auditLogs              AuditLog[]           @relation("AuditLogUser")
+  responsibleExpenseItems     ServiceExpenseItem[]     @relation("ExpenseItemResponsible")
+  responsibleWorkPeriodItems WorkPeriodExpenseItem[]  @relation("WorkPeriodExpenseItemResponsible")
+  auditLogs                  AuditLog[]              @relation("AuditLogUser")
 
   @@index([departmentId])
   @@index([roleId])
@@ -406,6 +407,7 @@ model WorkPeriod {
   periodReport        WorkPeriodReport?
   closeoutDocuments   CloseoutDocument[]
   periodInvoiceNotes  PeriodInvoiceNote[] // Пометки «Счёт выставлен на X» без формирования счёта (ЮЛ без галочки)
+  expenseItems        WorkPeriodExpenseItem[] // Расходы по периоду (могут отличаться от услуги)
 
   @@unique([serviceId, dateFrom, dateTo])
   @@index([serviceId])
@@ -802,9 +804,10 @@ model ExpenseItemTemplate {
   sortOrder    Int         @default(0)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
-  department   Department? @relation(fields: [departmentId], references: [id])
-  productItems ProductExpenseItem[]
-  serviceItems ServiceExpenseItem[]
+  department     Department? @relation(fields: [departmentId], references: [id])
+  productItems   ProductExpenseItem[]
+  serviceItems   ServiceExpenseItem[]
+  workPeriodItems WorkPeriodExpenseItem[]
 
   @@index([sortOrder])
   @@index([departmentId])
@@ -879,6 +882,26 @@ model ServiceExpenseItem {
   responsible           User?               @relation("ExpenseItemResponsible", fields: [responsibleUserId], references: [id])
 
   @@index([serviceId])
+  @@index([responsibleUserId])
+}
+
+// ——— Расходы по периоду (могут отличаться от статей услуги) ———
+model WorkPeriodExpenseItem {
+  id                    String              @id @default(uuid())
+  workPeriodId          String
+  expenseItemTemplateId String?
+  responsibleUserId     String?
+  name                  String
+  valueType             ExpenseItemValueType @default(PERCENT)
+  value                 Float               @default(0)
+  calculatedAmount     BigInt?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  workPeriod            WorkPeriod          @relation(fields: [workPeriodId], references: [id], onDelete: Cascade)
+  template              ExpenseItemTemplate? @relation(fields: [expenseItemTemplateId], references: [id])
+  responsible           User?               @relation("WorkPeriodExpenseItemResponsible", fields: [responsibleUserId], references: [id])
+
+  @@index([workPeriodId])
   @@index([responsibleUserId])
 }
 

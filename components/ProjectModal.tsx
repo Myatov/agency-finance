@@ -293,7 +293,7 @@ export default function ProjectModal({
             autoRenew: Boolean(svc.autoRenew),
             isFromPartner: Boolean(svc.isFromPartner),
             comment: svc.comment || '',
-            soldByUserId: svc.site?.client?.sellerEmployeeId || svc.site?.client?.accountManagerId || prev.soldByUserId,
+            soldByUserId: svc.responsibleUserId || svc.site?.client?.sellerEmployeeId || svc.site?.client?.accountManagerId || prev.soldByUserId,
           }));
           setFetchedServiceForEdit(svc.expenseItems?.length ? { expenseItems: svc.expenseItems } : null);
         })
@@ -318,7 +318,7 @@ export default function ProjectModal({
         autoRenew: project.autoRenew,
         isFromPartner: project.isFromPartner,
         comment: project.comment || '',
-        soldByUserId: project.site.client.sellerEmployeeId || project.site.client.accountManagerId || '',
+        soldByUserId: project.responsibleUserId || project.site.client.sellerEmployeeId || project.site.client.accountManagerId || '',
       });
     }
   }, [project]);
@@ -760,7 +760,7 @@ export default function ProjectModal({
         autoRenew: formData.autoRenew,
         isFromPartner: formData.isFromPartner,
         comment: formData.comment || null,
-        soldByUserId: formData.soldByUserId || null,
+        responsibleUserId: formData.soldByUserId || null,
       };
 
       if (soldByCommissionRole === 'SELLER' && soldByCommissionPercent != null) {
@@ -849,116 +849,123 @@ export default function ProjectModal({
 
   const isReadOnlyCommission = user && user.roleCode !== 'OWNER' && user.roleCode !== 'CEO';
 
-  if (step === 'newClient') {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-md w-full">
-          <h2 className="text-xl font-bold mb-4">Новый клиент</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Название *</label>
-              <input
-                type="text"
-                value={newClientName}
-                onChange={(e) => setNewClientName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                placeholder="Название клиента"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Продавец (seller) *</label>
-              <select
-                value={newClientSellerId}
-                onChange={(e) => setNewClientSellerId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              >
-                <option value="">Выберите сотрудника</option>
-                {allEmployees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>{emp.fullName}</option>
-                ))}
-              </select>
-            </div>
-            {error && <div className="text-red-600 text-sm">{error}</div>}
-            <div className="flex justify-end gap-3">
-              <button type="button" onClick={() => { setStep('main'); setError(''); }} className="px-4 py-2 border rounded-md hover:bg-gray-50">Назад</button>
-              <button type="button" onClick={handleCreateClient} disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
-                {loading ? 'Создание...' : 'Создать'}
-              </button>
-            </div>
+  const NewClientOverlay = () => step === 'newClient' && (
+    <div className="fixed inset-0 flex items-center justify-center z-[60]">
+      <div className="absolute inset-0 bg-black bg-opacity-40" onClick={() => { setStep('main'); setError(''); }} aria-hidden />
+      <div className="relative bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-xl font-bold mb-4">Новый клиент</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Название *</label>
+            <input
+              type="text"
+              value={newClientName}
+              onChange={(e) => setNewClientName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              placeholder="Название клиента"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Продавец (seller) *</label>
+            <select
+              value={newClientSellerId}
+              onChange={(e) => setNewClientSellerId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            >
+              <option value="">Выберите сотрудника</option>
+              {allEmployees.map((emp) => (
+                <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+              ))}
+            </select>
+          </div>
+          {error && <div className="text-red-600 text-sm">{error}</div>}
+          <div className="flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-red-300 text-red-700 rounded-md hover:bg-red-50">Отмена</button>
+            <button type="button" onClick={() => { setStep('main'); setError(''); }} className="px-4 py-2 border rounded-md hover:bg-gray-50">Назад</button>
+            <button type="button" onClick={handleCreateClient} disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
+              {loading ? 'Создание...' : 'Создать'}
+            </button>
           </div>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (step === 'newSite') {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-md w-full">
-          <h2 className="text-xl font-bold mb-4">Новый сайт</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Название *</label>
-              <input
-                type="text"
-                value={newSiteTitle}
-                onChange={(e) => setNewSiteTitle(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                placeholder="Название сайта"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
-              <input
-                type="text"
-                value={newSiteUrl}
-                onChange={(e) => setNewSiteUrl(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                placeholder="https://example.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Ниша *</label>
-              <select
-                value={newSiteNiche}
-                onChange={(e) => setNewSiteNiche(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              >
-                <option value="">Выберите нишу</option>
-                {niches.map((n) => (
-                  <option key={n.id} value={n.id}>{n.name}</option>
-                ))}
-              </select>
-            </div>
-            {error && <div className="text-red-600 text-sm">{error}</div>}
-            <div className="flex justify-end gap-3">
-              <button type="button" onClick={() => { setStep('main'); setError(''); }} className="px-4 py-2 border rounded-md hover:bg-gray-50">Назад</button>
-              <button type="button" onClick={handleCreateSite} disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
-                {loading ? 'Создание...' : 'Создать'}
-              </button>
-            </div>
+  const NewSiteOverlay = () => step === 'newSite' && (
+    <div className="fixed inset-0 flex items-center justify-center z-[60]">
+      <div className="absolute inset-0 bg-black bg-opacity-40" onClick={() => { setStep('main'); setError(''); }} aria-hidden />
+      <div className="relative bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-xl font-bold mb-4">Новый сайт</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Название *</label>
+            <input
+              type="text"
+              value={newSiteTitle}
+              onChange={(e) => setNewSiteTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              placeholder="Название сайта"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
+            <input
+              type="text"
+              value={newSiteUrl}
+              onChange={(e) => setNewSiteUrl(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              placeholder="https://example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ниша *</label>
+            <select
+              value={newSiteNiche}
+              onChange={(e) => setNewSiteNiche(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            >
+              <option value="">Выберите нишу</option>
+              {niches.map((n) => (
+                <option key={n.id} value={n.id}>{n.name}</option>
+              ))}
+            </select>
+          </div>
+          {error && <div className="text-red-600 text-sm">{error}</div>}
+          <div className="flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-red-300 text-red-700 rounded-md hover:bg-red-50">Отмена</button>
+            <button type="button" onClick={() => { setStep('main'); setError(''); }} className="px-4 py-2 border rounded-md hover:bg-gray-50">Назад</button>
+            <button type="button" onClick={handleCreateSite} disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
+              {loading ? 'Создание...' : 'Создать'}
+            </button>
           </div>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-        <h2 className="text-2xl font-bold mb-4">
-          {project ? 'Редактировать проект' : 'Добавить проект'}
-        </h2>
+      <div className="bg-white rounded-lg p-6 max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-start gap-4 mb-4">
+          <h2 className="text-2xl font-bold">
+            {project ? 'Редактировать проект' : 'Добавить проект'}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 shrink-0"
+          >
+            Отмена
+          </button>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Client Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Клиент
-            </label>
-            <div className="flex gap-2">
+          {/* Блок 1: Клиент — всё в одном */}
+          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/50">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">1. Клиент</h3>
+            <div className="flex gap-2 mb-3">
               <div className="flex-1">
                 <input
                   type="text"
@@ -987,11 +994,8 @@ export default function ProjectModal({
                 + Новый
               </button>
             </div>
-          </div>
-
-          {/* Client: Active checkbox + Edit requisites */}
-          {formData.clientId && selectedClient && (
-            <div className="space-y-3">
+            {formData.clientId && selectedClient && (
+            <div className="space-y-3 border-t border-gray-200 pt-3 mt-3">
               <div className="flex flex-wrap items-center gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -1051,8 +1055,9 @@ export default function ProjectModal({
                 />
               </div>
 
-              <div className="flex items-center gap-2 text-sm">
-                <span className="font-medium text-purple-700">Агент/Партнёр:</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-purple-700 shrink-0">Агент/Партнёр:</span>
                 <select
                   value={selectedClient.agentId || ''}
                   onChange={async (e) => {
@@ -1074,9 +1079,8 @@ export default function ProjectModal({
                   ))}
                 </select>
               </div>
-
-              <div className="flex items-center gap-2 text-sm">
-                <span className="font-medium text-blue-700">Аккаунт-менеджер:</span>
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-blue-700 shrink-0">Аккаунт-менеджер:</span>
                 {(user?.roleCode === 'OWNER' || user?.roleCode === 'CEO' || user?.roleCode === 'FINANCE' || user?.roleCode === 'ACCOUNT_MANAGER') ? (
                   <select
                     value={selectedClient.accountManagerId || ''}
@@ -1097,14 +1101,15 @@ export default function ProjectModal({
                   >
                     <option value="">Не назначен</option>
                     {allEmployees.map((emp) => (
-                      <option key={emp.id} value={emp.id}>{emp.fullName}</option>
-                    ))}
+                    <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+                  ))}
                   </select>
                 ) : (
                   <span className="text-gray-600">
                     {selectedClient.accountManager ? selectedClient.accountManager.fullName : 'Не назначен'}
                   </span>
                 )}
+              </div>
               </div>
 
               {/* Контакты клиента — добавление существующих, создание новых */}
@@ -1275,12 +1280,13 @@ export default function ProjectModal({
                 )}
               </div>
             </div>
-          )}
+            )}
+          </div>
 
-          {/* Все сайты клиента и их услуги */}
+          {/* Блок 2: Сайты и услуги */}
           {formData.clientId && (
-            <div className="border border-gray-200 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Сайты и услуги</h3>
+            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/50">
+              <h3 className="text-sm font-semibold text-gray-800 mb-3">2. Сайты и услуги</h3>
               <input
                 type="text"
                 value={siteSearch}
@@ -1376,9 +1382,10 @@ export default function ProjectModal({
             </div>
           )}
 
-          {/* Поля услуги — показываем при Редактировать или Добавить */}
+          {/* Блок 3: Услуга (при добавлении/редактировании) */}
           {activeServiceId !== undefined && (
-          <div className="space-y-4">
+          <div className="border border-gray-200 rounded-lg p-4 bg-blue-50/30 space-y-4">
+            <h3 className="text-sm font-semibold text-gray-800">3. Услуга</h3>
           {/* Product Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1553,7 +1560,8 @@ export default function ProjectModal({
           {/* Expense Items from Product with Responsible assignment */}
           {selectedProduct && selectedProduct.expenseItems.length > 0 && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Статьи ожидаемых расходов и ответственные</h3>
+              <h3 className="text-sm font-semibold text-gray-700 mb-1">Статьи ожидаемых расходов и ответственные</h3>
+              <p className="text-xs text-gray-500 mb-3">Ответственный сохраняется для каждой статьи при сохранении услуги</p>
               <div className="space-y-3">
                 {selectedProduct.expenseItems.map((item) => {
                   const currentVals = expenseItemValues[item.expenseItemTemplateId] || {
@@ -1651,29 +1659,31 @@ export default function ProjectModal({
               onClick={onClose}
               className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
             >
-              Отмена
+              Закрыть
             </button>
-            <div className="flex gap-2">
+            {activeServiceId !== undefined && (
               <button
                 type="button"
                 onClick={() => setActiveServiceId(undefined)}
                 className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
               >
-                Отмена
+                Отменить редактирование
               </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-              >
-                {loading ? 'Сохранение...' : 'Сохранить'}
-              </button>
-            </div>
+            )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+            >
+              {loading ? 'Сохранение...' : 'Сохранить'}
+            </button>
           </div>
           </div>
           )}
         </form>
       </div>
+      <NewClientOverlay />
+      <NewSiteOverlay />
     </div>
   );
 }

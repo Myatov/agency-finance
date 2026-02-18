@@ -14,6 +14,7 @@
     "db:push": "prisma db push",
     "db:push-periods": "prisma db execute --file prisma/add-work-periods-invoices-payments.sql",
     "db:push-income-period": "prisma db execute --file prisma/add-income-work-period-id.sql",
+    "db:push-expense-items": "prisma db execute --file prisma/add-work-period-expense-item.sql",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:clear-business": "tsx scripts/clear-business-data.ts",
